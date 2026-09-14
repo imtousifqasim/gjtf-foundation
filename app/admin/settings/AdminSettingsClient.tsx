@@ -42,9 +42,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   getSiteSettingsAction,
   saveSiteSettingsAction,
+} from "@/app/actions/siteSettings";
+import {
   SiteSettingsData,
   DEFAULT_SITE_SETTINGS,
-} from "@/app/actions/siteSettings";
+} from "@/lib/siteSettingsConstants";
 import {
   getDatabaseMetricsAction,
   getAdminSecuritySettingsAction,

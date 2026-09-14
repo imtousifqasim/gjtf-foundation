@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { SiteSettingsData, DEFAULT_SITE_SETTINGS } from "@/lib/siteSettingsConstants";
 export type { SiteSettingsData };
-export { DEFAULT_SITE_SETTINGS };
 
 export async function getSiteSettingsAction(): Promise<SiteSettingsData> {
   try {
