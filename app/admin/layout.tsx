@@ -54,9 +54,11 @@ export default function AdminLayout({
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user?.email) {
         setAdminEmail(user.email);
+      } else {
+        router.push("/admin/login");
       }
     });
-  }, [isLoginPage]);
+  }, [isLoginPage, router]);
 
   const handleLogout = async () => {
     const supabase = createClient();
