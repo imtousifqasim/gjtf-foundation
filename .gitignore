@@ -39,3 +39,6 @@ scratch/
 
 # large video media files (exceeds GitHub 100MB limit & Vercel deployment limits)
 public/videos/*.mp4
+
+.vercel
+.env*
