@@ -1,0 +1,6 @@
+.git
+node_modules
+.next
+scratch
+public/videos/*.mp4
+*.log
