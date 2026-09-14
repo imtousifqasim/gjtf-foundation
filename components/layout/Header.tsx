@@ -134,13 +134,13 @@ export function Header() {
       {/* Main Navigation Header */}
       <header
         className={cn(
-          "sticky top-0 z-40 transition-all duration-300 w-full",
+          "sticky top-0 z-50 w-full transition-all duration-200",
           isScrolled
-            ? "bg-white/95 backdrop-blur-md shadow-md py-3"
-            : "bg-white py-4 border-b border-warm-200/60"
+            ? "bg-white/95 backdrop-blur-md shadow-md"
+            : "bg-white border-b border-slate-200"
         )}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group py-0.5">
             <Image
@@ -148,7 +148,7 @@ export function Header() {
               alt="Ghais Jhuggi Taleem Foundation"
               width={260}
               height={70}
-              className="h-12 sm:h-14 w-auto object-contain transition-transform group-hover:scale-[1.02]"
+              className="h-10 sm:h-12 w-auto object-contain transition-transform group-hover:scale-[1.02]"
               priority
             />
           </Link>
@@ -269,12 +269,12 @@ export function Header() {
         {/* Mobile Slide-in Overlay Drawer */}
         {mobileMenuOpen && (
           <>
-            {/* Backdrop overlay */}
+            {/* Backdrop overlay starting right at the bottom edge of header (top-16) */}
             <div
-              className="lg:hidden fixed inset-0 top-[60px] bg-slate-950/40 backdrop-blur-[2px] z-40 transition-opacity"
+              className="lg:hidden fixed inset-0 top-16 bg-slate-950/40 backdrop-blur-[2px] z-40 transition-opacity"
               onClick={() => setMobileMenuOpen(false)}
             />
-            <div className="lg:hidden absolute top-full left-0 right-0 w-full border-t border-slate-200/80 bg-white/95 backdrop-blur-2xl px-4 py-4 space-y-2.5 animate-in slide-in-from-top-2 duration-200 shadow-2xl max-h-[calc(100vh-80px)] overflow-y-auto z-50">
+            <div className="lg:hidden fixed top-16 left-0 right-0 w-full bg-white border-b border-slate-200 shadow-2xl px-4 pt-2.5 pb-5 space-y-2 max-h-[calc(100vh-4rem)] overflow-y-auto z-50">
               {MAIN_NAV.map((item) => {
                 const hasDropdown = Boolean(item.children && item.children.length > 0);
                 const isExpanded = openDropdown === item.label;
