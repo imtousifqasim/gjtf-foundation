@@ -266,87 +266,94 @@ export function Header() {
           </div>
         </div>
 
-        {/* Mobile Slide-in Drawer */}
+        {/* Mobile Slide-in Overlay Drawer */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-slate-200/80 bg-white/95 backdrop-blur-xl px-4 py-4 space-y-2.5 animate-in slide-in-from-top-2 duration-200 shadow-2xl max-h-[85vh] overflow-y-auto">
-            {MAIN_NAV.map((item) => {
-              const hasDropdown = Boolean(item.children && item.children.length > 0);
-              const isExpanded = openDropdown === item.label;
+          <>
+            {/* Backdrop overlay */}
+            <div
+              className="lg:hidden fixed inset-0 top-[60px] bg-slate-950/40 backdrop-blur-[2px] z-40 transition-opacity"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <div className="lg:hidden absolute top-full left-0 right-0 w-full border-t border-slate-200/80 bg-white/95 backdrop-blur-2xl px-4 py-4 space-y-2.5 animate-in slide-in-from-top-2 duration-200 shadow-2xl max-h-[calc(100vh-80px)] overflow-y-auto z-50">
+              {MAIN_NAV.map((item) => {
+                const hasDropdown = Boolean(item.children && item.children.length > 0);
+                const isExpanded = openDropdown === item.label;
 
-              if (hasDropdown) {
+                if (hasDropdown) {
+                  return (
+                    <div key={item.label} className="border-b border-slate-100 pb-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleDropdown(item.label)}
+                        className="w-full flex items-center justify-between py-2.5 px-3 text-sm font-semibold text-slate-800 hover:text-primary-700 rounded-xl hover:bg-slate-50 transition-colors text-left"
+                      >
+                        <span>{item.label}</span>
+                        <ChevronDown
+                          className={cn(
+                            "w-4 h-4 text-slate-400 transition-transform",
+                            isExpanded && "rotate-180 text-primary-700"
+                          )}
+                        />
+                      </button>
+                      {isExpanded && (
+                        <div className="mt-1 pl-3 pr-2 pb-2 space-y-1 bg-slate-50/80 border border-slate-200/60 rounded-xl p-2">
+                          {item.children?.map((sub) => (
+                            <Link
+                              key={sub.label}
+                              href={sub.href}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className="block py-2 px-3 text-xs font-medium rounded-lg text-slate-600 hover:text-primary-800 hover:bg-white transition-colors"
+                            >
+                              <div className="font-semibold">{sub.label}</div>
+                              {sub.description && (
+                                <div className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">
+                                  {sub.description}
+                                </div>
+                              )}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={item.label} className="border-b border-slate-100 pb-1">
-                    <button
-                      type="button"
-                      onClick={() => toggleDropdown(item.label)}
-                      className="w-full flex items-center justify-between py-2.5 px-3 text-sm font-semibold text-slate-800 hover:text-primary-700 rounded-xl hover:bg-slate-50 transition-colors text-left"
-                    >
-                      <span>{item.label}</span>
-                      <ChevronDown
-                        className={cn(
-                          "w-4 h-4 text-slate-400 transition-transform",
-                          isExpanded && "rotate-180 text-primary-700"
-                        )}
-                      />
-                    </button>
-                    {isExpanded && (
-                      <div className="mt-1 pl-3 pr-2 pb-2 space-y-1 bg-slate-50/80 border border-slate-200/60 rounded-xl p-2">
-                        {item.children?.map((sub) => (
-                          <Link
-                            key={sub.label}
-                            href={sub.href}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="block py-2 px-3 text-xs font-medium rounded-lg text-slate-600 hover:text-primary-800 hover:bg-white transition-colors"
-                          >
-                            <div className="font-semibold">{sub.label}</div>
-                            {sub.description && (
-                              <div className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">
-                                {sub.description}
-                              </div>
-                            )}
-                          </Link>
-                        ))}
-                      </div>
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      "block py-2.5 px-3 text-sm font-semibold rounded-xl transition-colors",
+                      pathname === item.href
+                        ? "bg-primary-50 text-primary-800 font-bold border border-primary-200/50"
+                        : "text-slate-700 hover:text-primary-700 hover:bg-slate-50"
                     )}
-                  </div>
+                  >
+                    {item.label}
+                  </Link>
                 );
-              }
+              })}
 
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    "block py-2.5 px-3 text-sm font-semibold rounded-xl transition-colors",
-                    pathname === item.href
-                      ? "bg-primary-50 text-primary-800 font-bold border border-primary-200/50"
-                      : "text-slate-700 hover:text-primary-700 hover:bg-slate-50"
-                  )}
-                >
-                  {item.label}
+              <div className="pt-3 border-t border-slate-200/70">
+                <Link href="/donate-now" className="w-full block" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="primary" size="lg" className="w-full font-bold shadow-soft hover:shadow-glow rounded-xl flex items-center justify-center gap-2">
+                    <Heart className="w-4 h-4 fill-white" />
+                    Donate to Educate a Child
+                  </Button>
                 </Link>
-              );
-            })}
+              </div>
 
-            <div className="pt-3 border-t border-slate-200/70">
-              <Link href="/donate-now" className="w-full block" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="primary" size="lg" className="w-full font-bold shadow-soft hover:shadow-glow rounded-xl flex items-center justify-center gap-2">
-                  <Heart className="w-4 h-4 fill-white" />
-                  Donate to Educate a Child
-                </Button>
-              </Link>
-            </div>
-
-            {/* Social & Contact info inside mobile menu */}
-            <div className="pt-2">
-              <div className="p-3 bg-slate-50 border border-slate-200/60 rounded-xl text-xs text-slate-500 space-y-1">
-                <p className="font-semibold text-slate-800">GJTF Head Office - Lahore</p>
-                <p>Ph: {CONTACT_INFO.headOffice.telephone} | Mob: {CONTACT_INFO.headOffice.mobile}</p>
-                <p className="text-primary-700 font-medium">Toll-Free: {CONTACT_INFO.headOffice.tollFree}</p>
+              {/* Social & Contact info inside mobile menu */}
+              <div className="pt-2">
+                <div className="p-3 bg-slate-50 border border-slate-200/60 rounded-xl text-xs text-slate-500 space-y-1">
+                  <p className="font-semibold text-slate-800">GJTF Head Office - Lahore</p>
+                  <p>Ph: {CONTACT_INFO.headOffice.telephone} | Mob: {CONTACT_INFO.headOffice.mobile}</p>
+                  <p className="text-primary-700 font-medium">Toll-Free: {CONTACT_INFO.headOffice.tollFree}</p>
+                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </header>
     </>
