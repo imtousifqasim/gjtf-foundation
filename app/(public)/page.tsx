@@ -390,7 +390,7 @@ export default function HomePage() {
                 Formal MoUs With Leading Universities Across Pakistan
               </h3>
               <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-                Strategic collaborations with institutions including Riphah International University empower university students and faculty to lead grassroots field education, research, and community uplift in nomadic settlements.
+                Strategic collaborations with higher education institutions — including University of Management and Technology (UMT) and Riphah International University — empower students and faculty to lead grassroots field education, research, and community uplift in nomadic settlements.
               </p>
             </div>
           </div>

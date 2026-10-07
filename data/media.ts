@@ -40,7 +40,7 @@ export const media = {
     // Volunteer Program Section (5 cards bento grid)
     volunteerProgram: {
       // 1. "Students from partnered universities join our initiatives"
-      universityStudents: "/images/volunteers/university-mou-collaboration.jpg",
+      universityStudents: "/images/volunteers/university-mou-umt-seminar.jpg",
       // 2. "Assisting in teaching and mentoring Jhuggi Nasheen children"
       teachingMentoring: "/images/volunteers/teaching-and-mentorship.webp",
       // 3. "Conducting workshops on vocational training and soft skills"
@@ -123,7 +123,7 @@ export const media = {
   // -------------------------------------------------------------
   universityChapter: {
     // Campus society leadership hero
-    heroImage: "/images/volunteers/university-mou-collaboration.jpg",
+    heroImage: "/images/volunteers/university-mou-umt-seminar.jpg",
     // Student volunteers collaboration
     campusDrive: "/images/volunteers/awareness-sessions-events.webp",
   },
