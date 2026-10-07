@@ -13,8 +13,92 @@ import {
   ShieldAlert,
   Link as LinkIcon,
   X,
+  Layers,
+  ChevronDown,
+  Search,
+  Globe,
+  Home,
+  School,
+  Users,
+  GraduationCap,
+  Compass,
+  Heart,
+  Target,
+  BookOpen,
+  Phone,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+export interface SitePageMeta {
+  path: string;
+  title: string;
+  description: string;
+  category: "Core" | "Programs" | "Get Involved" | "About";
+}
+
+export const ALL_SITE_PAGES: SitePageMeta[] = [
+  {
+    path: "/",
+    title: "Home Page",
+    description: "Main landing, video hero background, mission statement and dynamic counters",
+    category: "Core",
+  },
+  {
+    path: "/our-school",
+    title: "Our Schools Directory",
+    description: "Explore all 24+ nationwide school units, campus facilities and capacities",
+    category: "Programs",
+  },
+  {
+    path: "/about-gjtf-volunteers",
+    title: "About GJTF Volunteers",
+    description: "Volunteer department overview, vision, mission and core impact areas",
+    category: "Get Involved",
+  },
+  {
+    path: "/university-chapter",
+    title: "University Chapter",
+    description: "Campus ambassador societies, university MoUs, and youth leadership drives",
+    category: "Get Involved",
+  },
+  {
+    path: "/city-chapter-leads",
+    title: "City Chapter Leads",
+    description: "City-level volunteer leadership movement across Karachi, Lahore, Islamabad",
+    category: "Get Involved",
+  },
+  {
+    path: "/general-volunteer",
+    title: "General Volunteer",
+    description: "Skills-based volunteering, medical drives, teaching sessions and signups",
+    category: "Get Involved",
+  },
+  {
+    path: "/aims-and-objectives",
+    title: "Aims & Objectives",
+    description: "Foundational pillars, 10 core targets, and mission for 20M+ nomadic children",
+    category: "About",
+  },
+  {
+    path: "/blogs",
+    title: "Blogs & News",
+    description: "Educational articles, field updates, media features and transformation stories",
+    category: "Core",
+  },
+  {
+    path: "/contact-us",
+    title: "Contact Us",
+    description: "Head office, regional contact details, map location, and inquiry submission",
+    category: "About",
+  },
+  {
+    path: "/donate-now",
+    title: "Donate Now",
+    description: "Zakat & Sadqah contributions, Meezan Bank account details, and online giving",
+    category: "Core",
+  },
+];
 
 interface PageEditItem {
   page_path: string;
@@ -65,6 +149,18 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
   const [pendingEdits, setPendingEdits] = React.useState<Record<string, { text?: string; url?: string }>>({});
   const [saving, setSaving] = React.useState(false);
   const [feedback, setFeedback] = React.useState<string | null>(null);
+
+  // Page Switcher Modal State
+  const [pageModalOpen, setPageModalOpen] = React.useState(false);
+  const [pageSearch, setPageSearch] = React.useState("");
+
+  // Universal Button & Link Edit Popover State
+  const [buttonModal, setButtonModal] = React.useState<{
+    open: boolean;
+    key: string;
+    text: string;
+    href: string;
+  } | null>(null);
 
   // Check admin session & edit_mode query
   React.useEffect(() => {
@@ -173,6 +269,13 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
 
   const pendingCount = Object.keys(pendingEdits).length;
 
+  const filteredPages = ALL_SITE_PAGES.filter(
+    (p) =>
+      p.title.toLowerCase().includes(pageSearch.toLowerCase()) ||
+      p.path.toLowerCase().includes(pageSearch.toLowerCase()) ||
+      p.description.toLowerCase().includes(pageSearch.toLowerCase())
+  );
+
   return (
     <LiveEditorContext.Provider
       value={{
@@ -191,8 +294,9 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
       {/* Visual Live Editor Top Bar (Shown when Admin is authenticated or in edit mode) */}
       {isAdmin && (
         <aside
+          data-editor-ui="true"
           aria-label="GJTF Visual Live Editor Toolbar"
-          className="fixed top-0 left-0 right-0 z-50 bg-slate-950/95 text-white border-b border-blue-500/30 backdrop-blur-md px-4 py-2.5 shadow-2xl transition-all"
+          className="fixed top-0 left-0 right-0 z-[90] bg-slate-950/95 text-white border-b border-blue-500/30 backdrop-blur-md px-4 py-2.5 shadow-2xl transition-all"
         >
           <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2.5">
@@ -201,9 +305,24 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
                 <Edit3 className="w-4 h-4 text-blue-400" />
                 <span>GJTF Visual Live Editor</span>
               </div>
-              <span className="hidden sm:inline-block px-2 py-0.5 rounded-md bg-white/10 text-[11px] font-mono text-slate-300">
-                Page: {pathname}
-              </span>
+
+              {/* Current Page Pill + Switch Page Dropdown Trigger */}
+              <div className="flex items-center gap-1.5 ml-1">
+                <span className="hidden sm:inline-block px-2 py-0.5 rounded-md bg-white/10 text-[11px] font-mono text-slate-300">
+                  {pathname}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setPageModalOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-900/60 hover:bg-blue-800 border border-blue-400/40 text-blue-200 text-[11px] font-bold cursor-pointer transition-all shadow-sm"
+                  title="Click to view and switch between all 10 website pages"
+                >
+                  <Layers className="w-3.5 h-3.5 text-blue-300" />
+                  <span>Switch Page ({ALL_SITE_PAGES.length})</span>
+                  <ChevronDown className="w-3 h-3 text-blue-300" />
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
@@ -279,14 +398,222 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
               )}
 
               <a
-                href="/admin"
+                href="/admin/visual-editor"
                 className="text-slate-400 hover:text-white underline underline-offset-2 ml-1 text-[11px]"
               >
-                Admin Panel →
+                Editor Hub →
               </a>
             </div>
           </div>
         </aside>
+      )}
+
+      {/* Page Switcher Modal */}
+      {pageModalOpen && (
+        <div
+          data-editor-ui="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fade-in"
+        >
+          <div className="bg-slate-900 border border-slate-700 text-white rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600/30 text-blue-400 border border-blue-500/30 flex items-center justify-center">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold font-heading text-white flex items-center gap-2">
+                    All Website Pages
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 font-mono">
+                      {ALL_SITE_PAGES.length} Pages Available
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Switch to any page below to edit text, headings, and buttons live
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPageModalOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="p-4 border-b border-slate-800 bg-slate-950/40">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search pages by name or URL path..."
+                  value={pageSearch}
+                  onChange={(e) => setPageSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Page List */}
+            <div className="p-4 overflow-y-auto space-y-2.5 flex-1 max-h-[50vh]">
+              {filteredPages.map((page) => {
+                const isCurrent = pathname === page.path;
+                return (
+                  <div
+                    key={page.path}
+                    className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                      isCurrent
+                        ? "bg-blue-600/15 border-blue-500/40 text-white shadow-sm"
+                        : "bg-slate-800/40 border-slate-800 hover:bg-slate-800/80 hover:border-slate-700 text-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                          isCurrent
+                            ? "bg-blue-600 text-white"
+                            : "bg-slate-800 text-slate-400"
+                        }`}
+                      >
+                        <Globe className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-white truncate">
+                            {page.title}
+                          </span>
+                          {isCurrent && (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                              Current Page
+                            </span>
+                          )}
+                        </div>
+                        <code className="text-[11px] font-mono text-slate-400 block truncate">
+                          {page.path}
+                        </code>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            pendingCount > 0 &&
+                            !confirm("You have unsaved changes on this page. Switch anyway?")
+                          ) {
+                            return;
+                          }
+                          setPageModalOpen(false);
+                          window.location.href = `${page.path}?edit_mode=1`;
+                        }}
+                        className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                          isCurrent
+                            ? "bg-blue-600 hover:bg-blue-500 text-white"
+                            : "bg-white/10 hover:bg-blue-600 text-white"
+                        }`}
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>{isCurrent ? "Editing Now" : "Open in Live Editor"}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between text-xs text-slate-400">
+              <span>Click any page to switch immediately while keeping edit mode ON.</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPageModalOpen(false)}
+                className="rounded-xl border-slate-700 text-slate-300 hover:bg-slate-800"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Button & Link Edit Popover Modal */}
+      {buttonModal && (
+        <div
+          data-editor-ui="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-fade-in"
+        >
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 text-slate-900 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-blue-600" />
+                Edit Button & Link Target
+              </h3>
+              <button
+                type="button"
+                onClick={() => setButtonModal(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                registerLinkChange(buttonModal.key, buttonModal.text, buttonModal.href);
+                setButtonModal(null);
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div className="space-y-1">
+                <label className="block font-bold text-slate-700">Button Display Text:</label>
+                <input
+                  type="text"
+                  required
+                  value={buttonModal.text}
+                  onChange={(e) =>
+                    setButtonModal({ ...buttonModal, text: e.target.value })
+                  }
+                  className="w-full h-9 px-3 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block font-bold text-slate-700">Button Link Target (URL / Path):</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="/donate-now or https://..."
+                  value={buttonModal.href}
+                  onChange={(e) =>
+                    setButtonModal({ ...buttonModal, href: e.target.value })
+                  }
+                  className="w-full h-9 px-3 rounded-xl border border-slate-300 text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setButtonModal(null)}
+                  className="rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" size="sm" className="rounded-xl font-bold">
+                  Update Button
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       <div className={isAdmin ? "pt-10" : ""}>{children}</div>
@@ -417,7 +744,10 @@ export function EditableButton({
 
       {/* Button & Link Edit Popover / Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+        <div
+          data-editor-ui="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4"
+        >
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 text-slate-900 space-y-4 animate-scale-in">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -427,7 +757,7 @@ export function EditableButton({
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
