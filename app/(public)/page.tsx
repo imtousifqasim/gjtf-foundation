@@ -23,13 +23,14 @@ import { stories } from "@/data/stories";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { SectionHeading } from "@/components/shared/SectionHeading";
-import { StatsCounter } from "@/components/shared/StatsCounter";
+import { StatsCounter, HeroStatsPills } from "@/components/shared/StatsCounter";
 import { SchoolCard } from "@/components/shared/SchoolCard";
 import { StoryCard } from "@/components/shared/StoryCard";
 import { DonateBanner } from "@/components/shared/DonateBanner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { HeroVideoBackground } from "@/components/shared/HeroVideoBackground";
 import { StoryVideoCard } from "@/components/shared/StoryVideoCard";
+import { EditableText, EditableButton } from "@/components/editor/LiveEditorProvider";
 
 export default function HomePage() {
   const meghaniSchool = schools[0];
@@ -51,26 +52,31 @@ export default function HomePage() {
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24 text-center text-white space-y-6 sm:space-y-7">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 text-slate-100 text-xs sm:text-sm font-semibold tracking-wider uppercase shadow-lg">
             <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
-            Jhuggi Taleemi Project • Established 2014
+            <EditableText id="home_hero_badge" defaultText="Jhuggi Taleemi Project • Established 2014" />
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-extrabold font-heading tracking-tight leading-tight sm:leading-snug max-w-3xl mx-auto drop-shadow-md">
-            Donate to educate{" "}
+            <EditableText id="home_hero_title_p1" defaultText="Donate to educate " />
             <span className="text-blue-300 font-extrabold inline-block drop-shadow-md">
-              less-privileged children
+              <EditableText id="home_hero_title_highlight" defaultText="less-privileged children" />
             </span>{" "}
-            in Pakistan
+            <EditableText id="home_hero_title_p2" defaultText="in Pakistan" />
           </h1>
 
           <p className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto font-normal leading-relaxed drop-shadow">
-            The largest educational and skill development movement for over{" "}
-            <span className="font-semibold text-white underline decoration-blue-400 decoration-2 underline-offset-4">
-              20 million nomadic communities
-            </span>.
+            <EditableText
+              id="home_hero_subtitle"
+              defaultText="The largest educational and skill development movement for over 20 million nomadic communities."
+            />
           </p>
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-            <Link href="/donate-now" className="w-full sm:w-auto inline-block">
+            <EditableButton
+              id="home_hero_btn_donate"
+              defaultText="Donate Now"
+              defaultHref="/donate-now"
+              className="w-full sm:w-auto inline-block"
+            >
               <Button
                 variant="primary"
                 size="lg"
@@ -79,38 +85,26 @@ export default function HomePage() {
                 <Heart className="w-5 h-5 fill-white mr-2" />
                 Donate Now
               </Button>
-            </Link>
+            </EditableButton>
 
-            <Link href="/our-school" className="w-full sm:w-auto inline-block">
+            <EditableButton
+              id="home_hero_btn_schools"
+              defaultText="Explore Our Schools"
+              defaultHref="/our-school"
+              className="w-full sm:w-auto inline-block"
+            >
               <Button
                 variant="secondary"
                 size="lg"
                 className="w-full sm:w-auto font-semibold bg-white/20 hover:bg-white/30 text-white border border-white/40 backdrop-blur-md text-base px-6 py-3 rounded-xl shadow-lg transition-all"
               >
-                Explore 24+ School Units
+                Explore Our Schools
               </Button>
-            </Link>
+            </EditableButton>
           </div>
 
-          {/* Micro stats floating pills */}
-          <div className="pt-6 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm text-white">
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="font-medium">100% Zakat & Sadqah Verified</span>
-            </div>
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="font-medium">7,000+ Students</span>
-            </div>
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="font-medium">24+ School Units</span>
-            </div>
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="font-medium">11+ Years of Service</span>
-            </div>
-          </div>
+          {/* Dynamic Live Stats Floating Pills */}
+          <HeroStatsPills />
         </div>
       </section>
 
@@ -731,19 +725,27 @@ export default function HomePage() {
       </section>
 
       {/* -------------------------------------------------------------
-          12. SUCCESS STORIES SECTION — 4 VIDEO SHOWCASE
+          12. BLOGS & STORIES SECTION — 4 VIDEO SHOWCASE
           ------------------------------------------------------------- */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 md:pb-28">
         <SectionHeading
-          eyebrow="Real Impact In Motion"
-          title="Success Stories"
-          subtitle="Watch firsthand stories of students, community elders, and women whose lives have been transformed through the Jhuggi Taleemi Project."
+          eyebrow="Impact & Insights"
+          title="Latest Blogs"
+          subtitle="Watch and read firsthand stories of students, community elders, and women whose lives have been transformed through the Jhuggi Taleemi Project."
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {media.home.successStoryVideos.map((video) => (
             <StoryVideoCard key={video.id} video={video} />
           ))}
+        </div>
+
+        <div className="mt-10 text-center">
+          <Link href="/blogs" className="inline-block">
+            <Button variant="outline" size="md" className="rounded-xl font-bold border-slate-300 hover:bg-slate-50">
+              View All Blogs & Stories <ArrowRight className="w-4 h-4 ml-1.5" />
+            </Button>
+          </Link>
         </div>
       </section>
     </div>

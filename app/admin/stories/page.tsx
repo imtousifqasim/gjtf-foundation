@@ -147,10 +147,10 @@ export default function AdminStoriesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 tracking-tight">
-            Success Stories CMS
+            Blogs & Articles CMS
           </h1>
           <p className="text-sm text-slate-600 mt-1">
-            Manage student success stories, blogs, press articles, cover images, and video links.
+            Manage and publish foundation blogs, articles, student stories, cover photos, and video links.
           </p>
         </div>
 
@@ -160,7 +160,7 @@ export default function AdminStoriesPage() {
           onClick={handleOpenNew}
           className="gap-2 px-5 py-2.5 font-bold self-start sm:self-auto shadow-sm rounded-xl hover:shadow"
         >
-          <Plus className="w-4 h-4" /> Add New Story
+          <Plus className="w-4 h-4" /> Add New Blog
         </Button>
       </div>
 
@@ -252,16 +252,16 @@ export default function AdminStoriesPage() {
           <form onSubmit={handleSave} className="space-y-4">
             <DialogHeader>
               <DialogTitle className="text-xl font-heading font-extrabold text-slate-900">
-                {editingStory.title ? `Edit Story: ${editingStory.title}` : "Publish New Story"}
+                {editingStory.title ? `Edit Blog: ${editingStory.title}` : "Publish New Blog Post"}
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                Updates will publish directly to the public Success Stories feed and database.
+                Updates will publish directly to the public Blogs feed and database.
               </DialogDescription>
             </DialogHeader>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Story Title *
+                Blog Title *
               </label>
               <Input
                 required
@@ -279,7 +279,7 @@ export default function AdminStoriesPage() {
                   Category *
                 </label>
                 <select
-                  value={editingStory.category || "Success Stories"}
+                  value={editingStory.category || "Blogs"}
                   onChange={(e) =>
                     setEditingStory({
                       ...editingStory,
@@ -288,8 +288,8 @@ export default function AdminStoriesPage() {
                   }
                   className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
-                  <option value="Success Stories">Success Stories</option>
                   <option value="Blogs">Blogs</option>
+                  <option value="Success Stories">Success Stories</option>
                   <option value="Events">Events</option>
                   <option value="GJTF in Media">GJTF in Media</option>
                   <option value="Videos">Videos</option>

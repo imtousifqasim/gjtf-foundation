@@ -19,20 +19,22 @@ import {
   ShieldCheck,
   Server,
   MailCheck,
+  Edit3,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
 const ADMIN_NAV = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { label: "Live Visual Editor", href: "/?edit_mode=1", icon: Edit3, external: true },
   { label: "Donations", href: "/admin/donations", icon: Heart },
   { label: "Contact Messages", href: "/admin/contact-messages", icon: Mail },
   { label: "Volunteer Sign-ups", href: "/admin/volunteer-signups", icon: Users },
   { label: "Subscribers", href: "/admin/subscribers", icon: MailCheck },
   { label: "Schools Directory", href: "/admin/schools", icon: School },
-  { label: "Success Stories", href: "/admin/stories", icon: BookOpen },
+  { label: "Blogs", href: "/admin/stories", icon: BookOpen },
   { label: "SMTP Configuration", href: "/admin/smtp", icon: Server },
-  { label: "Settings", href: "/admin/settings", icon: Settings },
+  { label: "Settings & Backup", href: "/admin/settings", icon: Settings },
 ];
 
 export default function AdminLayout({

@@ -3,8 +3,10 @@
 import * as React from "react";
 import { motion, useInView } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { CheckCircle2 } from "lucide-react";
+import { EditableText } from "@/components/editor/LiveEditorProvider";
 
-interface StatItem {
+export interface StatItem {
   label: string;
   value: number;
   suffix?: string;
@@ -12,7 +14,7 @@ interface StatItem {
   description?: string;
 }
 
-interface StatsCounterProps {
+export interface StatsCounterProps {
   stats?: StatItem[];
   className?: string;
   theme?: "light" | "dark";
@@ -30,7 +32,7 @@ function CounterNumber({ value, prefix = "", suffix = "" }: { value: number; pre
     const end = value;
     const duration = 2000;
     const incrementTime = 25;
-    const step = Math.ceil(end / (duration / incrementTime));
+    const step = Math.max(1, Math.ceil(end / (duration / incrementTime)));
 
     const timer = setInterval(() => {
       start += step;
@@ -82,10 +84,60 @@ const DEFAULT_STATS: StatItem[] = [
 ];
 
 export function StatsCounter({
-  stats = DEFAULT_STATS,
+  stats,
   className,
   theme = "light",
 }: StatsCounterProps) {
+  const [currentStats, setCurrentStats] = React.useState<StatItem[]>(stats || DEFAULT_STATS);
+
+  React.useEffect(() => {
+    if (stats) {
+      setCurrentStats(stats);
+      return;
+    }
+    // Fetch live statistics from Hostinger MySQL
+    async function fetchLiveStats() {
+      try {
+        const res = await fetch("/api/data/stats", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const d = json.data;
+            setCurrentStats([
+              {
+                label: "Years",
+                value: d.yearsOfService || 11,
+                suffix: "+",
+                description: "Empowering nomadic families since 2014",
+              },
+              {
+                label: "School Units",
+                value: d.totalSchools || 24,
+                suffix: "+",
+                description: "Schools established in nomadic settlements",
+              },
+              {
+                label: "Students",
+                value: d.totalStudents || 7000,
+                suffix: "+",
+                description: "Educating thousands of nomadic children",
+              },
+              {
+                label: "Nomads Uplift Target",
+                value: d.nomadsTargetMillion || 20,
+                suffix: "M+",
+                description: "Aiming to uplift 20 million nomads across Pakistan",
+              },
+            ]);
+          }
+        }
+      } catch (err) {
+        // Fallback to default
+      }
+    }
+    fetchLiveStats();
+  }, [stats]);
+
   return (
     <div
       className={cn(
@@ -93,7 +145,7 @@ export function StatsCounter({
         className
       )}
     >
-      {stats.map((stat, idx) => (
+      {currentStats.map((stat, idx) => (
         <motion.div
           key={stat.label}
           initial={{ opacity: 0, y: 15 }}
@@ -141,6 +193,77 @@ export function StatsCounter({
           )}
         </motion.div>
       ))}
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// Live Floating Hero Stats Pills (Dynamically synchronized with MySQL)
+// -------------------------------------------------------------
+export function HeroStatsPills() {
+  const [stats, setStats] = React.useState({
+    totalStudents: 7000,
+    totalSchools: 24,
+    yearsOfService: 11,
+  });
+
+  React.useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch("/api/data/stats", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            setStats({
+              totalStudents: json.data.totalStudents || 7000,
+              totalSchools: json.data.totalSchools || 24,
+              yearsOfService: json.data.yearsOfService || 11,
+            });
+          }
+        }
+      } catch (err) {
+        // keep fallback
+      }
+    }
+    fetchStats();
+  }, []);
+
+  return (
+    <div className="pt-6 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm text-white">
+      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
+        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <EditableText id="hero_pill_zakat" defaultText="100% Zakat & Sadqah Verified" className="font-medium" />
+      </div>
+
+      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
+        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <span className="font-medium">
+          <EditableText
+            id="hero_pill_students"
+            defaultText={`${stats.totalStudents.toLocaleString()}+ Students`}
+          />
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
+        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <span className="font-medium">
+          <EditableText
+            id="hero_pill_schools"
+            defaultText={`${stats.totalSchools}+ School Units`}
+          />
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
+        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <span className="font-medium">
+          <EditableText
+            id="hero_pill_years"
+            defaultText={`${stats.yearsOfService}+ Years of Service`}
+          />
+        </span>
+      </div>
     </div>
   );
 }

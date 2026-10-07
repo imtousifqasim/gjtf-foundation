@@ -51,8 +51,8 @@ export const MAIN_NAV: NavItem[] = [
     ],
   },
   {
-    label: "Success Stories",
-    href: "/news-stories",
+    label: "Blogs",
+    href: "/blogs",
   },
   {
     label: "Contact Us",

@@ -32,6 +32,7 @@ import {
   ShieldAlert,
   QrCode,
   Scan,
+  Download,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -119,6 +120,28 @@ export default function AdminSettingsClient({
     initialMetrics || null
   );
   const [loadingMetrics, setLoadingMetrics] = React.useState(false);
+  const [downloadingBackup, setDownloadingBackup] = React.useState(false);
+
+  const handleDownloadBackup = async () => {
+    try {
+      setDownloadingBackup(true);
+      const res = await fetch("/api/admin/database-backup");
+      if (!res.ok) throw new Error("Failed to generate database backup");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `gjtf_hostinger_backup_${new Date().toISOString().slice(0, 10)}.sql`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (err: any) {
+      alert("Failed to download database backup: " + (err.message || "Unknown error"));
+    } finally {
+      setDownloadingBackup(false);
+    }
+  };
 
   const loadQRCode = React.useCallback(async (email: string, secret: string) => {
     if (!secret) return;
@@ -1149,12 +1172,12 @@ export default function AdminSettingsClient({
           <Card className="p-6 bg-gradient-to-br from-slate-900 via-slate-900 to-primary-950 text-white rounded-3xl shadow-xl border-slate-800 space-y-6">
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-600/30 text-blue-400 border border-blue-500/30 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
                   <Database className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold font-heading">Database Storage</h3>
-                  <p className="text-[11px] text-slate-400">PostgreSQL Live Quota</p>
+                  <h3 className="text-base font-bold font-heading">Hostinger MySQL</h3>
+                  <p className="text-[11px] text-slate-400">Primary Cloud Database</p>
                 </div>
               </div>
 
@@ -1169,36 +1192,70 @@ export default function AdminSettingsClient({
               </button>
             </div>
 
+            {/* Connection Credentials Info */}
+            <div className="space-y-2 bg-white/5 border border-white/10 rounded-2xl p-3.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Host / Server:</span>
+                <span className="font-mono font-semibold text-slate-200">
+                  {metrics?.host || "srv1676.hstgr.io"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Database Name:</span>
+                <span className="font-mono font-semibold text-amber-300">
+                  {metrics?.database || "u994156402_gjtff"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Database User:</span>
+                <span className="font-mono font-semibold text-slate-200">
+                  {metrics?.user || "u994156402_gjtff"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Port / Protocol:</span>
+                <span className="font-mono font-semibold text-slate-200">
+                  {metrics?.port || 3306} (TCP SSL)
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                <span className="text-slate-400">Backup Dual-Write:</span>
+                <span className="font-semibold text-emerald-400 text-[11px]">
+                  Supabase Active
+                </span>
+              </div>
+            </div>
+
             {/* Storage Progress Gauge */}
             <div className="space-y-3">
               <div className="flex items-baseline justify-between">
                 <div>
                   <span className="text-2xl font-extrabold font-heading text-white">
-                    {metrics ? (metrics.estimatedSizeKb / 1024).toFixed(1) : "12.5"} MB
+                    {metrics ? (metrics.estimatedSizeKb / 1024).toFixed(1) : "1.2"} MB
                   </span>
                   <span className="text-xs text-slate-400 ml-1.5">
-                    / {metrics ? metrics.quotaMb : 500} MB
+                    / {metrics ? metrics.quotaMb : 2048} MB
                   </span>
                 </div>
                 <Badge
                   variant="outline"
                   className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] font-bold px-2 py-0.5"
                 >
-                  {metrics ? `${metrics.usagePercent}% Used` : "2.5% Used"}
+                  {metrics ? `${metrics.usagePercent}% Used` : "0.06% Used"}
                 </Badge>
               </div>
 
               {/* Visual Progress Bar */}
               <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-white/5">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-500 via-primary-500 to-emerald-400 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.max(metrics ? metrics.usagePercent : 2.5, 3)}%` }}
+                  className="h-full bg-gradient-to-r from-amber-500 via-primary-500 to-emerald-400 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.max(metrics ? metrics.usagePercent : 1, 3)}%` }}
                 />
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-slate-400">
-                <span>Free Tier Capacity</span>
-                <span className="text-emerald-400 font-semibold">97.5% Available</span>
+                <span>Hostinger Storage Allocation</span>
+                <span className="text-emerald-400 font-semibold">99.9% Available</span>
               </div>
             </div>
 
@@ -1215,7 +1272,7 @@ export default function AdminSettingsClient({
                   { name: "Contact Inquiries", count: metrics?.tableCounts?.contactSubmissions ?? 3 },
                   { name: "Volunteer Signups", count: metrics?.tableCounts?.volunteerSignups ?? 8 },
                   { name: "Schools Directory", count: metrics?.tableCounts?.schools ?? 7 },
-                  { name: "Success Stories", count: metrics?.tableCounts?.stories ?? 6 },
+                  { name: "Blogs & Articles", count: metrics?.tableCounts?.stories ?? 6 },
                   { name: "Newsletter Subscribers", count: metrics?.tableCounts?.subscribers ?? 2 },
                 ].map((item, idx) => (
                   <div
@@ -1223,7 +1280,7 @@ export default function AdminSettingsClient({
                     className="py-1.5 px-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between"
                   >
                     <span className="text-slate-300 font-medium">{item.name}</span>
-                    <span className="font-mono font-bold text-blue-400">{item.count}</span>
+                    <span className="font-mono font-bold text-amber-400">{item.count}</span>
                   </div>
                 ))}
               </div>
@@ -1234,18 +1291,43 @@ export default function AdminSettingsClient({
               <div className="flex items-center justify-between text-slate-400">
                 <span className="flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5 text-emerald-400" />
-                  Database Connection
+                  Connection Status
                 </span>
-                <span className="text-emerald-400 font-bold">Active & Secure</span>
+                <span className="text-emerald-400 font-bold">Online & Active</span>
               </div>
 
               <div className="flex items-center justify-between text-slate-400">
                 <span className="flex items-center gap-1.5">
                   <Shield className="w-3.5 h-3.5 text-blue-400" />
-                  Row Level Security (RLS)
+                  Dual-Sync Architecture
                 </span>
-                <span className="text-blue-400 font-bold">Enforced (8 Tables)</span>
+                <span className="text-blue-400 font-bold">Hostinger + Supabase</span>
               </div>
+            </div>
+
+            {/* Backup Download Action Button */}
+            <div className="pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={handleDownloadBackup}
+                disabled={downloadingBackup}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-600 via-primary-600 to-emerald-600 hover:from-amber-500 hover:to-emerald-500 text-white font-bold text-xs tracking-wide shadow-lg shadow-amber-900/30 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+              >
+                {downloadingBackup ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating SQL Dump...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Download Hostinger SQL Backup
+                  </>
+                )}
+              </button>
+              <p className="text-[10px] text-slate-400 text-center mt-2">
+                Exports all 10 tables structure & data as a full .sql dump file
+              </p>
             </div>
           </Card>
         </div>

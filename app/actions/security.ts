@@ -11,6 +11,12 @@ import {
 } from "@/lib/db/mysql";
 
 export interface DatabaseMetrics {
+  provider?: string;
+  host?: string;
+  database?: string;
+  user?: string;
+  port?: number;
+  backupSync?: string;
   totalRecords: number;
   tableCounts: {
     donations: number;
