@@ -371,93 +371,125 @@ export default function HomePage() {
         {/* Bento Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
           {/* Card 1: Large Spanning 3 cols */}
-          <div className="md:col-span-3 rounded-3xl bg-white border border-warm-200 overflow-hidden shadow-soft p-6 sm:p-8 flex flex-col justify-between space-y-6">
-            <div className="relative aspect-[16/9] rounded-2xl overflow-hidden">
+          <div className="md:col-span-3 rounded-3xl bg-white border border-warm-200 overflow-hidden shadow-soft p-6 sm:p-8 flex flex-col justify-between space-y-6 hover:shadow-md transition-shadow">
+            <div className="relative aspect-[16/10] rounded-2xl overflow-hidden shadow-inner">
               <Image
                 src={media.home.volunteerProgram.universityStudents}
-                alt="University students volunteering with GJTF"
+                alt="University students and institutional MoUs with GJTF"
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover"
               />
             </div>
             <div>
-              <div className="text-xs font-bold text-accent-600 uppercase tracking-wider mb-1">
-                Campus Collaboration
+              <div className="text-xs font-bold text-accent-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-accent-500 animate-pulse" />
+                Academic MoUs & University Chapters
               </div>
-              <h3 className="text-xl font-bold font-heading text-charcoal-deep">
-                Students from partnered universities join our initiatives
+              <h3 className="text-xl sm:text-2xl font-bold font-heading text-charcoal-deep">
+                Formal MoUs With Leading Universities Across Pakistan
               </h3>
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                Strategic collaborations with institutions including Riphah International University empower university students and faculty to lead grassroots field education, research, and community uplift in nomadic settlements.
+              </p>
             </div>
           </div>
 
           {/* Card 2: Spanning 3 cols */}
-          <div className="md:col-span-3 rounded-3xl bg-white border border-warm-200 overflow-hidden shadow-soft p-6 sm:p-8 flex flex-col justify-between space-y-6">
-            <div className="relative aspect-[16/9] rounded-2xl overflow-hidden">
+          <div className="md:col-span-3 rounded-3xl bg-white border border-warm-200 overflow-hidden shadow-soft p-6 sm:p-8 flex flex-col justify-between space-y-6 hover:shadow-md transition-shadow">
+            <div className="relative aspect-[16/10] rounded-2xl overflow-hidden shadow-inner">
               <Image
                 src={media.home.volunteerProgram.teachingMentoring}
-                alt="Volunteer mentoring Jhuggi Nasheen children"
+                alt="Teaching and mentoring Jhuggi Nasheen children"
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover"
               />
             </div>
             <div>
-              <div className="text-xs font-bold text-primary-600 uppercase tracking-wider mb-1">
-                Mentorship
+              <div className="text-xs font-bold text-primary-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
+                Direct Classroom Mentorship
               </div>
-              <h3 className="text-xl font-bold font-heading text-charcoal-deep">
-                Assisting in teaching and mentoring Jhuggi Nasheen children.
+              <h3 className="text-xl sm:text-2xl font-bold font-heading text-charcoal-deep">
+                Assisting In Teaching & Mentoring Jhuggi Nasheen Children
               </h3>
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed">
+                Volunteer teachers sit alongside slum children in daily reading circles, literacy drills, and foundational numeracy classes, ensuring every child receives caring individual attention.
+              </p>
             </div>
           </div>
 
           {/* Card 3: Spanning 2 cols */}
-          <div className="md:col-span-1 lg:col-span-2 rounded-3xl bg-white border border-warm-200 overflow-hidden shadow-soft p-6 flex flex-col justify-between space-y-4">
-            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden">
+          <div className="md:col-span-1 lg:col-span-2 rounded-3xl bg-white border border-warm-200 overflow-hidden shadow-soft p-6 flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow">
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-inner">
               <Image
                 src={media.home.volunteerProgram.workshops}
-                alt="Workshops on vocational training"
+                alt="Vocational technical workshops"
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover"
               />
             </div>
-            <h3 className="text-base font-bold font-heading text-charcoal-deep">
-              Conducting workshops on vocational training and soft skills.
-            </h3>
+            <div>
+              <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1">
+                Vocational Skills
+              </div>
+              <h3 className="text-base font-bold font-heading text-charcoal-deep leading-snug">
+                Vocational Technical Workshops & Practical Trades
+              </h3>
+              <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+                Hands-on technical training with professional toolkits equipping adolescent youth with market-ready trades and electrical skills.
+              </p>
+            </div>
           </div>
 
           {/* Card 4: Spanning 2 cols */}
-          <div className="md:col-span-1 lg:col-span-2 rounded-3xl bg-white border border-warm-200 overflow-hidden shadow-soft p-6 flex flex-col justify-between space-y-4">
-            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden">
+          <div className="md:col-span-1 lg:col-span-2 rounded-3xl bg-white border border-warm-200 overflow-hidden shadow-soft p-6 flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow">
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-inner">
               <Image
                 src={media.home.volunteerProgram.awarenessEvents}
-                alt="Interactive awareness events in communities"
+                alt="Community awareness sessions and celebrations"
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover"
               />
             </div>
-            <h3 className="text-base font-bold font-heading text-charcoal-deep">
-              Organizing awareness sessions and interactive events.
-            </h3>
+            <div>
+              <div className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1">
+                Community Gatherings
+              </div>
+              <h3 className="text-base font-bold font-heading text-charcoal-deep leading-snug">
+                Organizing Awareness Drives & Volunteer Summits
+              </h3>
+              <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+                Uniting hundreds of university volunteers, female teachers, and community elders for celebratory educational milestones.
+              </p>
+            </div>
           </div>
 
           {/* Card 5: Spanning 2 cols */}
-          <div className="md:col-span-1 lg:col-span-2 rounded-3xl bg-white border border-warm-200 overflow-hidden shadow-soft p-6 flex flex-col justify-between space-y-4">
-            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden">
+          <div className="md:col-span-1 lg:col-span-2 rounded-3xl bg-white border border-warm-200 overflow-hidden shadow-soft p-6 flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow">
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-inner">
               <Image
                 src={media.home.volunteerProgram.youthChange}
-                alt="Youth changemakers inspiring action"
+                alt="Youth mobilizing community action"
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover"
               />
             </div>
-            <h3 className="text-base font-bold font-heading text-charcoal-deep">
-              Encouraging youth to contribute to social change.
-            </h3>
+            <div>
+              <div className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-1">
+                Grassroots Impact
+              </div>
+              <h3 className="text-base font-bold font-heading text-charcoal-deep leading-snug">
+                Mobilizing Slum Communities For Social Transformation
+              </h3>
+              <p className="mt-1.5 text-xs text-slate-600 leading-relaxed">
+                Inspiring nomadic families to embrace literacy, hygiene, and sustainable community empowerment from within.
+              </p>
+            </div>
           </div>
         </div>
 

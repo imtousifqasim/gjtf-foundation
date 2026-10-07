@@ -40,27 +40,27 @@ export const media = {
     // Volunteer Program Section (5 cards bento grid)
     volunteerProgram: {
       // 1. "Students from partnered universities join our initiatives"
-      universityStudents: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=900&auto=format&fit=crop",
+      universityStudents: "/images/volunteers/university-mou-collaboration.jpg",
       // 2. "Assisting in teaching and mentoring Jhuggi Nasheen children"
-      teachingMentoring: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?q=80&w=900&auto=format&fit=crop",
+      teachingMentoring: "/images/volunteers/teaching-and-mentorship.webp",
       // 3. "Conducting workshops on vocational training and soft skills"
-      workshops: "https://images.unsplash.com/photo-1531482615713-2afd69097998?q=80&w=900&auto=format&fit=crop",
+      workshops: "/images/volunteers/vocational-skills-workshop.jpg",
       // 4. "Organizing awareness sessions and interactive events"
-      awarenessEvents: "https://images.unsplash.com/photo-1511578314322-379afb476865?q=80&w=900&auto=format&fit=crop",
+      awarenessEvents: "/images/volunteers/awareness-sessions-events.webp",
       // 5. "Encouraging youth to contribute to social change"
-      youthChange: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=900&auto=format&fit=crop",
+      youthChange: "/images/volunteers/youth-social-change.webp",
     },
 
     // Community Services Section (4 cards bento grid)
     communityServices: {
       // 1. Vocational Centers - stitching and handicrafts
-      vocationalCenters: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?q=80&w=900&auto=format&fit=crop",
+      vocationalCenters: "/images/volunteers/womens-vocational-stitching.webp",
       // 2. Small Business Support - helping youth start businesses
-      smallBusiness: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=900&auto=format&fit=crop",
-      // 3. Computer Skills Training - digital literacy on tablets/PCs
-      computerSkills: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=900&auto=format&fit=crop",
+      smallBusiness: "/images/volunteers/community-children-empowerment.jpg",
+      // 3. Computer Skills Training - digital literacy and vocational tools
+      computerSkills: "/images/volunteers/vocational-skills-workshop.jpg",
       // 4. Youth Empowerment - self-sufficiency and financial stability
-      youthEmpowerment: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=900&auto=format&fit=crop",
+      youthEmpowerment: "/images/volunteers/school-uniform-assembly.webp",
     },
 
     // Photo Gallery Section (4 original full-res website images)
@@ -113,9 +113,9 @@ export const media = {
   // -------------------------------------------------------------
   cityChapterLeads: {
     // Featured Hero Header image
-    heroImage: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1600&auto=format&fit=crop",
+    heroImage: "/images/volunteers/awareness-sessions-events.webp",
     // Leadership section highlight
-    leadershipTeam: "https://images.unsplash.com/photo-1531545514256-b1400bc00f31?q=80&w=1200&auto=format&fit=crop",
+    leadershipTeam: "/images/volunteers/university-mou-collaboration.jpg",
   },
 
   // -------------------------------------------------------------
@@ -123,9 +123,9 @@ export const media = {
   // -------------------------------------------------------------
   universityChapter: {
     // Campus society leadership hero
-    heroImage: "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=1600&auto=format&fit=crop",
+    heroImage: "/images/volunteers/university-mou-collaboration.jpg",
     // Student volunteers collaboration
-    campusDrive: "https://images.unsplash.com/photo-1523580494863-6f3031224c94?q=80&w=1200&auto=format&fit=crop",
+    campusDrive: "/images/volunteers/awareness-sessions-events.webp",
   },
 
   // -------------------------------------------------------------
@@ -133,18 +133,18 @@ export const media = {
   // -------------------------------------------------------------
   generalVolunteer: {
     // Community volunteering hero
-    heroImage: "https://images.unsplash.com/photo-1559027615-cd4628902d4a?q=80&w=1600&auto=format&fit=crop",
+    heroImage: "/images/volunteers/community-children-empowerment.jpg",
     // Mentorship & teaching in slums
-    mentoringField: "https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=1200&auto=format&fit=crop",
+    mentoringField: "/images/volunteers/youth-social-change.webp",
   },
 
   // -------------------------------------------------------------
   // AIMS AND OBJECTIVES (/aims-and-objectives)
   // -------------------------------------------------------------
   aimsAndObjectives: {
-    heroBanner: "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?q=80&w=1600&auto=format&fit=crop",
-    digitalTabletsSection: "https://images.unsplash.com/photo-1588072432836-e10032774350?q=80&w=1200&auto=format&fit=crop",
-    sewingCenterSection: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?q=80&w=1200&auto=format&fit=crop",
+    heroBanner: "/images/aims-objectives-hero.jpg",
+    digitalTabletsSection: "/images/volunteers/vocational-skills-workshop.jpg",
+    sewingCenterSection: "/images/volunteers/womens-vocational-stitching.webp",
   },
 
   // -------------------------------------------------------------
