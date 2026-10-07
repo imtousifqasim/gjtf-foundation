@@ -357,68 +357,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* -------------------------------------------------------------
-          7. EDUCATION PROGRAMMES SECTION — 3 IMAGE CARDS
-          ------------------------------------------------------------- */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <SectionHeading
-          eyebrow="Curriculum & Pedagogy"
-          title="Ghais Jhuggi Taleem Foundation's Education Programmes"
-          subtitle="Our education programme is designed to deliver superior learning outcomes"
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            {
-              title: "Connecting with Jhuggi Nasheen children to make them comfortable",
-              img: media.home.educationProgrammes.connecting,
-              desc: "Building compassionate bonds so first-generation learners feel safe, valued, and excited about school every morning.",
-            },
-            {
-              title: "Making learning enjoyable to encourage school attendance.",
-              img: media.home.educationProgrammes.learningEnjoyable,
-              desc: "Utilizing interactive games, audio-visual storytelling, and cheerful activities that turn learning into a joyous experience.",
-            },
-            {
-              title: "Passionate educators working hard to teach and mentor students.",
-              img: media.home.educationProgrammes.passionateEducators,
-              desc: "Trained teachers and volunteer mentors dedicating their skills to ignite curiosity and develop moral character.",
-            },
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className="rounded-3xl bg-white border border-warm-200 overflow-hidden shadow-soft hover:shadow-soft-lg hover:-translate-y-1.5 transition-all duration-300 flex flex-col"
-            >
-              <div className="relative aspect-[16/11] w-full bg-warm-100 overflow-hidden">
-                <Image
-                  src={item.img}
-                  alt={item.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  className="object-cover transition-transform duration-500 hover:scale-105"
-                />
-              </div>
-              <div className="p-6 sm:p-8 flex flex-col flex-1 justify-between space-y-4">
-                <div>
-                  <h3 className="text-xl font-bold font-heading text-charcoal-deep leading-snug">
-                    {item.title}
-                  </h3>
-                  <p className="mt-3 text-sm text-charcoal-muted leading-relaxed">
-                    {item.desc}
-                  </p>
-                </div>
-                <div className="pt-2">
-                  <Link href="/about-gjtf-volunteers">
-                    <Button variant="link" className="font-bold text-primary-700">
-                      Learn More <ArrowRight className="w-4 h-4 ml-1" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* -------------------------------------------------------------
           8. VOLUNTEER PROGRAM SECTION — 5-CARD BENTO GRID
