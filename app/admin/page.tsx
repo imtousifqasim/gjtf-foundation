@@ -15,14 +15,19 @@ import {
   MailCheck,
   Send,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import {
+  getDonationsDb,
+  getContactMessagesDb,
+  getVolunteerSignupsDb,
+  getSubscribersDb,
+} from "@/lib/db/mysql";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
-// Fallback seed data if Supabase has not recorded records yet
+// Fallback seed data if database has not recorded records yet
 const SAMPLE_DONATIONS = [
   { id: "dn_1", created_at: "2025-02-14T10:30:00Z", donor_name: "Farhan Malik", amount: 20000, currency: "PKR", cause: "Support a Classroom", status: "completed" },
   { id: "dn_2", created_at: "2025-02-14T08:15:00Z", donor_name: "Ayesha Siddiqui", amount: 5000, currency: "PKR", cause: "Educate a Child", status: "pending" },
@@ -43,48 +48,23 @@ export default async function AdminDashboardPage() {
   let subscriberCount = 0;
 
   try {
-    const supabase = await createClient();
-    const isConfigured = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://placeholder-gjtf.supabase.co"
-    );
+    const [dbDonations, dbMessages, dbVolunteers, dbSubscribers] = await Promise.all([
+      getDonationsDb(10),
+      getContactMessagesDb(10),
+      getVolunteerSignupsDb(100),
+      getSubscribersDb(),
+    ]);
 
-    if (isConfigured) {
-      const { data: dbDonations } = await supabase
-        .from("donations")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      const { data: dbMessages } = await supabase
-        .from("contact_submissions")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      const { count: vCount } = await supabase
-        .from("volunteer_signups")
-        .select("*", { count: "exact", head: true });
-
-      const { count: sCount } = await supabase
-        .from("newsletter_subscribers")
-        .select("*", { count: "exact", head: true });
-
-      if (dbDonations && dbDonations.length > 0) {
-        donations = dbDonations as any;
-      }
-      if (dbMessages && dbMessages.length > 0) {
-        contactMessages = dbMessages as any;
-      }
-      if (typeof vCount === "number") {
-        volunteerCount = vCount;
-      }
-      if (typeof sCount === "number") {
-        subscriberCount = sCount;
-      }
+    if (dbDonations && dbDonations.length > 0) {
+      donations = dbDonations as any;
     }
+    if (dbMessages && dbMessages.length > 0) {
+      contactMessages = dbMessages as any;
+    }
+    volunteerCount = dbVolunteers.length;
+    subscriberCount = dbSubscribers.length;
   } catch (err) {
-    console.error("Error loading dashboard data:", err);
+    console.error("Error loading Hostinger MySQL dashboard data:", err);
   }
 
   // Calculate totals

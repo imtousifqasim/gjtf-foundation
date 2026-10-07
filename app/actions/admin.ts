@@ -1,17 +1,22 @@
 "use server";
 
-import { createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import {
+  updateDonationStatusDb,
+  deleteDonationDb,
+  updateContactStatusDb,
+  deleteContactMessageDb,
+  updateVolunteerStatusDb,
+  deleteVolunteerSignupDb,
+  saveSchoolDb,
+  deleteSchoolDb,
+  saveStoryDb,
+  deleteStoryDb,
+} from "@/lib/db/mysql";
 
 export async function updateDonationStatus(donationId: string, status: "pending" | "completed" | "failed") {
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase
-      .from("donations")
-      .update({ status })
-      .eq("id", donationId);
-
-    if (error) throw error;
+    await updateDonationStatusDb(donationId, status);
     revalidatePath("/admin/donations");
     return { success: true };
   } catch (err: any) {
@@ -22,13 +27,7 @@ export async function updateDonationStatus(donationId: string, status: "pending"
 
 export async function deleteDonation(donationId: string) {
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase
-      .from("donations")
-      .delete()
-      .eq("id", donationId);
-
-    if (error) throw error;
+    await deleteDonationDb(donationId);
     revalidatePath("/admin/donations");
     return { success: true };
   } catch (err: any) {
@@ -39,13 +38,7 @@ export async function deleteDonation(donationId: string) {
 
 export async function updateContactStatus(messageId: string, status: "new" | "read" | "archived") {
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase
-      .from("contact_submissions")
-      .update({ status })
-      .eq("id", messageId);
-
-    if (error) throw error;
+    await updateContactStatusDb(messageId, status);
     revalidatePath("/admin/contact-messages");
     return { success: true };
   } catch (err: any) {
@@ -56,13 +49,7 @@ export async function updateContactStatus(messageId: string, status: "new" | "re
 
 export async function deleteContactMessage(messageId: string) {
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase
-      .from("contact_submissions")
-      .delete()
-      .eq("id", messageId);
-
-    if (error) throw error;
+    await deleteContactMessageDb(messageId);
     revalidatePath("/admin/contact-messages");
     return { success: true };
   } catch (err: any) {
@@ -73,13 +60,7 @@ export async function deleteContactMessage(messageId: string) {
 
 export async function updateVolunteerStatus(signupId: string, status: "new" | "contacted" | "archived") {
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase
-      .from("volunteer_signups")
-      .update({ status })
-      .eq("id", signupId);
-
-    if (error) throw error;
+    await updateVolunteerStatusDb(signupId, status);
     revalidatePath("/admin/volunteer-signups");
     return { success: true };
   } catch (err: any) {
@@ -90,13 +71,7 @@ export async function updateVolunteerStatus(signupId: string, status: "new" | "c
 
 export async function deleteVolunteerSignup(signupId: string) {
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase
-      .from("volunteer_signups")
-      .delete()
-      .eq("id", signupId);
-
-    if (error) throw error;
+    await deleteVolunteerSignupDb(signupId);
     revalidatePath("/admin/volunteer-signups");
     return { success: true };
   } catch (err: any) {
@@ -107,42 +82,10 @@ export async function deleteVolunteerSignup(signupId: string) {
 
 export async function saveSchool(schoolData: any) {
   try {
-    const supabase = createAdminClient();
-    const payload = {
-      id: schoolData.id,
-      slug: schoolData.slug,
-      name: schoolData.name,
-      campus_type: schoolData.campusType || schoolData.campus_type || "Primary",
-      shift: schoolData.shift || "Morning",
-      city: schoolData.city || "Karachi",
-      province: schoolData.province || "Punjab",
-      area_sq_ft: Number(schoolData.areaSqFt ?? schoolData.area_sq_ft ?? 0),
-      classrooms: Number(schoolData.classrooms ?? 0),
-      student_capacity: Number(schoolData.studentCapacity ?? schoolData.student_capacity ?? 0),
-      current_students: Number(schoolData.currentStudents ?? schoolData.current_students ?? 0),
-      established_year: Number(schoolData.establishedYear ?? schoolData.established_year ?? 2024),
-      description: schoolData.description || "",
-      facilities: Array.isArray(schoolData.facilities) ? schoolData.facilities : [],
-      card_image: schoolData.cardImage || schoolData.card_image || "",
-      hero_image: schoolData.heroImage || schoolData.hero_image || schoolData.cardImage || schoolData.card_image || "",
-      gallery_images: Array.isArray(schoolData.galleryImages)
-        ? schoolData.galleryImages
-        : Array.isArray(schoolData.gallery_images)
-        ? schoolData.gallery_images
-        : [],
-      featured: Boolean(schoolData.featured),
-    };
-
-    const { error } = await supabase
-      .from("schools")
-      .upsert(payload as any, { onConflict: "id" });
-
-    if (error) {
-      console.error("Supabase saveSchool error:", error);
-    }
+    await saveSchoolDb(schoolData);
     revalidatePath("/admin/schools");
     revalidatePath("/our-school");
-    return { success: !error, error: error?.message };
+    return { success: true };
   } catch (err: any) {
     console.error("saveSchool error:", err);
     return { success: false, error: err.message };
@@ -151,13 +94,7 @@ export async function saveSchool(schoolData: any) {
 
 export async function deleteSchool(schoolId: string) {
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase
-      .from("schools")
-      .delete()
-      .eq("id", schoolId);
-
-    if (error) throw error;
+    await deleteSchoolDb(schoolId);
     revalidatePath("/admin/schools");
     revalidatePath("/our-school");
     return { success: true };
@@ -169,29 +106,10 @@ export async function deleteSchool(schoolId: string) {
 
 export async function saveStory(storyData: any) {
   try {
-    const supabase = createAdminClient();
-    const payload = {
-      id: storyData.id,
-      slug: storyData.slug,
-      title: storyData.title,
-      category: storyData.category || "Success Stories",
-      excerpt: storyData.excerpt || "",
-      body: Array.isArray(storyData.content) ? storyData.content.join("\n\n") : (storyData.body || ""),
-      cover_image_url: storyData.coverImage || storyData.cover_image_url || "",
-      author_name: storyData.author?.name || storyData.author_name || "GJTF Editorial",
-      author_role: storyData.author?.role || storyData.author_role || "Communications",
-    };
-
-    const { error } = await supabase
-      .from("stories")
-      .upsert(payload as any, { onConflict: "id" });
-
-    if (error) {
-      console.error("Supabase saveStory error:", error);
-    }
+    await saveStoryDb(storyData);
     revalidatePath("/admin/stories");
     revalidatePath("/news-stories");
-    return { success: !error, error: error?.message };
+    return { success: true };
   } catch (err: any) {
     console.error("saveStory error:", err);
     return { success: false, error: err.message };
@@ -200,13 +118,7 @@ export async function saveStory(storyData: any) {
 
 export async function deleteStory(storyId: string) {
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase
-      .from("stories")
-      .delete()
-      .eq("id", storyId);
-
-    if (error) throw error;
+    await deleteStoryDb(storyId);
     revalidatePath("/admin/stories");
     revalidatePath("/news-stories");
     return { success: true };

@@ -31,35 +31,34 @@ export default function OurSchoolPage() {
   React.useEffect(() => {
     async function fetchLiveSchools() {
       try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("schools")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (!error && data && data.length > 0) {
-          const mapped: School[] = data.map((s: any) => ({
-            id: s.id,
-            slug: s.slug,
-            name: s.name,
-            campusType: (s.campus_type || "Primary") as any,
-            shift: (s.shift || "Morning") as any,
-            city: s.city || "",
-            province: (s.province || "Punjab") as any,
-            areaSqFt: s.area_sq_ft || 0,
-            classrooms: s.classrooms || 0,
-            studentCapacity: s.student_capacity || 0,
-            currentStudents: s.current_students || 0,
-            establishedYear: s.established_year || 2024,
-            description: s.description || "",
-            facilities: Array.isArray(s.facilities) ? s.facilities : [],
-            cardImage: s.card_image || "https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=900",
-            heroImage: s.hero_image || s.card_image || "https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=1800",
-            galleryImages: Array.isArray(s.gallery_images) ? s.gallery_images : [],
-            featured: Boolean(s.featured),
-            coordinates: { lat: 31.5204, lng: 74.3587 },
-          }));
-          setSchoolsList(mapped);
+        const res = await fetch("/api/data/schools", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          const data = json.data;
+          if (data && data.length > 0) {
+            const mapped: School[] = data.map((s: any) => ({
+              id: s.id,
+              slug: s.slug,
+              name: s.name,
+              campusType: (s.campus_type || "Primary") as any,
+              shift: (s.shift || "Morning") as any,
+              city: s.city || "",
+              province: (s.province || "Punjab") as any,
+              areaSqFt: s.area_sq_ft || 0,
+              classrooms: s.classrooms || 0,
+              studentCapacity: s.student_capacity || 0,
+              currentStudents: s.current_students || 0,
+              establishedYear: s.established_year || 2024,
+              description: s.description || "",
+              facilities: Array.isArray(s.facilities) ? s.facilities : [],
+              cardImage: s.card_image || "https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=900",
+              heroImage: s.hero_image || s.card_image || "https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=1800",
+              galleryImages: Array.isArray(s.gallery_images) ? s.gallery_images : [],
+              featured: Boolean(s.featured),
+              coordinates: { lat: 31.5204, lng: 74.3587 },
+            }));
+            setSchoolsList(mapped);
+          }
         }
       } catch (err) {
         // Fallback to static schools

@@ -14,13 +14,11 @@ export default function NewsStoriesPage() {
   React.useEffect(() => {
     async function loadLiveStories() {
       try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("stories")
-          .select("*")
-          .order("published_at", { ascending: false });
-
-        if (!error && data && data.length > 0) {
+        const res = await fetch("/api/data/stories", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          const data = json.data;
+          if (data && data.length > 0) {
           const mapped: Story[] = data.map((s: any) => ({
             id: s.id,
             slug: s.slug,
@@ -45,9 +43,10 @@ export default function NewsStoriesPage() {
           }));
           setStoriesList(mapped);
         }
-      } catch (err) {
-        // Fallback to static stories
       }
+    } catch (err) {
+      // Fallback to static stories
+    }
     }
     loadLiveStories();
   }, []);

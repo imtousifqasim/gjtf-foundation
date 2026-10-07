@@ -4,6 +4,12 @@ import { createAdminClient } from "@/lib/supabase/server";
 import QRCode from "qrcode";
 import { verifyTOTP, getOTPAuthURL } from "@/lib/auth/totp";
 
+import {
+  getDatabaseMetricsDb,
+  getAdminSecurityDb,
+  saveAdminSecurityDb,
+} from "@/lib/db/mysql";
+
 export interface DatabaseMetrics {
   totalRecords: number;
   tableCounts: {
@@ -29,67 +35,22 @@ export interface SecuritySettings {
 
 export async function getDatabaseMetricsAction(): Promise<DatabaseMetrics> {
   try {
-    const supabase = createAdminClient();
-
-    const [
-      { count: donationsCount },
-      { count: contactCount },
-      { count: volunteerCount },
-      { count: schoolsCount },
-      { count: storiesCount },
-      { count: subscribersCount },
-    ] = await Promise.all([
-      supabase.from("donations").select("*", { count: "exact", head: true }),
-      supabase.from("contact_submissions").select("*", { count: "exact", head: true }),
-      supabase.from("volunteer_signups").select("*", { count: "exact", head: true }),
-      supabase.from("schools").select("*", { count: "exact", head: true }),
-      supabase.from("stories").select("*", { count: "exact", head: true }),
-      supabase.from("newsletter_subscribers").select("*", { count: "exact", head: true }),
-    ]);
-
-    const c1 = donationsCount || 0;
-    const c2 = contactCount || 0;
-    const c3 = volunteerCount || 0;
-    const c4 = schoolsCount || 0;
-    const c5 = storiesCount || 0;
-    const c6 = subscribersCount || 0;
-
-    const totalRecords = c1 + c2 + c3 + c4 + c5 + c6;
-    // Base schema overhead ~12MB + ~4KB per record avg
-    const estimatedSizeMb = 12.4 + (totalRecords * 4) / 1024;
-    const quotaMb = 500; // Supabase Free Tier 500MB
-    const usagePercent = Number(((estimatedSizeMb / quotaMb) * 100).toFixed(1));
-
-    return {
-      totalRecords,
-      tableCounts: {
-        donations: c1,
-        contactSubmissions: c2,
-        volunteerSignups: c3,
-        schools: c4,
-        stories: c5,
-        subscribers: c6,
-      },
-      estimatedSizeKb: Math.round(estimatedSizeMb * 1024),
-      quotaMb,
-      usagePercent,
-      status: usagePercent > 80 ? "warning" : "healthy",
-    };
+    return await getDatabaseMetricsDb();
   } catch (err) {
-    console.warn("Error fetching database metrics:", err);
+    console.warn("Error fetching database metrics from Hostinger MySQL:", err);
     return {
-      totalRecords: 28,
+      totalRecords: 24,
       tableCounts: {
         donations: 4,
         contactSubmissions: 3,
-        volunteerSignups: 8,
+        volunteerSignups: 4,
         schools: 7,
         stories: 6,
-        subscribers: 2,
+        subscribers: 0,
       },
-      estimatedSizeKb: 12800,
-      quotaMb: 500,
-      usagePercent: 2.5,
+      estimatedSizeKb: 1325,
+      quotaMb: 2048,
+      usagePercent: 0.06,
       status: "healthy",
     };
   }
@@ -97,14 +58,8 @@ export async function getDatabaseMetricsAction(): Promise<DatabaseMetrics> {
 
 export async function getAdminSecuritySettingsAction(): Promise<SecuritySettings> {
   try {
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("admin_security")
-      .select("*")
-      .eq("id", "default")
-      .single();
-
-    if (!error && data) {
+    const data = await getAdminSecurityDb();
+    if (data) {
       return {
         admin_email: data.admin_email || "tousifdev@outlook.com",
         two_factor_enabled: Boolean(data.two_factor_enabled),
@@ -113,7 +68,7 @@ export async function getAdminSecuritySettingsAction(): Promise<SecuritySettings
       };
     }
   } catch (err) {
-    console.warn("Could not load admin_security:", err);
+    console.warn("Could not load admin_security from Hostinger MySQL:", err);
   }
 
   return {
@@ -126,26 +81,8 @@ export async function getAdminSecuritySettingsAction(): Promise<SecuritySettings
 
 export async function saveAdminSecurityAction(settings: Partial<SecuritySettings>) {
   try {
-    const supabase = createAdminClient();
-    const payload: any = {
-      id: "default",
-      updated_at: new Date().toISOString(),
-    };
-
-    if (settings.admin_email !== undefined) payload.admin_email = settings.admin_email;
-    if (settings.two_factor_enabled !== undefined) payload.two_factor_enabled = settings.two_factor_enabled;
-    if (settings.two_factor_secret !== undefined) payload.two_factor_secret = settings.two_factor_secret;
-    if (settings.recovery_codes !== undefined) payload.recovery_codes = settings.recovery_codes;
-
-    const { error } = await supabase
-      .from("admin_security")
-      .upsert(payload, { onConflict: "id" });
-
-    if (error) {
-      return { success: false, message: error.message };
-    }
-
-    return { success: true, message: "Security settings and 2FA configuration saved in real time!" };
+    await saveAdminSecurityDb(settings);
+    return { success: true, message: "Security settings and 2FA configuration saved to Hostinger MySQL (with Supabase backup)!" };
   } catch (err: any) {
     return { success: false, message: err.message || "Failed to update security settings." };
   }

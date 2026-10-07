@@ -77,17 +77,15 @@ export default function AdminContactMessagesPage() {
   React.useEffect(() => {
     async function loadData() {
       try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("contact_submissions")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (!error && data && data.length > 0) {
-          setMessages(data as any);
+        const res = await fetch("/api/data/contact-messages", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data && json.data.length > 0) {
+            setMessages(json.data);
+          }
         }
       } catch (err) {
-        console.error("Supabase load error:", err);
+        console.error("Hostinger MySQL load error:", err);
       }
     }
     loadData();

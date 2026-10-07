@@ -120,17 +120,15 @@ export default function AdminDonationsPage() {
   React.useEffect(() => {
     async function loadData() {
       try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("donations")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (!error && data && data.length > 0) {
-          setDonations(data as any);
+        const res = await fetch("/api/data/donations", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data && json.data.length > 0) {
+            setDonations(json.data);
+          }
         }
       } catch (err) {
-        console.error("Supabase load error:", err);
+        console.error("Hostinger MySQL load error:", err);
       } finally {
         setLoading(false);
       }

@@ -190,28 +190,15 @@ export default function AdminSettingsClient({
     setSiteFeedback(null);
 
     try {
-      const supabase = createClient();
-      const payload = {
-        id: "default",
-        ...siteSettings,
-        updated_at: new Date().toISOString(),
-      };
-
-      // 1. Direct Supabase update for immediate live reflection
-      const { error: dbError } = await supabase
-        .from("site_settings")
-        .upsert(payload, { onConflict: "id" });
-
-      if (dbError) {
-        throw new Error(dbError.message);
+      // Save to Hostinger MySQL (with Supabase backup sync)
+      const res = await saveSiteSettingsAction(siteSettings);
+      if (!res.success) {
+        throw new Error(res.message);
       }
-
-      // 2. Also run server action to revalidate Next.js cache
-      await saveSiteSettingsAction(siteSettings);
 
       setSiteFeedback({
         type: "success",
-        message: "Site contact & social media details successfully saved to database in real-time!",
+        message: "Site contact & social media details successfully saved to Hostinger MySQL in real-time!",
       });
       setTimeout(() => setSiteFeedback(null), 4000);
     } catch (err: any) {

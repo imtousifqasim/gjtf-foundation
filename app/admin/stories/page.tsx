@@ -35,35 +35,34 @@ export default function AdminStoriesPage() {
   React.useEffect(() => {
     async function loadStories() {
       try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("stories")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (!error && data && data.length > 0) {
-          const mapped: Story[] = data.map((s: any) => ({
-            id: s.id,
-            slug: s.slug,
-            title: s.title,
-            category: (s.category || "Success Stories") as StoryCategory,
-            excerpt: s.excerpt || "",
-            publishedAt: s.published_at
-              ? new Date(s.published_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-              : "Recent",
-            readTime: "4 min read",
-            coverImage: s.cover_image_url || "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=900",
-            videoUrl: s.video_url || undefined,
-            author: {
-              name: s.author_name || "GJTF Editorial",
-              role: s.author_role || "Communications",
-            },
-            content: s.body ? s.body.split("\n\n") : [""],
-          }));
-          setStoriesList(mapped);
+        const res = await fetch("/api/data/stories", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          const data = json.data;
+          if (data && data.length > 0) {
+            const mapped: Story[] = data.map((s: any) => ({
+              id: s.id,
+              slug: s.slug,
+              title: s.title,
+              category: (s.category || "Success Stories") as StoryCategory,
+              excerpt: s.excerpt || "",
+              publishedAt: s.published_at
+                ? new Date(s.published_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                : "Recent",
+              readTime: "4 min read",
+              coverImage: s.cover_image_url || "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=900",
+              videoUrl: s.video_url || undefined,
+              author: {
+                name: s.author_name || "GJTF Editorial",
+                role: s.author_role || "Communications",
+              },
+              content: s.body ? s.body.split("\n\n") : [""],
+            }));
+            setStoriesList(mapped);
+          }
         }
       } catch (err) {
-        console.error("Error loading stories from Supabase:", err);
+        console.error("Error loading stories from Hostinger MySQL:", err);
       }
     }
     loadStories();

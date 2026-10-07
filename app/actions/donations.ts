@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createDonationDb } from "@/lib/db/mysql";
 
 const donationSchema = z.object({
   cause: z.enum([
@@ -35,42 +35,8 @@ export async function submitDonation(input: DonationInput) {
   }
 
   try {
-    const supabase: any = createAdminClient();
     const data = parsed.data;
-
-    // Check if Supabase is properly configured
-    const isConfigured = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://placeholder-gjtf.supabase.co"
-    );
-
-    let donationId = "dn_" + Math.random().toString(36).substring(2, 9);
-
-    if (isConfigured) {
-      const { data: record, error } = await supabase
-        .from("donations")
-        .insert({
-          cause: data.cause,
-          frequency: data.frequency,
-          currency: data.currency,
-          amount: data.amount,
-          donation_type: data.donation_type,
-          country: data.country,
-          donor_name: data.donor_name || null,
-          donor_email: data.donor_email || null,
-          donor_phone: data.donor_phone || null,
-          status: "pending",
-          payment_reference: null,
-        })
-        .select("id")
-        .single();
-
-      if (error) {
-        console.error("Supabase donation insert error:", error);
-      } else if (record) {
-        donationId = record.id;
-      }
-    }
+    const donationId = await createDonationDb(data);
 
     return {
       success: true,

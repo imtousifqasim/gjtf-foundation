@@ -61,14 +61,12 @@ export default function AdminSubscribersPage() {
   const fetchSubscribers = async () => {
     try {
       setLoading(true);
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("newsletter_subscribers")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        setSubscribers(data as any);
+      const res = await fetch("/api/data/subscribers", { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          setSubscribers(json.data);
+        }
       }
     } catch (err) {
       console.error("Fetch subscribers error:", err);

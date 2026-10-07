@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { createAdminClient } from "@/lib/supabase/server";
+import { getSmtpSettingsDb } from "@/lib/db/mysql";
 
 export interface SmtpConfig {
   host: string;
@@ -13,14 +13,9 @@ export interface SmtpConfig {
 
 export async function getSmtpConfig(): Promise<SmtpConfig> {
   try {
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("smtp_settings")
-      .select("*")
-      .eq("id", "default")
-      .single();
+    const data = await getSmtpSettingsDb();
 
-    if (!error && data) {
+    if (data) {
       return {
         host: data.host || process.env.SMTP_HOST || "smtp.gmail.com",
         port: Number(data.port) || Number(process.env.SMTP_PORT) || 587,
@@ -32,7 +27,7 @@ export async function getSmtpConfig(): Promise<SmtpConfig> {
       };
     }
   } catch (err) {
-    console.warn("Could not fetch smtp_settings from Supabase:", err);
+    console.warn("Could not fetch smtp_settings from Hostinger MySQL:", err);
   }
 
   return {

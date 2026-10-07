@@ -1,7 +1,7 @@
 "use server";
 
-import { createAdminClient } from "@/lib/supabase/server";
 import { SmtpConfig, createTransporter, getSmtpConfig } from "@/lib/email/smtp";
+import { saveSmtpSettingsDb } from "@/lib/db/mysql";
 
 export async function getSmtpSettingsAction(): Promise<SmtpConfig> {
   return await getSmtpConfig();
@@ -9,33 +9,19 @@ export async function getSmtpSettingsAction(): Promise<SmtpConfig> {
 
 export async function saveSmtpSettingsAction(settings: SmtpConfig) {
   try {
-    const supabase = createAdminClient();
-
-    const { error } = await supabase
-      .from("smtp_settings")
-      .upsert(
-        {
-          id: "default",
-          host: settings.host.trim(),
-          port: Number(settings.port),
-          secure: Boolean(settings.secure),
-          user_name: settings.user_name.trim(),
-          password: settings.password || "",
-          from_name: settings.from_name.trim(),
-          from_email: settings.from_email.trim(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" }
-      );
-
-    if (error) {
-      console.error("Supabase smtp_settings update error:", error);
-      return { success: false, message: error.message };
-    }
+    await saveSmtpSettingsDb({
+      host: settings.host.trim(),
+      port: Number(settings.port),
+      secure: Boolean(settings.secure),
+      user_name: settings.user_name.trim(),
+      password: settings.password || "",
+      from_name: settings.from_name.trim(),
+      from_email: settings.from_email.trim(),
+    });
 
     return {
       success: true,
-      message: "SMTP configuration saved successfully to database in real time!",
+      message: "SMTP configuration saved successfully to Hostinger MySQL (with Supabase backup)!",
     };
   } catch (err: any) {
     console.error("Save SMTP error:", err);

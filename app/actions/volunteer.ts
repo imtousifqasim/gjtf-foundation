@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createVolunteerSignupDb } from "@/lib/db/mysql";
 
 const volunteerSchema = z.object({
   type: z.enum(["general", "university_chapter", "city_chapter"]),
@@ -27,30 +27,8 @@ export async function submitVolunteerSignup(input: VolunteerInput) {
   }
 
   try {
-    const supabase: any = createAdminClient();
     const data = parsed.data;
-
-    const isConfigured = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://placeholder-gjtf.supabase.co"
-    );
-
-    if (isConfigured) {
-      const { error } = await supabase.from("volunteer_signups").insert({
-        type: data.type,
-        full_name: data.full_name,
-        email: data.email,
-        phone: data.phone,
-        city: data.city,
-        university: data.university || null,
-        message: data.message || null,
-        status: "new",
-      });
-
-      if (error) {
-        console.error("Supabase volunteer insert error:", error);
-      }
-    }
+    await createVolunteerSignupDb(data);
 
     return {
       success: true,

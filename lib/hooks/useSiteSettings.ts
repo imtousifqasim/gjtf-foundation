@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_SITE_SETTINGS, SiteSettingsData } from "@/lib/siteSettingsConstants";
 
 export function useSiteSettings() {
@@ -10,7 +9,6 @@ export function useSiteSettings() {
 
   React.useEffect(() => {
     let isMounted = true;
-    const supabase = createClient();
 
     const applyData = (data: any) => {
       if (!data) return;
@@ -34,17 +32,16 @@ export function useSiteSettings() {
 
     async function load() {
       try {
-        const { data, error } = await supabase
-          .from("site_settings")
-          .select("*")
-          .eq("id", "default")
-          .single();
-
-        if (!error && data && isMounted) {
-          applyData(data);
+        const res = await fetch("/api/data/site-settings", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data && isMounted) {
+            applyData(json.data);
+            return;
+          }
         }
       } catch (e) {
-        console.warn("Could not fetch site settings, using default:", e);
+        console.warn("Could not fetch site settings from Hostinger MySQL API:", e);
       } finally {
         if (isMounted) setLoaded(true);
       }
@@ -52,24 +49,8 @@ export function useSiteSettings() {
 
     load();
 
-    // Supabase Real-time listener for live updates across browser tabs & pages
-    const channelId = `site_settings_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
-    const channel = supabase
-      .channel(channelId)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "site_settings" },
-        (payload) => {
-          if (payload.new && isMounted) {
-            applyData(payload.new);
-          }
-        }
-      )
-      .subscribe();
-
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
     };
   }, []);
 

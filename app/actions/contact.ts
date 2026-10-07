@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createContactMessageDb } from "@/lib/db/mysql";
 
 const contactSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -27,27 +27,8 @@ export async function submitContactForm(input: ContactInput) {
   }
 
   try {
-    const supabase: any = createAdminClient();
     const data = parsed.data;
-
-    const isConfigured = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://placeholder-gjtf.supabase.co"
-    );
-
-    if (isConfigured) {
-      const { error } = await supabase.from("contact_submissions").insert({
-        name: data.name,
-        email: data.email,
-        subject: data.subject,
-        message: data.message,
-        status: "new",
-      });
-
-      if (error) {
-        console.error("Supabase contact form insert error:", error);
-      }
-    }
+    await createContactMessageDb(data);
 
     return {
       success: true,

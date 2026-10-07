@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/server";
+import { addSubscriberDb, getSubscribersDb, query, syncBackupToSupabase } from "@/lib/db/mysql";
 import { sendEmail, sendWelcomeNewsletterEmail } from "@/lib/email/smtp";
 
 const emailSchema = z.string().email("Please provide a valid email address");
@@ -18,44 +18,7 @@ export async function subscribeNewsletter(emailInput: string) {
   const email = parsed.data.trim().toLowerCase();
 
   try {
-    const supabase = createAdminClient();
-
-    // Check if already subscribed
-    const { data: existing } = await supabase
-      .from("newsletter_subscribers")
-      .select("id, status")
-      .eq("email", email)
-      .maybeSingle();
-
-    if (existing) {
-      if (existing.status === "active") {
-        return {
-          success: true,
-          message: "You are already subscribed to our newsletter! Thank you for your continued support.",
-        };
-      } else {
-        // Re-activate
-        await supabase
-          .from("newsletter_subscribers")
-          .update({ status: "active" })
-          .eq("id", existing.id);
-      }
-    } else {
-      const { error: insertError } = await supabase
-        .from("newsletter_subscribers")
-        .insert({
-          email,
-          status: "active",
-        });
-
-      if (insertError) {
-        console.error("Supabase newsletter insert error:", insertError);
-        return {
-          success: false,
-          message: "Could not record subscription. Please try again later.",
-        };
-      }
-    }
+    await addSubscriberDb(email);
 
     // Try to dispatch branded welcome email via configured SMTP
     let emailSent = false;
@@ -84,13 +47,10 @@ export async function subscribeNewsletter(emailInput: string) {
 
 export async function deleteSubscriber(id: string) {
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase
-      .from("newsletter_subscribers")
-      .delete()
-      .eq("id", id);
-
-    if (error) throw error;
+    await query("DELETE FROM newsletter_subscribers WHERE id = ?", [id]);
+    syncBackupToSupabase("deleteSubscriber", (sb) =>
+      sb.from("newsletter_subscribers").delete().eq("id", id)
+    );
     return { success: true };
   } catch (err: any) {
     console.error("Delete subscriber error:", err);
@@ -112,20 +72,13 @@ export async function sendBroadcastNewsletter({
   testEmail?: string;
 }) {
   try {
-    const supabase = createAdminClient();
-
     let recipients: string[] = [];
 
     if (testOnly && testEmail) {
       recipients = [testEmail];
     } else {
-      const { data, error } = await supabase
-        .from("newsletter_subscribers")
-        .select("email")
-        .eq("status", "active");
-
-      if (error) throw error;
-      recipients = (data || []).map((r: any) => r.email);
+      const subscribers = await getSubscribersDb();
+      recipients = subscribers.filter((s: any) => s.status === "active").map((r: any) => r.email);
     }
 
     if (recipients.length === 0) {

@@ -89,17 +89,15 @@ export default function AdminVolunteerSignupsPage() {
   React.useEffect(() => {
     async function loadData() {
       try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("volunteer_signups")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (!error && data && data.length > 0) {
-          setSignups(data as any);
+        const res = await fetch("/api/data/volunteer-signups", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data && json.data.length > 0) {
+            setSignups(json.data);
+          }
         }
       } catch (err) {
-        console.error("Supabase load error:", err);
+        console.error("Hostinger MySQL load error:", err);
       }
     }
     loadData();
