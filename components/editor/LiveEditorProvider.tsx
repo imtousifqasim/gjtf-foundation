@@ -154,7 +154,7 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
   const [pageModalOpen, setPageModalOpen] = React.useState(false);
   const [pageSearch, setPageSearch] = React.useState("");
 
-  // Universal Button & Link Edit Popover State
+  // Button & Link Edit Popover State
   const [buttonModal, setButtonModal] = React.useState<{
     open: boolean;
     key: string;
@@ -179,6 +179,13 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
+  // Update body attribute for global edit mode styles
+  React.useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.body.setAttribute("data-editor-active", isEditMode ? "true" : "false");
+    }
+  }, [isEditMode]);
+
   // Fetch saved page contents from MySQL on path change
   React.useEffect(() => {
     async function loadPageContents() {
@@ -198,6 +205,28 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
     }
     loadPageContents();
   }, [pathname]);
+
+  // Apply saved edits to DOM elements on load/change
+  React.useEffect(() => {
+    if (!dbEdits || Object.keys(dbEdits).length === 0) return;
+
+    Object.entries(dbEdits).forEach(([key, val]) => {
+      if (!val) return;
+      try {
+        const el = document.querySelector(`[data-live-id="${CSS.escape(key)}"]`) as HTMLElement | null;
+        if (el && document.activeElement !== el) {
+          if (val.text && el.innerText !== val.text) {
+            el.innerText = val.text;
+          }
+          if (val.url && el.tagName.toLowerCase() === "a") {
+            el.setAttribute("href", val.url);
+          }
+        }
+      } catch {
+        // Ignore query selector escape issues for edge keys
+      }
+    });
+  }, [dbEdits, pathname]);
 
   const getSavedValue = React.useCallback(
     (key: string) => {
@@ -276,6 +305,71 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
       p.description.toLowerCase().includes(pageSearch.toLowerCase())
   );
 
+  // Global In-Line Click-to-Edit Engine for ANY Text, Heading, or Button
+  React.useEffect(() => {
+    if (!isEditMode) return;
+
+    const getElementKey = (el: HTMLElement) => {
+      if (el.getAttribute("data-live-id")) return el.getAttribute("data-live-id")!;
+      if (el.id && !el.id.startsWith("radix-")) return `${pathname}#${el.id}`;
+      const tag = el.tagName.toLowerCase();
+      const textSnippet = (el.innerText || "").trim().slice(0, 30).replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+      return `${pathname}::${tag}::${textSnippet}`;
+    };
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      // Ignore editor UI elements
+      if (target.closest("[data-editor-ui='true']")) return;
+
+      // 1. If clicking a button or link: intercept to edit text and link URL
+      const btnOrLink = target.closest("a, button") as HTMLElement | null;
+      if (btnOrLink && !btnOrLink.closest("[data-editor-ui='true']")) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const btnKey = btnOrLink.getAttribute("data-live-id") || getElementKey(btnOrLink);
+        const currentSaved = getSavedValue(btnKey);
+        const currentText = currentSaved?.text || btnOrLink.innerText.trim();
+        const currentHref = currentSaved?.url || btnOrLink.getAttribute("href") || "";
+
+        setButtonModal({
+          open: true,
+          key: btnKey,
+          text: currentText,
+          href: currentHref,
+        });
+        return;
+      }
+
+      // 2. If clicking any text element (h1-h6, p, li, blockquote, span, b, strong)
+      const textElem = target.closest("h1, h2, h3, h4, h5, h6, p, li, blockquote, span, b, strong") as HTMLElement | null;
+      if (textElem && !textElem.closest("[data-editor-ui='true']")) {
+        if (!textElem.isContentEditable) {
+          textElem.setAttribute("contenteditable", "true");
+          textElem.setAttribute("suppressContentEditableWarning", "true");
+          textElem.setAttribute("spellcheck", "false");
+          textElem.focus();
+
+          const elemKey = textElem.getAttribute("data-live-id") || getElementKey(textElem);
+
+          const handleInput = () => {
+            registerTextChange(elemKey, textElem.innerText);
+          };
+
+          textElem.addEventListener("input", handleInput);
+        }
+      }
+    };
+
+    document.addEventListener("click", handleClick, true);
+    return () => {
+      document.removeEventListener("click", handleClick, true);
+    };
+  }, [isEditMode, pathname, getSavedValue, registerTextChange]);
+
   return (
     <LiveEditorContext.Provider
       value={{
@@ -291,6 +385,35 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
         saving,
       }}
     >
+      {/* Global CSS for seamless inline editing and text selection */}
+      <style jsx global>{`
+        [data-editor-active="true"] * {
+          user-select: text !important;
+          -webkit-user-select: text !important;
+        }
+        [data-editor-active="true"] [data-editor-ui="true"],
+        [data-editor-active="true"] [data-editor-ui="true"] * {
+          user-select: none !important;
+        }
+        [data-editor-active="true"] h1:hover,
+        [data-editor-active="true"] h2:hover,
+        [data-editor-active="true"] h3:hover,
+        [data-editor-active="true"] p:hover,
+        [data-editor-active="true"] a:hover,
+        [data-editor-active="true"] button:hover {
+          outline: 2px dashed #3b82f6 !important;
+          outline-offset: 3px !important;
+          cursor: text !important;
+        }
+        [data-editor-active="true"] [contenteditable="true"] {
+          outline: 2px solid #2563eb !important;
+          outline-offset: 3px !important;
+          background-color: rgba(59, 130, 246, 0.08) !important;
+          border-radius: 4px !important;
+          cursor: text !important;
+        }
+      `}</style>
+
       {/* Visual Live Editor Top Bar (Shown when Admin is authenticated or in edit mode) */}
       {isAdmin && (
         <aside
@@ -566,6 +689,12 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
               onSubmit={(e) => {
                 e.preventDefault();
                 registerLinkChange(buttonModal.key, buttonModal.text, buttonModal.href);
+                // Also update the DOM element directly in real time
+                const el = document.querySelector(`[data-live-id="${CSS.escape(buttonModal.key)}"]`) as HTMLElement | null;
+                if (el) {
+                  el.innerText = buttonModal.text;
+                  if (el.tagName.toLowerCase() === "a") el.setAttribute("href", buttonModal.href);
+                }
                 setButtonModal(null);
               }}
               className="space-y-4 text-xs"
@@ -622,7 +751,7 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
 }
 
 // -------------------------------------------------------------
-// EditableText Component
+// EditableText Component (Explicit high-priority editable text block)
 // -------------------------------------------------------------
 export function EditableText({
   id,
@@ -638,30 +767,39 @@ export function EditableText({
   const { isEditMode, getSavedValue, registerTextChange } = useLiveEditor();
   const saved = getSavedValue(id);
   const currentText = saved?.text !== undefined ? saved.text : defaultText;
+  const elementRef = React.useRef<HTMLElement>(null);
 
-  const handleBlur = (e: React.FocusEvent<HTMLElement>) => {
-    const newText = e.currentTarget.innerText.trim();
-    if (newText !== currentText) {
-      registerTextChange(id, newText);
+  // Sync ref with current text if not actively focused
+  React.useEffect(() => {
+    if (elementRef.current && document.activeElement !== elementRef.current) {
+      if (elementRef.current.innerText !== currentText) {
+        elementRef.current.innerText = currentText;
+      }
     }
+  }, [currentText]);
+
+  const handleInput = (e: React.FormEvent<HTMLElement>) => {
+    registerTextChange(id, e.currentTarget.innerText);
   };
 
-  if (!isEditMode) {
-    return <Tag className={className}>{currentText}</Tag>;
-  }
+  const handleBlur = (e: React.FocusEvent<HTMLElement>) => {
+    const text = e.currentTarget.innerText.trim();
+    registerTextChange(id, text);
+  };
 
   return (
     <Tag
-      contentEditable
+      ref={elementRef}
+      data-live-id={id}
+      contentEditable={isEditMode}
       suppressContentEditableWarning
-      onInput={(e: React.FormEvent<HTMLElement>) => {
-        registerTextChange(id, e.currentTarget.innerText);
-      }}
-      onBlur={handleBlur}
-      title="Click to edit text directly"
-      className={`${className} outline-none cursor-text transition-all rounded px-0.5 ${
+      spellCheck={false}
+      onInput={isEditMode ? handleInput : undefined}
+      onBlur={isEditMode ? handleBlur : undefined}
+      title={isEditMode ? "Click to edit text directly" : undefined}
+      className={`${className} ${
         isEditMode
-          ? "hover:ring-2 hover:ring-blue-400 focus:ring-2 focus:ring-blue-500 bg-blue-50/10 focus:bg-blue-50/20"
+          ? "outline-none cursor-text select-text transition-all rounded px-0.5"
           : ""
       }`}
     >
@@ -671,7 +809,7 @@ export function EditableText({
 }
 
 // -------------------------------------------------------------
-// EditableButton Component (Supports text and link URL modal edit)
+// EditableButton Component (Explicit high-priority editable button/link)
 // -------------------------------------------------------------
 export function EditableButton({
   id,
@@ -709,7 +847,7 @@ export function EditableButton({
 
   if (!isEditMode) {
     return (
-      <a href={href} className={className}>
+      <a data-live-id={id} href={href} className={className}>
         {children || text}
       </a>
     );
@@ -719,6 +857,7 @@ export function EditableButton({
     <>
       <span className="relative inline-block group">
         <a
+          data-live-id={id}
           href={href}
           onClick={(e) => {
             e.preventDefault();
@@ -730,7 +869,7 @@ export function EditableButton({
           {children || text}
         </a>
 
-        {/* Small floating pencil badge in edit mode */}
+        {/* Floating pencil badge in edit mode */}
         <span
           onClick={(e) => {
             e.stopPropagation();
@@ -746,9 +885,9 @@ export function EditableButton({
       {modalOpen && (
         <div
           data-editor-ui="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-fade-in"
         >
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 text-slate-900 space-y-4 animate-scale-in">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 text-slate-900 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <Edit3 className="w-4 h-4 text-blue-600" />

@@ -55,20 +55,19 @@ export default function HomePage() {
             <EditableText id="home_hero_badge" defaultText="Jhuggi Taleemi Project • Established 2014" />
           </div>
 
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-extrabold font-heading tracking-tight leading-tight sm:leading-snug max-w-3xl mx-auto drop-shadow-md">
-            <EditableText id="home_hero_title_p1" defaultText="Donate to educate " />
-            <span className="text-blue-300 font-extrabold inline-block drop-shadow-md">
-              <EditableText id="home_hero_title_highlight" defaultText="less-privileged children" />
-            </span>{" "}
-            <EditableText id="home_hero_title_p2" defaultText="in Pakistan" />
-          </h1>
+          <EditableText
+            as="h1"
+            id="home_hero_title"
+            defaultText="Donate to educate less-privileged children in Pakistan"
+            className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-extrabold font-heading tracking-tight leading-tight sm:leading-snug max-w-3xl mx-auto drop-shadow-md select-text"
+          />
 
-          <p className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto font-normal leading-relaxed drop-shadow">
-            <EditableText
-              id="home_hero_subtitle"
-              defaultText="The largest educational and skill development movement for over 20 million nomadic communities."
-            />
-          </p>
+          <EditableText
+            as="p"
+            id="home_hero_subtitle"
+            defaultText="The largest educational and skill development movement for over 20 million nomadic communities."
+            className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto font-normal leading-relaxed drop-shadow select-text"
+          />
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
             <EditableButton
@@ -115,29 +114,46 @@ export default function HomePage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-6 space-y-6">
             <div className="inline-block px-3.5 py-1 rounded-full bg-primary-50 text-primary-700 border border-primary-200/80 text-xs font-bold uppercase tracking-wider">
-              About Ghais Jhuggi Taleem Foundation
+              <EditableText id="home_about_badge" defaultText="About Ghais Jhuggi Taleem Foundation" />
             </div>
 
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold font-heading text-slate-900 tracking-tight leading-tight">
-              The largest educational and skill development movement for over 20 million nomadic communities.
-            </h2>
+            <EditableText
+              as="h2"
+              id="home_about_heading"
+              defaultText="The largest educational and skill development movement for over 20 million nomadic communities."
+              className="text-3xl sm:text-4xl md:text-5xl font-extrabold font-heading text-slate-900 tracking-tight leading-tight select-text"
+            />
 
-            <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-              Ghais Jhuggi Taleem Foundation (GJTF) is a non-profit organization established in 2014 to provide quality education and skills to the nomadic community in Pakistan. Today, through the Jhuggi Taleemi Project, the foundation is educating thousands of children and paving the way for a brighter future.
-            </p>
+            <EditableText
+              as="p"
+              id="home_about_desc"
+              defaultText="Ghais Jhuggi Taleem Foundation (GJTF) is a non-profit organization established in 2014 to provide quality education and skills to the nomadic community in Pakistan. Today, through the Jhuggi Taleemi Project, the foundation is educating thousands of children and paving the way for a brighter future."
+              className="text-base sm:text-lg text-slate-600 leading-relaxed select-text"
+            />
 
             <div className="pt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <Link href="/aims-and-objectives" className="w-full sm:w-auto">
+              <EditableButton
+                id="home_about_btn_aims"
+                defaultText="Read Aims & Objectives"
+                defaultHref="/aims-and-objectives"
+                className="w-full sm:w-auto inline-block"
+              >
                 <Button variant="primary" size="md" className="w-full sm:w-auto justify-center gap-2 px-6 py-3 font-bold shadow-sm rounded-xl text-sm sm:text-base">
                   Read Aims & Objectives
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </Button>
-              </Link>
-              <Link href="/about-gjtf-volunteers" className="w-full sm:w-auto">
+              </EditableButton>
+
+              <EditableButton
+                id="home_about_btn_volunteers"
+                defaultText="Our Volunteers"
+                defaultHref="/about-gjtf-volunteers"
+                className="w-full sm:w-auto inline-block"
+              >
                 <Button variant="outline" size="md" className="w-full sm:w-auto justify-center px-6 py-3 font-semibold rounded-xl border-slate-300 text-slate-800 hover:bg-slate-100/80 text-sm sm:text-base">
                   Our Volunteers
                 </Button>
-              </Link>
+              </EditableButton>
             </div>
           </div>
 
