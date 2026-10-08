@@ -647,37 +647,77 @@ export async function getDatabaseMetricsDb(): Promise<any> {
 }
 
 // -------------------------------------------------------------
-// 11. Page Contents (Live In-Line Visual Editor)
+// 11. Page Contents (Live In-Line Visual Editor & Instant Hosting Persistence)
 // -------------------------------------------------------------
+function makeSafeContentId(pagePath: string, elementKey: string): string {
+  const normPath = (pagePath || "/").replace(/\/$/, "") || "/";
+  const raw = `${normPath}__${elementKey}`.toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+  if (raw.length <= 180) return raw;
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    hash = (hash << 5) - hash + raw.charCodeAt(i);
+    hash |= 0;
+  }
+  return `${raw.slice(0, 140)}_${Math.abs(hash)}`;
+}
+
 export async function getPageContentsDb(pagePath?: string): Promise<Record<string, { text?: string; url?: string }>> {
+  const map: Record<string, { text?: string; url?: string }> = {};
+
+  // 1. Load from hardcoded JSON file as base if available
+  try {
+    const fs = await import("fs");
+    const path = await import("path");
+    const jsonPath = path.join(process.cwd(), "data", "content", "site-content.json");
+    if (fs.existsSync(jsonPath)) {
+      const raw = fs.readFileSync(jsonPath, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed.pages) {
+        const norm = (pagePath || "/").replace(/\/$/, "") || "/";
+        const pageData = parsed.pages[norm] || parsed.pages["*"] || {};
+        Object.assign(map, pageData);
+      }
+    }
+  } catch {
+    // Non-blocking in serverless/Vercel read-only
+  }
+
+  // 2. Fetch and overlay live changes from Hostinger MySQL
   try {
     let sql = "SELECT page_path, element_key, content_text, link_url FROM page_contents";
     const params: any[] = [];
     if (pagePath) {
-      sql += " WHERE page_path = ? OR page_path = '*'";
-      params.push(pagePath);
+      const norm = pagePath.replace(/\/$/, "") || "/";
+      sql += " WHERE page_path = ? OR page_path = ? OR page_path = '*'";
+      params.push(norm, norm === "/" ? "/" : norm + "/");
     }
     const rows = await query<RowDataPacket[]>(sql, params);
-    const map: Record<string, { text?: string; url?: string }> = {};
     for (const r of rows) {
       map[r.element_key] = {
-        text: r.content_text || undefined,
-        url: r.link_url || undefined,
+        text: r.content_text !== null && r.content_text !== undefined ? r.content_text : undefined,
+        url: r.link_url !== null && r.link_url !== undefined ? r.link_url : undefined,
       };
     }
-    return map;
   } catch (err: any) {
     console.error("Error fetching page_contents from Hostinger MySQL:", err.message);
-    return {};
   }
+
+  return map;
 }
 
 export async function savePageContentsDb(
   items: Array<{ page_path: string; element_key: string; content_text?: string; link_url?: string }>
 ): Promise<{ success: boolean; count: number }> {
   if (!items || items.length === 0) return { success: true, count: 0 };
+
+  const normPath = (items[0]?.page_path || "/").replace(/\/$/, "") || "/";
+
+  // 1. Save to Hostinger MySQL (Primary Live Store for Vercel)
   for (const item of items) {
-    const id = `${item.page_path}__${item.element_key}`.toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+    const safeId = makeSafeContentId(item.page_path, item.element_key);
+    const safeKey = item.element_key.slice(0, 180);
+    const safePath = (item.page_path || "/").slice(0, 180);
+
     await query(
       `INSERT INTO page_contents (id, page_path, element_key, content_text, link_url)
        VALUES (?, ?, ?, ?, ?)
@@ -685,9 +725,50 @@ export async function savePageContentsDb(
          content_text = VALUES(content_text),
          link_url = VALUES(link_url),
          updated_at = CURRENT_TIMESTAMP`,
-      [id, item.page_path, item.element_key, item.content_text || null, item.link_url || null]
+      [safeId, safePath, safeKey, item.content_text ?? null, item.link_url ?? null]
     );
   }
+
+  // 2. Dual-persist to local hardcoded JSON file in development/localhost
+  try {
+    const fs = await import("fs");
+    const path = await import("path");
+    const jsonPath = path.join(process.cwd(), "data", "content", "site-content.json");
+    let currentStore: any = { _info: "GJTF Foundation Content Store", pages: {} };
+    if (fs.existsSync(jsonPath)) {
+      try {
+        currentStore = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+      } catch {
+        currentStore = { pages: {} };
+      }
+    }
+    if (!currentStore.pages) currentStore.pages = {};
+    if (!currentStore.pages[normPath]) currentStore.pages[normPath] = {};
+
+    for (const item of items) {
+      currentStore.pages[normPath][item.element_key] = {
+        text: item.content_text,
+        url: item.link_url,
+      };
+    }
+
+    fs.writeFileSync(jsonPath, JSON.stringify(currentStore, null, 2), "utf-8");
+  } catch {
+    // Non-blocking on Vercel runtime (read-only filesystem)
+  }
+
+  // 3. Backup sync to Supabase
+  syncBackupToSupabase("savePageContents", async (sb) => {
+    const upsertRows = items.map((item) => ({
+      id: makeSafeContentId(item.page_path, item.element_key),
+      page_path: (item.page_path || "/").slice(0, 180),
+      element_key: item.element_key.slice(0, 180),
+      content_text: item.content_text || null,
+      link_url: item.link_url || null,
+    }));
+    return sb.from("page_contents").upsert(upsertRows);
+  });
+
   return { success: true, count: items.length };
 }
 

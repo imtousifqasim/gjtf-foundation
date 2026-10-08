@@ -114,6 +114,7 @@ interface LiveEditorContextType {
   getSavedValue: (key: string) => { text?: string; url?: string } | undefined;
   registerTextChange: (key: string, text: string) => void;
   registerLinkChange: (key: string, text: string, url: string) => void;
+  autoSaveSingle: (key: string, text?: string, url?: string) => Promise<boolean>;
   pendingEdits: Record<string, { text?: string; url?: string }>;
   saveAllEdits: () => Promise<boolean>;
   discardEdits: () => void;
@@ -132,6 +133,7 @@ export function useLiveEditor() {
       getSavedValue: () => undefined,
       registerTextChange: () => {},
       registerLinkChange: () => {},
+      autoSaveSingle: async () => false,
       pendingEdits: {},
       saveAllEdits: async () => false,
       discardEdits: () => {},
@@ -141,8 +143,164 @@ export function useLiveEditor() {
   return ctx;
 }
 
+// -------------------------------------------------------------
+// Deterministic Stable Element ID Generator (No Date.now() ever!)
+// -------------------------------------------------------------
+export function getStableElementId(el: HTMLElement, normPath: string): string {
+  // 1. Explicit clean attribute
+  const existing = el.getAttribute("data-live-id") || el.getAttribute("data-editable-id");
+  if (existing && !existing.includes("_179") && !existing.includes("_178")) {
+    return existing;
+  }
+
+  // 2. Semantic ID on the element
+  if (el.id && !el.id.startsWith("radix-") && !el.id.startsWith(":r")) {
+    const key = `${normPath}::${el.id}`;
+    el.setAttribute("data-live-id", key);
+    return key;
+  }
+
+  // 3. Section or container context
+  const section = el.closest("header")
+    ? "hdr"
+    : el.closest("footer")
+    ? "ftr"
+    : el.closest("nav")
+    ? "nav"
+    : el.closest("section")?.id
+    ? el.closest("section")!.id
+    : "sec";
+
+  const tag = el.tagName.toLowerCase();
+
+  // Find index of this tag among siblings or container
+  const container = el.closest("section, header, footer, nav, main, article, aside") || document.body;
+  const sameTagElements = Array.from(container.querySelectorAll(tag));
+  const idx = Math.max(0, sameTagElements.indexOf(el));
+
+  // Generate text snippet (first 15 clean alphanumeric chars of original text)
+  const rawText = el.getAttribute("data-default-text") || el.innerText || "";
+  const snippet = rawText
+    .trim()
+    .slice(0, 20)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "_")
+    .replace(/_+/g, "_")
+    .slice(0, 15);
+
+  const cleanPath = normPath === "/" ? "home" : normPath.replace(/^\//, "").replace(/\//g, "_");
+  const stableId = `${cleanPath}::${section}::${tag}_${idx}${snippet ? `::${snippet}` : ""}`;
+
+  el.setAttribute("data-live-id", stableId);
+  if (!el.getAttribute("data-default-text")) {
+    el.setAttribute("data-default-text", rawText.trim());
+  }
+  return stableId;
+}
+
+// -------------------------------------------------------------
+// Global DOM Indexing Helper (Indexes Header, Main & Footer)
+// -------------------------------------------------------------
+function initPageElementKeys(normPath: string) {
+  if (typeof document === "undefined") return;
+
+  const elements = document.body.querySelectorAll<HTMLElement>(
+    "h1, h2, h3, h4, h5, h6, p, li, blockquote, label, [data-editable-id], [data-live-id], a, button, span"
+  );
+
+  elements.forEach((el) => {
+    if (el.closest("[data-editor-ui='true']")) return;
+
+    // For spans, only index if they contain direct text and no block children
+    if (el.tagName.toLowerCase() === "span") {
+      const hasDirectText = Array.from(el.childNodes).some(
+        (n) => n.nodeType === Node.TEXT_NODE && (n.textContent || "").trim().length > 0
+      );
+      if (!hasDirectText) return;
+    }
+
+    getStableElementId(el, normPath);
+  });
+}
+
+// -------------------------------------------------------------
+// Global DOM Sync Helper
+// -------------------------------------------------------------
+function applyDbEditsToDom(edits: Record<string, { text?: string; url?: string }>, normPath: string) {
+  if (typeof document === "undefined" || !edits) return;
+
+  initPageElementKeys(normPath);
+
+  Object.entries(edits).forEach(([key, val]) => {
+    if (!val) return;
+
+    let el: HTMLElement | null = null;
+    try {
+      el = document.querySelector<HTMLElement>(`[data-live-id="${CSS.escape(key)}"]`);
+    } catch {
+      // ignore selector syntax errors
+    }
+
+    if (!el) {
+      const allWithAttr = document.querySelectorAll<HTMLElement>("[data-live-id]");
+      for (const candidate of allWithAttr) {
+        const attr = candidate.getAttribute("data-live-id");
+        if (attr === key) {
+          el = candidate;
+          break;
+        }
+      }
+    }
+
+    // Prefix match fallback (e.g., home::about::h2_0)
+    if (!el && key.includes("::")) {
+      const parts = key.split("::");
+      if (parts.length >= 3) {
+        const prefix = `${parts[0]}::${parts[1]}::${parts[2]}`;
+        const allWithAttr = document.querySelectorAll<HTMLElement>("[data-live-id]");
+        for (const candidate of allWithAttr) {
+          const attr = candidate.getAttribute("data-live-id") || "";
+          if (attr.startsWith(prefix)) {
+            el = candidate;
+            break;
+          }
+        }
+      }
+    }
+
+    if (el && document.activeElement !== el) {
+      if (val.text !== undefined && val.text !== null && val.text !== "") {
+        if (el.innerText !== val.text) {
+          // If element has icon SVG, preserve icon if it's a simple button/badge
+          const icon = el.querySelector("svg");
+          if (icon && el.children.length === 1) {
+            const textNodes = Array.from(el.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE);
+            if (textNodes.length > 0) {
+              textNodes[textNodes.length - 1].textContent = " " + val.text.trim();
+            } else {
+              el.innerText = val.text;
+            }
+          } else {
+            el.innerText = val.text;
+          }
+        }
+      }
+      if (val.url) {
+        if (el.tagName.toLowerCase() === "a") {
+          el.setAttribute("href", val.url);
+        } else {
+          const parentA = el.closest("a");
+          if (parentA) parentA.setAttribute("href", val.url);
+        }
+      }
+    }
+  });
+}
+
 export function LiveEditorProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const normPath = React.useMemo(() => pathname.replace(/\/$/, "") || "/", [pathname]);
+
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [dbEdits, setDbEdits] = React.useState<Record<string, { text?: string; url?: string }>>({});
@@ -160,6 +318,7 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
     key: string;
     text: string;
     href: string;
+    element: HTMLElement | null;
   } | null>(null);
 
   // Check admin session & edit_mode query
@@ -186,17 +345,20 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
     }
   }, [isEditMode]);
 
-  // Fetch saved page contents from MySQL on path change
+  // Index DOM elements and fetch saved page contents from MySQL on path change
   React.useEffect(() => {
+    initPageElementKeys(normPath);
+
     async function loadPageContents() {
       try {
-        const res = await fetch(`/api/admin/page-content?page=${encodeURIComponent(pathname)}`, {
+        const res = await fetch(`/api/admin/page-content?page=${encodeURIComponent(normPath)}`, {
           cache: "no-store",
         });
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data) {
             setDbEdits((prev) => ({ ...prev, ...json.data }));
+            applyDbEditsToDom(json.data, normPath);
           }
         }
       } catch (err) {
@@ -204,29 +366,34 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
       }
     }
     loadPageContents();
-  }, [pathname]);
+  }, [normPath]);
 
-  // Apply saved edits to DOM elements on load/change
+  // Apply edits whenever dbEdits changes
   React.useEffect(() => {
-    if (!dbEdits || Object.keys(dbEdits).length === 0) return;
+    applyDbEditsToDom(dbEdits, normPath);
+  }, [dbEdits, normPath]);
 
-    Object.entries(dbEdits).forEach(([key, val]) => {
-      if (!val) return;
-      try {
-        const el = document.querySelector(`[data-live-id="${CSS.escape(key)}"]`) as HTMLElement | null;
-        if (el && document.activeElement !== el) {
-          if (val.text && el.innerText !== val.text) {
-            el.innerText = val.text;
-          }
-          if (val.url && el.tagName.toLowerCase() === "a") {
-            el.setAttribute("href", val.url);
-          }
+  // Observer to re-apply edits when dynamic React components (Framer Motion, Swiper, Tabs) mount
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    let timeout: NodeJS.Timeout;
+    const observer = new MutationObserver(() => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        initPageElementKeys(normPath);
+        if (Object.keys(dbEdits).length > 0) {
+          applyDbEditsToDom(dbEdits, normPath);
         }
-      } catch {
-        // Ignore query selector escape issues for edge keys
-      }
+      }, 100);
     });
-  }, [dbEdits, pathname]);
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      clearTimeout(timeout);
+    };
+  }, [normPath, dbEdits]);
 
   const getSavedValue = React.useCallback(
     (key: string) => {
@@ -256,6 +423,52 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
     }));
   }, []);
 
+  // -------------------------------------------------------------
+  // Instant Auto-Save Single Element (Saves automatically on blur)
+  // -------------------------------------------------------------
+  const autoSaveSingle = React.useCallback(
+    async (key: string, text?: string, url?: string) => {
+      if (!key) return false;
+      const current = pendingEdits[key] || dbEdits[key] || {};
+      const newText = text !== undefined ? text : current.text;
+      const newUrl = url !== undefined ? url : current.url;
+
+      try {
+        const res = await fetch("/api/admin/page-content", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify([
+            {
+              page_path: normPath,
+              element_key: key,
+              content_text: newText,
+              link_url: newUrl,
+            },
+          ]),
+        });
+
+        if (res.ok) {
+          setDbEdits((prev) => ({
+            ...prev,
+            [key]: { text: newText, url: newUrl },
+          }));
+          setPendingEdits((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          });
+          setFeedback("✓ Auto-saved live to hosting!");
+          setTimeout(() => setFeedback(null), 3000);
+          return true;
+        }
+      } catch (err: any) {
+        console.error("Auto-save error:", err);
+      }
+      return false;
+    },
+    [normPath, pendingEdits, dbEdits]
+  );
+
   const saveAllEdits = React.useCallback(async () => {
     const keys = Object.keys(pendingEdits);
     if (keys.length === 0) return true;
@@ -264,7 +477,7 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
     setFeedback(null);
 
     const items: PageEditItem[] = keys.map((k) => ({
-      page_path: pathname,
+      page_path: normPath,
       element_key: k,
       content_text: pendingEdits[k].text,
       link_url: pendingEdits[k].url,
@@ -279,10 +492,13 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
 
       if (!res.ok) throw new Error("Failed to save changes to database");
 
-      setDbEdits((prev) => ({ ...prev, ...pendingEdits }));
+      const merged = { ...dbEdits, ...pendingEdits };
+      setDbEdits(merged);
       setPendingEdits({});
-      setFeedback("Changes saved live to Hostinger MySQL!");
-      setTimeout(() => setFeedback(null), 3500);
+      applyDbEditsToDom(merged, normPath);
+
+      setFeedback("✓ Saved live to website & Hostinger MySQL!");
+      setTimeout(() => setFeedback(null), 4000);
       return true;
     } catch (err: any) {
       setFeedback("Error saving: " + err.message);
@@ -290,11 +506,12 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
     } finally {
       setSaving(false);
     }
-  }, [pendingEdits, pathname]);
+  }, [pendingEdits, normPath, dbEdits]);
 
   const discardEdits = React.useCallback(() => {
     setPendingEdits({});
-  }, []);
+    applyDbEditsToDom(dbEdits, normPath);
+  }, [dbEdits, normPath]);
 
   const pendingCount = Object.keys(pendingEdits).length;
 
@@ -305,17 +522,11 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
       p.description.toLowerCase().includes(pageSearch.toLowerCase())
   );
 
-  // Global In-Line Click-to-Edit Engine for ANY Text, Heading, or Button
+  // -------------------------------------------------------------
+  // Universal In-Line Direct Click-to-Edit Engine
+  // -------------------------------------------------------------
   React.useEffect(() => {
     if (!isEditMode) return;
-
-    const getElementKey = (el: HTMLElement) => {
-      if (el.getAttribute("data-live-id")) return el.getAttribute("data-live-id")!;
-      if (el.id && !el.id.startsWith("radix-")) return `${pathname}#${el.id}`;
-      const tag = el.tagName.toLowerCase();
-      const textSnippet = (el.innerText || "").trim().slice(0, 30).replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-      return `${pathname}::${tag}::${textSnippet}`;
-    };
 
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
@@ -324,51 +535,98 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
       // Ignore editor UI elements
       if (target.closest("[data-editor-ui='true']")) return;
 
-      // 1. If clicking a button or link: intercept to edit text and link URL
-      const btnOrLink = target.closest("a, button") as HTMLElement | null;
-      if (btnOrLink && !btnOrLink.closest("[data-editor-ui='true']")) {
+      // 1. If clicking specifically on a link edit trigger badge
+      const isLinkTrigger = target.closest("[data-link-edit-trigger='true']");
+      if (isLinkTrigger) {
         e.preventDefault();
         e.stopPropagation();
+        const parentBtnOrLink = isLinkTrigger.closest("a, button") as HTMLElement | null;
+        if (parentBtnOrLink) {
+          const btnKey = getStableElementId(parentBtnOrLink, normPath);
+          const currentSaved = getSavedValue(btnKey);
+          let existingHref = currentSaved?.url || parentBtnOrLink.getAttribute("href") || "";
+          let existingText = currentSaved?.text || parentBtnOrLink.innerText?.trim() || "";
 
-        const btnKey = btnOrLink.getAttribute("data-live-id") || getElementKey(btnOrLink);
-        const currentSaved = getSavedValue(btnKey);
-        const currentText = currentSaved?.text || btnOrLink.innerText.trim();
-        const currentHref = currentSaved?.url || btnOrLink.getAttribute("href") || "";
-
-        setButtonModal({
-          open: true,
-          key: btnKey,
-          text: currentText,
-          href: currentHref,
-        });
+          setButtonModal({
+            open: true,
+            key: btnKey,
+            text: existingText,
+            href: existingHref || "/",
+            element: parentBtnOrLink,
+          });
+        }
         return;
       }
 
-      // 2. If clicking any text element (h1-h6, p, li, blockquote, span, b, strong)
-      const textElem = target.closest("h1, h2, h3, h4, h5, h6, p, li, blockquote, span, b, strong") as HTMLElement | null;
+      // 2. Target the most specific text-bearing element under the cursor
+      const textElem = target.closest(
+        "h1, h2, h3, h4, h5, h6, p, li, blockquote, label, span, strong, em, b, small, a, button"
+      ) as HTMLElement | null;
+
       if (textElem && !textElem.closest("[data-editor-ui='true']")) {
-        if (!textElem.isContentEditable) {
+        // Prevent default navigation so clicking a link/button doesn't leave the page
+        const isAnchorOrButton = textElem.tagName.toLowerCase() === "a" || textElem.tagName.toLowerCase() === "button" || textElem.closest("a, button");
+        if (isAnchorOrButton) {
+          e.preventDefault();
+        }
+
+        const hasText = (textElem.innerText || "").trim().length > 0;
+        if (hasText) {
           textElem.setAttribute("contenteditable", "true");
           textElem.setAttribute("suppressContentEditableWarning", "true");
           textElem.setAttribute("spellcheck", "false");
           textElem.focus();
 
-          const elemKey = textElem.getAttribute("data-live-id") || getElementKey(textElem);
+          const elemKey = getStableElementId(textElem, normPath);
 
           const handleInput = () => {
             registerTextChange(elemKey, textElem.innerText);
           };
 
+          const handleBlur = () => {
+            const currentText = textElem.innerText.trim();
+            registerTextChange(elemKey, currentText);
+            // Automatic instant save to hosting on blur
+            autoSaveSingle(elemKey, currentText);
+          };
+
           textElem.addEventListener("input", handleInput);
+          textElem.addEventListener("blur", handleBlur, { once: true });
         }
       }
     };
 
+    // Double-click on any button or link opens the URL edit modal
+    const handleDblClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || target.closest("[data-editor-ui='true']")) return;
+
+      const btnOrLink = target.closest("a, button") as HTMLElement | null;
+      if (btnOrLink) {
+        e.preventDefault();
+        e.stopPropagation();
+        const btnKey = getStableElementId(btnOrLink, normPath);
+        const currentSaved = getSavedValue(btnKey);
+        const existingHref = currentSaved?.url || btnOrLink.getAttribute("href") || "/";
+        const existingText = currentSaved?.text || btnOrLink.innerText?.trim() || "";
+
+        setButtonModal({
+          open: true,
+          key: btnKey,
+          text: existingText,
+          href: existingHref,
+          element: btnOrLink,
+        });
+      }
+    };
+
     document.addEventListener("click", handleClick, true);
+    document.addEventListener("dblclick", handleDblClick, true);
     return () => {
       document.removeEventListener("click", handleClick, true);
+      document.removeEventListener("dblclick", handleDblClick, true);
     };
-  }, [isEditMode, pathname, getSavedValue, registerTextChange]);
+  }, [isEditMode, normPath, getSavedValue, registerTextChange, autoSaveSingle]);
 
   return (
     <LiveEditorContext.Provider
@@ -379,13 +637,14 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
         getSavedValue,
         registerTextChange,
         registerLinkChange,
+        autoSaveSingle,
         pendingEdits,
         saveAllEdits,
         discardEdits,
         saving,
       }}
     >
-      {/* Global CSS for seamless inline editing and text selection */}
+      {/* Global CSS for seamless inline editing, text selection, and hover guides */}
       <style jsx global>{`
         [data-editor-active="true"] * {
           user-select: text !important;
@@ -399,11 +658,20 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
         [data-editor-active="true"] h2:hover,
         [data-editor-active="true"] h3:hover,
         [data-editor-active="true"] p:hover,
-        [data-editor-active="true"] a:hover,
-        [data-editor-active="true"] button:hover {
+        [data-editor-active="true"] span:hover,
+        [data-editor-active="true"] li:hover {
           outline: 2px dashed #3b82f6 !important;
           outline-offset: 3px !important;
           cursor: text !important;
+          border-radius: 4px !important;
+        }
+        [data-editor-active="true"] a:hover,
+        [data-editor-active="true"] button:hover {
+          outline: 2px dashed #10b981 !important;
+          outline-offset: 3px !important;
+          cursor: pointer !important;
+          border-radius: 6px !important;
+          position: relative;
         }
         [data-editor-active="true"] [contenteditable="true"] {
           outline: 2px solid #2563eb !important;
@@ -426,7 +694,7 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
               <div className="font-bold flex items-center gap-1.5 text-slate-100">
                 <Edit3 className="w-4 h-4 text-blue-400" />
-                <span>GJTF Visual Live Editor</span>
+                <span>GJTF Live Editor</span>
               </div>
 
               {/* Current Page Pill + Switch Page Dropdown Trigger */}
@@ -439,7 +707,7 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
                   type="button"
                   onClick={() => setPageModalOpen(true)}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-900/60 hover:bg-blue-800 border border-blue-400/40 text-blue-200 text-[11px] font-bold cursor-pointer transition-all shadow-sm"
-                  title="Click to view and switch between all 10 website pages"
+                  title="Click to view and switch between all website pages"
                 >
                   <Layers className="w-3.5 h-3.5 text-blue-300" />
                   <span>Switch Page ({ALL_SITE_PAGES.length})</span>
@@ -450,7 +718,8 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
 
             <div className="flex items-center gap-2 sm:gap-3">
               {feedback && (
-                <span className="text-emerald-400 font-semibold px-2 py-0.5 bg-emerald-950/80 rounded-md border border-emerald-500/30 animate-fade-in text-[11px]">
+                <span className="text-emerald-400 font-semibold px-2.5 py-1 bg-emerald-950/90 rounded-md border border-emerald-500/40 animate-fade-in text-[11px] flex items-center gap-1 shadow-sm">
+                  <CheckCircle className="w-3.5 h-3.5" />
                   {feedback}
                 </span>
               )}
@@ -672,10 +941,15 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
         >
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 text-slate-900 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-blue-600" />
-                Edit Button & Link Target
-              </h3>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-blue-600" />
+                  Edit Button & Target Link
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Update button text and target link URL
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setButtonModal(null)}
@@ -685,15 +959,31 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
               </button>
             </div>
 
+            {/* Current Existing Link Indicator */}
+            <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200/60 flex items-center justify-between text-xs">
+              <span className="text-slate-600 font-medium">Existing Link:</span>
+              <span className="font-mono font-bold text-blue-700 truncate max-w-[200px]">
+                {buttonModal.href || "None (empty)"}
+              </span>
+            </div>
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 registerLinkChange(buttonModal.key, buttonModal.text, buttonModal.href);
-                // Also update the DOM element directly in real time
-                const el = document.querySelector(`[data-live-id="${CSS.escape(buttonModal.key)}"]`) as HTMLElement | null;
-                if (el) {
-                  el.innerText = buttonModal.text;
-                  if (el.tagName.toLowerCase() === "a") el.setAttribute("href", buttonModal.href);
+                // Auto-save immediately to hosting
+                autoSaveSingle(buttonModal.key, buttonModal.text, buttonModal.href);
+
+                // Update the DOM element directly in real time
+                if (buttonModal.element) {
+                  buttonModal.element.innerText = buttonModal.text;
+                  const anchor =
+                    buttonModal.element.tagName.toLowerCase() === "a"
+                      ? buttonModal.element
+                      : buttonModal.element.closest("a");
+                  if (anchor) {
+                    anchor.setAttribute("href", buttonModal.href);
+                  }
                 }
                 setButtonModal(null);
               }}
@@ -726,7 +1016,39 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2">
+              {/* Quick Link Shortcut Chips */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-semibold text-slate-500">
+                  Quick Page Link Shortcuts:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: "Home", url: "/" },
+                    { label: "Our Schools", url: "/our-school" },
+                    { label: "Volunteers", url: "/about-gjtf-volunteers" },
+                    { label: "University", url: "/university-chapter" },
+                    { label: "City Leads", url: "/city-chapter-leads" },
+                    { label: "Blogs", url: "/blogs" },
+                    { label: "Donate Now", url: "/donate-now" },
+                    { label: "Contact Us", url: "/contact-us" },
+                  ].map((shortcut) => (
+                    <button
+                      key={shortcut.url}
+                      type="button"
+                      onClick={() => setButtonModal({ ...buttonModal, href: shortcut.url })}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-all cursor-pointer ${
+                        buttonModal.href === shortcut.url
+                          ? "bg-blue-600 text-white font-bold"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {shortcut.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="outline"
@@ -737,7 +1059,7 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
                   Cancel
                 </Button>
                 <Button type="submit" variant="primary" size="sm" className="rounded-xl font-bold">
-                  Update Button
+                  Update Button & Link
                 </Button>
               </div>
             </form>
@@ -764,7 +1086,7 @@ export function EditableText({
   as?: any;
   className?: string;
 }) {
-  const { isEditMode, getSavedValue, registerTextChange } = useLiveEditor();
+  const { isEditMode, getSavedValue, registerTextChange, autoSaveSingle } = useLiveEditor();
   const saved = getSavedValue(id);
   const currentText = saved?.text !== undefined ? saved.text : defaultText;
   const elementRef = React.useRef<HTMLElement>(null);
@@ -785,6 +1107,7 @@ export function EditableText({
   const handleBlur = (e: React.FocusEvent<HTMLElement>) => {
     const text = e.currentTarget.innerText.trim();
     registerTextChange(id, text);
+    autoSaveSingle(id, text);
   };
 
   return (
@@ -824,7 +1147,7 @@ export function EditableButton({
   children?: React.ReactNode;
   className?: string;
 }) {
-  const { isEditMode, getSavedValue, registerLinkChange } = useLiveEditor();
+  const { isEditMode, getSavedValue, registerLinkChange, autoSaveSingle } = useLiveEditor();
   const [modalOpen, setModalOpen] = React.useState(false);
 
   const saved = getSavedValue(id);
@@ -842,13 +1165,29 @@ export function EditableButton({
   const handleSaveModal = (e: React.FormEvent) => {
     e.preventDefault();
     registerLinkChange(id, editText, editHref);
+    autoSaveSingle(id, editText, editHref);
     setModalOpen(false);
   };
+
+  // Helper to render child while applying edited text if children has text inside
+  let renderedContent = children || text;
+  if (saved?.text && React.isValidElement(children)) {
+    const childProps = (children as any).props || {};
+    if (Array.isArray(childProps.children)) {
+      const newChildren = childProps.children.map((c: any) => {
+        if (typeof c === "string") return ` ${text}`;
+        return c;
+      });
+      renderedContent = React.cloneElement(children as any, {}, ...newChildren);
+    } else if (typeof childProps.children === "string") {
+      renderedContent = React.cloneElement(children as any, {}, text);
+    }
+  }
 
   if (!isEditMode) {
     return (
       <a data-live-id={id} href={href} className={className}>
-        {children || text}
+        {renderedContent}
       </a>
     );
   }
@@ -860,24 +1199,30 @@ export function EditableButton({
           data-live-id={id}
           href={href}
           onClick={(e) => {
+            // In edit mode, allow typing text; double click or icon opens URL modal
+            e.preventDefault();
+          }}
+          onDoubleClick={(e) => {
             e.preventDefault();
             setModalOpen(true);
           }}
-          title="Click to edit button text & target link"
-          className={`${className} ring-2 ring-blue-400/80 ring-dashed hover:ring-solid cursor-pointer`}
+          title="Click to edit text, double-click to edit link URL"
+          className={`${className} ring-2 ring-emerald-400/80 ring-dashed hover:ring-solid cursor-text`}
         >
-          {children || text}
+          {renderedContent}
         </a>
 
-        {/* Floating pencil badge in edit mode */}
+        {/* Small floating link pencil badge */}
         <span
+          data-link-edit-trigger="true"
           onClick={(e) => {
             e.stopPropagation();
             setModalOpen(true);
           }}
-          className="absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] shadow cursor-pointer"
+          title="Click to edit link URL & destination"
+          className="absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center text-[10px] shadow cursor-pointer transition-transform hover:scale-110 z-10"
         >
-          <Edit3 className="w-2.5 h-2.5" />
+          <LinkIcon className="w-2.5 h-2.5" />
         </span>
       </span>
 
@@ -889,10 +1234,15 @@ export function EditableButton({
         >
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 text-slate-900 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-blue-600" />
-                Edit Button & Target Link
-              </h3>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-blue-600" />
+                  Edit Button & Target Link
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Update button text and target link URL
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
@@ -900,6 +1250,14 @@ export function EditableButton({
               >
                 <X className="w-4 h-4" />
               </button>
+            </div>
+
+            {/* Current Existing Link Indicator */}
+            <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200/60 flex items-center justify-between text-xs">
+              <span className="text-slate-600 font-medium">Existing Link:</span>
+              <span className="font-mono font-bold text-blue-700 truncate max-w-[200px]">
+                {editHref || defaultHref || "None"}
+              </span>
             </div>
 
             <form onSubmit={handleSaveModal} className="space-y-4 text-xs">
@@ -926,7 +1284,39 @@ export function EditableButton({
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2">
+              {/* Quick Link Shortcut Chips */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-semibold text-slate-500">
+                  Quick Page Link Shortcuts:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: "Home", url: "/" },
+                    { label: "Our Schools", url: "/our-school" },
+                    { label: "Volunteers", url: "/about-gjtf-volunteers" },
+                    { label: "University", url: "/university-chapter" },
+                    { label: "City Leads", url: "/city-chapter-leads" },
+                    { label: "Blogs", url: "/blogs" },
+                    { label: "Donate Now", url: "/donate-now" },
+                    { label: "Contact Us", url: "/contact-us" },
+                  ].map((shortcut) => (
+                    <button
+                      key={shortcut.url}
+                      type="button"
+                      onClick={() => setEditHref(shortcut.url)}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-all cursor-pointer ${
+                        editHref === shortcut.url
+                          ? "bg-blue-600 text-white font-bold"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {shortcut.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="outline"
@@ -937,7 +1327,7 @@ export function EditableButton({
                   Cancel
                 </Button>
                 <Button type="submit" variant="primary" size="sm" className="rounded-xl font-bold">
-                  Update Button
+                  Update Button & Link
                 </Button>
               </div>
             </form>

@@ -1,0 +1,13 @@
+{
+  "_info": "GJTF Foundation - Auto-persisted content store (Hardcoded Local & Vercel Sync)",
+  "pages": {
+    "/": {
+      "home::hero::h1_0::donate_to_educa": {
+        "text": "Donate to educate less-privileged children in Pakistan"
+      },
+      "home_hero_badge": {
+        "text": "JHUGGI TALEEMI PROJECT • ESTABLISHED 2014"
+      }
+    }
+  }
+}
