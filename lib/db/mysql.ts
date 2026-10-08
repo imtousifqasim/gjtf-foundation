@@ -673,9 +673,17 @@ export async function getPageContentsDb(pagePath?: string): Promise<Record<strin
       const raw = fs.readFileSync(jsonPath, "utf-8");
       const parsed = JSON.parse(raw);
       if (parsed.pages) {
-        const norm = (pagePath || "/").replace(/\/$/, "") || "/";
-        const pageData = parsed.pages[norm] || parsed.pages["*"] || {};
-        Object.assign(map, pageData);
+        if (pagePath) {
+          const norm = (pagePath || "/").replace(/\/$/, "") || "/";
+          const pageData = parsed.pages[norm] || parsed.pages["*"] || {};
+          Object.assign(map, pageData);
+        } else {
+          Object.values(parsed.pages).forEach((pageData: any) => {
+            if (pageData && typeof pageData === "object") {
+              Object.assign(map, pageData);
+            }
+          });
+        }
       }
     }
   } catch {

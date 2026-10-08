@@ -297,13 +297,34 @@ function applyDbEditsToDom(edits: Record<string, { text?: string; url?: string }
   });
 }
 
-export function LiveEditorProvider({ children }: { children: React.ReactNode }) {
+export function LiveEditorProvider({
+  children,
+  initialEdits = {},
+}: {
+  children: React.ReactNode;
+  initialEdits?: Record<string, { text?: string; url?: string }>;
+}) {
   const pathname = usePathname();
   const normPath = React.useMemo(() => pathname.replace(/\/$/, "") || "/", [pathname]);
 
   const [isAdmin, setIsAdmin] = React.useState(false);
   const [isEditMode, setIsEditMode] = React.useState(false);
-  const [dbEdits, setDbEdits] = React.useState<Record<string, { text?: string; url?: string }>>({});
+
+  // Synchronously initialize with server initialEdits + client localStorage cache to eliminate any flicker
+  const [dbEdits, setDbEdits] = React.useState<Record<string, { text?: string; url?: string }>>(() => {
+    let merged = { ...initialEdits };
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("gjtf_page_edits");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          merged = { ...merged, ...parsed };
+        }
+      } catch {}
+    }
+    return merged;
+  });
+
   const [pendingEdits, setPendingEdits] = React.useState<Record<string, { text?: string; url?: string }>>({});
   const [saving, setSaving] = React.useState(false);
   const [feedback, setFeedback] = React.useState<string | null>(null);
@@ -345,10 +366,16 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
     }
   }, [isEditMode]);
 
-  // Index DOM elements and fetch saved page contents from MySQL on path change
+  // Immediately apply initial edits to DOM on mount to prevent any delay
   React.useEffect(() => {
     initPageElementKeys(normPath);
+    if (Object.keys(dbEdits).length > 0) {
+      applyDbEditsToDom(dbEdits, normPath);
+    }
+  }, [normPath]);
 
+  // Index DOM elements and fetch saved page contents from MySQL on path change
+  React.useEffect(() => {
     async function loadPageContents() {
       try {
         const res = await fetch(`/api/admin/page-content?page=${encodeURIComponent(normPath)}`, {
@@ -357,7 +384,15 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data) {
-            setDbEdits((prev) => ({ ...prev, ...json.data }));
+            setDbEdits((prev) => {
+              const merged = { ...prev, ...json.data };
+              if (typeof window !== "undefined") {
+                try {
+                  localStorage.setItem("gjtf_page_edits", JSON.stringify(merged));
+                } catch {}
+              }
+              return merged;
+            });
             applyDbEditsToDom(json.data, normPath);
           }
         }
@@ -448,10 +483,18 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
         });
 
         if (res.ok) {
-          setDbEdits((prev) => ({
-            ...prev,
-            [key]: { text: newText, url: newUrl },
-          }));
+          setDbEdits((prev) => {
+            const merged = {
+              ...prev,
+              [key]: { text: newText, url: newUrl },
+            };
+            if (typeof window !== "undefined") {
+              try {
+                localStorage.setItem("gjtf_page_edits", JSON.stringify(merged));
+              } catch {}
+            }
+            return merged;
+          });
           setPendingEdits((prev) => {
             const next = { ...prev };
             delete next[key];
@@ -494,6 +537,11 @@ export function LiveEditorProvider({ children }: { children: React.ReactNode }) 
 
       const merged = { ...dbEdits, ...pendingEdits };
       setDbEdits(merged);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("gjtf_page_edits", JSON.stringify(merged));
+        } catch {}
+      }
       setPendingEdits({});
       applyDbEditsToDom(merged, normPath);
 

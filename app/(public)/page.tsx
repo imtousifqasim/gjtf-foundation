@@ -52,7 +52,7 @@ export default function HomePage() {
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24 text-center text-white space-y-6 sm:space-y-7">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 text-slate-100 text-xs sm:text-sm font-semibold tracking-wider uppercase shadow-lg">
             <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
-            <EditableText id="home_hero_badge" defaultText="Jhuggi Taleemi Project • Established 2014" />
+            <EditableText id="home_hero_badge" defaultText="JHUGGI TALEEMI PROJECT • ESTABLISHED 2015" />
           </div>
 
           <EditableText
