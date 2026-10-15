@@ -13,7 +13,7 @@ export function renderBaseEmailHtml({
   recipientEmail,
   unsubscribeUrl,
 }: BaseEmailOptions): string {
-  const logoUrl = "https://gjtf-foundation.vercel.app/images/Ghais-Jhuggi-Taleeem-Foundation-Logo.webp";
+  const logoUrl = "https://gjtf-foundation.vercel.app/images/Ghais-Jhuggi-Taleeem-Foundation-Logo.png";
   const siteUrl = "https://gjtfoundation.com";
 
   return `<!DOCTYPE html>

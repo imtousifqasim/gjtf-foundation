@@ -163,7 +163,7 @@ export default function DonateNowPage() {
 
     setSubmitting(false);
     if (res.success) {
-      setSubmittedId(res.donationId || "dn_verified");
+      setSubmittedId(res.referenceNo || res.donationId || "dn_verified");
     } else {
       setErrorMsg(res.message || "An error occurred while submitting your pledge.");
     }
@@ -242,6 +242,11 @@ export default function DonateNowPage() {
               <a href="#bank-details">
                 <Button variant="accent" size="lg" className="font-bold">
                   View Direct Bank Transfer Details
+                </Button>
+              </a>
+              <a href="/donor/login">
+                <Button variant="primary" size="lg" className="font-bold bg-primary-700 hover:bg-primary-600">
+                  Access My Donor Portal &rarr;
                 </Button>
               </a>
               <Button

@@ -20,43 +20,73 @@ export function formatCurrencyAmount(amount: number | string, currency: string =
   return `${currency.toUpperCase()} ${num.toLocaleString()}`;
 }
 
-const BANK_DETAILS_HTML = `
+export function getBankDetailsHtml(settings?: {
+  bank_title?: string;
+  bank_name?: string;
+  account_number?: string;
+  iban?: string;
+  branch_name?: string;
+  swift_code?: string;
+  doorstep_phone?: string;
+  jazzcash_number?: string;
+  easypaisa_number?: string;
+}): string {
+  const title = settings?.bank_title || "Ghais Jhuggi Taleem Foundation";
+  const bank = settings?.bank_name || "Meezan Bank Limited";
+  const acc = settings?.account_number || "02010103847291";
+  const iban = settings?.iban || "PK72MEZN0002010103847291";
+  const branch = settings?.branch_name || "Model Town Link Road Branch Lahore";
+  const swift = settings?.swift_code || "MEZNPKKA";
+  const doorstep = settings?.doorstep_phone || "0800-00823";
+  const jazz = settings?.jazzcash_number || "0303-3934771";
+  const easy = settings?.easypaisa_number || "0328-6477314";
+
+  return `
   <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; margin: 18px 0; overflow: hidden;">
     <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1;">
       <td colspan="2" style="padding: 12px 18px; font-weight: 700; color: #0b1536; font-size: 13px;">
-        Official Bank & Digital Accounts (Pakistan)
+        Official Bank &amp; Payment Accounts (Pakistan)
       </td>
     </tr>
     <tr>
       <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #334155;">
-        <strong style="color: #0b1536; display: block; margin-bottom: 2px;">Bank Transfer (Meezan Bank):</strong>
-        Account Title: <strong>Ghais Jhuggi Taleem Foundation</strong><br/>
-        Account Number: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">0218-0103984721</code><br/>
-        IBAN: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">PK35MEZN0002180103984721</code><br/>
-        Branch: Johar Town Branch, Lahore
+        <strong style="color: #0b1536; display: block; margin-bottom: 2px;">Bank Transfer (${bank}):</strong>
+        Account Title: <strong>${title}</strong><br/>
+        Account Number: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${acc}</code><br/>
+        IBAN: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${iban}</code><br/>
+        Branch: ${branch} (Swift: ${swift})
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #334155;">
+        <strong style="color: #0b1536; display: block; margin-bottom: 2px;">Doorstep Cash Collection:</strong>
+        Call our nationwide toll-free helpline: <strong style="color: #0a5c36;">${doorstep}</strong> (Toll-Free, 9 AM – 6 PM PKT)
       </td>
     </tr>
     <tr>
       <td style="padding: 14px 18px; font-size: 13px; color: #334155;">
-        <strong style="color: #0b1536; display: block; margin-bottom: 2px;">Mobile Wallets (JazzCash & EasyPaisa):</strong>
+        <strong style="color: #0b1536; display: block; margin-bottom: 2px;">Mobile Wallets (JazzCash &amp; EasyPaisa):</strong>
         Account Title: <strong>Tousif Qasim (Chairman GJTF)</strong><br/>
-        Mobile Number: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">0303-3934771</code> / <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">0328-6477314</code>
+        JazzCash: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${jazz}</code> | 
+        EasyPaisa: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${easy}</code>
       </td>
     </tr>
   </table>
-`;
+  `;
+}
+
+const BANK_DETAILS_HTML = getBankDetailsHtml();
 
 const BANK_DETAILS_TEXT = `
 Official Bank Details:
-Meezan Bank
+Meezan Bank Limited
 Account Title: Ghais Jhuggi Taleem Foundation
-Account No: 0218-0103984721
-IBAN: PK35MEZN0002180103984721
-Branch: Johar Town Branch, Lahore
+Account No: 02010103847291
+IBAN: PK72MEZN0002010103847291
+Branch: Model Town Link Road Branch Lahore (Swift: MEZNPKKA)
 
-JazzCash / EasyPaisa:
-Account Title: Tousif Qasim (Chairman GJTF)
-Number: 0303-3934771 / 0328-6477314
+Doorstep Cash / Cheque Collection Helpline: 0800-00823 (Toll-Free)
+Mobile Wallets: 0303-3934771 / 0328-6477314
 `;
 
 // -------------------------------------------------------------

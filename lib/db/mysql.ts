@@ -270,26 +270,38 @@ export async function getDonationStatsDb(): Promise<{
 }
 
 export async function createDonationDb(data: any): Promise<string> {
-  const id = "dn_" + Math.random().toString(36).substring(2, 11);
+  await ensureCoreTablesDb();
+  const id = data.id || "dn_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now().toString(36);
+  const currentYear = new Date().getFullYear();
+  const referenceNo = data.reference_no || `GJTF-${currentYear}-${Math.floor(100000 + Math.random() * 900000)}`;
+  const amountMinor = data.amount_minor || Math.round((Number(data.amount) || 0) * 100);
+
   const sql = `
     INSERT INTO donations (
-      id, cause, frequency, currency, amount, donation_type,
-      country, donor_name, donor_email, donor_phone, status, payment_reference
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      id, reference_no, donor_id, plan_id, cause, frequency, currency,
+      amount_minor, amount, donation_type, country, donor_name, donor_email,
+      donor_phone, status, payment_method, payment_reference, is_anonymous, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW());
   `;
   const params = [
     id,
+    referenceNo,
+    data.donor_id || null,
+    data.plan_id || null,
     data.cause,
-    data.frequency,
-    data.currency,
+    data.frequency || "once",
+    (data.currency || "PKR").toUpperCase(),
+    amountMinor,
     data.amount,
-    data.donation_type,
-    data.country,
+    data.donation_type || "General",
+    data.country || "Pakistan",
     data.donor_name || null,
     data.donor_email || null,
     data.donor_phone || null,
     data.status || "pending",
+    data.payment_method || "bank_transfer",
     data.payment_reference || null,
+    data.is_anonymous ? 1 : 0,
   ];
 
   await query(sql, params);
@@ -308,7 +320,7 @@ export async function createDonationDb(data: any): Promise<string> {
       donor_email: data.donor_email || null,
       donor_phone: data.donor_phone || null,
       status: data.status || "pending",
-      payment_reference: data.payment_reference || null,
+      payment_reference: referenceNo,
     })
   );
 
@@ -1068,10 +1080,27 @@ export interface EmailLogEntry {
   metadata?: any;
 }
 
+/**
+ * Redacts secret auth tokens, reset tokens, OTPs, and magic link query params
+ * before persisting to email_logs table, ensuring zero-leakage security.
+ */
+function redactSecretTokens(content: string): string {
+  if (!content) return content;
+  return content
+    .replace(/(token=)[a-zA-Z0-9_\-\.%]+/gi, "$1[secure-link-hidden]")
+    .replace(/(otp=)[0-9]{4,8}/gi, "$1[hidden]")
+    .replace(/(code=)[0-9a-zA-Z_\-]+/gi, "$1[hidden]")
+    .replace(/(rcptk_)[a-zA-Z0-9_\-]+/gi, "$1[hidden]");
+}
+
 export async function saveEmailLogDb(entry: EmailLogEntry): Promise<string> {
   await ensureEmailTablesDb();
   const id = entry.id || "eml_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now().toString(36);
   const metadataJson = entry.metadata ? JSON.stringify(entry.metadata) : null;
+
+  // Redact secrets for privacy
+  const sanitizedHtml = redactSecretTokens(entry.body_html || "");
+  const sanitizedText = entry.body_text ? redactSecretTokens(entry.body_text) : null;
 
   const sql = `
     INSERT INTO email_logs (
@@ -1090,8 +1119,8 @@ export async function saveEmailLogDb(entry: EmailLogEntry): Promise<string> {
     entry.recipient_email,
     entry.email_type,
     entry.subject,
-    entry.body_html,
-    entry.body_text || null,
+    sanitizedHtml,
+    sanitizedText,
     entry.status,
     entry.error_message || null,
     metadataJson,
@@ -1359,4 +1388,8 @@ export async function unsubscribeDonationReminderDb(token: string): Promise<bool
   );
   return (res.affectedRows || 0) > 0;
 }
+
+// Re-export core schema and donor database functions for unified access
+export * from "./coreSchema";
+export * from "./donorDb";
 

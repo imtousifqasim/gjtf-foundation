@@ -374,8 +374,11 @@ export function Footer() {
             © 2026 Ghais Jhuggi Taleem Foundation. All Rights Reserved.
           </div>
           <div className="flex items-center gap-6">
-            <Link href="/aims-and-objectives" className="hover:text-white transition-colors">
+            <Link href="/privacy-policy" className="hover:text-white transition-colors">
               Privacy Policy
+            </Link>
+            <Link href="/donor/login" className="hover:text-white transition-colors">
+              Donor Portal
             </Link>
             <Link href="/contact-us" className="hover:text-white transition-colors">
               Contact Us
