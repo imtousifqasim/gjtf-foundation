@@ -225,12 +225,12 @@ export async function cancelDonationReminderAction(pledgeId: string) {
 export async function sendDonationReminderNowAction(pledgeId: string) {
   try {
     // 1. Fetch donation details
-    const [donations]: any = await query("SELECT * FROM donations WHERE id = ? LIMIT 1", [pledgeId]);
-    if (!donations || donations.length === 0) {
+    const rows: any = await query("SELECT * FROM donations WHERE id = ? LIMIT 1", [pledgeId]);
+    if (!rows || rows.length === 0) {
       return { success: false, message: "Donation record not found." };
     }
 
-    const donation = donations[0];
+    const donation = rows[0];
     if (donation.status !== "pending") {
       return { success: false, message: `Cannot send reminder: pledge status is "${donation.status}".` };
     }

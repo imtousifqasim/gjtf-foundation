@@ -32,8 +32,8 @@ export async function updateDonationStatus(
 ) {
   try {
     // 1. Fetch donation details before/during update
-    const [donations]: any = await query("SELECT * FROM donations WHERE id = ? LIMIT 1", [donationId]);
-    const donation = donations && donations.length > 0 ? donations[0] : null;
+    const rows: any = await query("SELECT * FROM donations WHERE id = ? LIMIT 1", [donationId]);
+    const donation = rows && rows.length > 0 ? rows[0] : null;
 
     // 2. Update DB
     await updateDonationStatusDb(donationId, status);
@@ -153,8 +153,8 @@ export async function updateVolunteerStatus(
 ) {
   try {
     // 1. Fetch volunteer info before updating
-    const [volunteers]: any = await query("SELECT * FROM volunteer_signups WHERE id = ? LIMIT 1", [signupId]);
-    const volunteer = volunteers && volunteers.length > 0 ? volunteers[0] : null;
+    const rows: any = await query("SELECT * FROM volunteer_signups WHERE id = ? LIMIT 1", [signupId]);
+    const volunteer = rows && rows.length > 0 ? rows[0] : null;
 
     // 2. Update status in DB
     await updateVolunteerStatusDb(signupId, status);
@@ -217,8 +217,8 @@ export async function updateVolunteerStatus(
 export async function deleteVolunteerSignup(signupId: string, notify: boolean = true) {
   try {
     // 1. Fetch volunteer info before deletion
-    const [volunteers]: any = await query("SELECT * FROM volunteer_signups WHERE id = ? LIMIT 1", [signupId]);
-    const volunteer = volunteers && volunteers.length > 0 ? volunteers[0] : null;
+    const rows: any = await query("SELECT * FROM volunteer_signups WHERE id = ? LIMIT 1", [signupId]);
+    const volunteer = rows && rows.length > 0 ? rows[0] : null;
 
     // 2. Delete record
     await deleteVolunteerSignupDb(signupId);

@@ -1,5 +1,5 @@
-import { sendEmail as sendViaNodemailer, getSmtpConfig } from "./smtp";
-import { saveEmailLogDb, getEmailLogByIdDb, ensureEmailTablesDb } from "@/lib/db/mysql";
+import { sendEmail as sendViaNodemailer } from "./smtp";
+import { saveEmailLogDb, getEmailLogByIdDb } from "@/lib/db/mysql";
 
 export interface SendTransactionalEmailOptions {
   to: string;

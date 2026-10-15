@@ -28,16 +28,16 @@ export default async function DonationReceiptPage({
   const { id } = await params;
   const decodedId = decodeURIComponent(id);
 
-  const [donations]: any = await query(
+  const rows = await query<any[]>(
     "SELECT * FROM donations WHERE id = ? LIMIT 1",
     [decodedId]
   );
 
-  if (!donations || donations.length === 0) {
+  if (!rows || rows.length === 0) {
     notFound();
   }
 
-  const donation = donations[0];
+  const donation = rows[0];
   const donorName = donation.donor_name && donation.donor_name.trim() ? donation.donor_name : "Anonymous Supporter";
   const formattedAmt = formatCurrencyAmount(donation.amount, donation.currency);
   const receiptDate = new Date(donation.created_at || Date.now()).toLocaleDateString("en-PK", {
