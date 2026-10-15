@@ -1,7 +1,10 @@
+import { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
 
-export const metadata = {
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
   title: "Unsubscribe From Reminders | GJTF Foundation",
   description: "Manage your reminder preferences for Ghais Jhuggi Taleem Foundation pledges.",
 };
