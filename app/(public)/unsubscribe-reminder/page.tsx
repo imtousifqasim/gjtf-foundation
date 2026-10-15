@@ -12,10 +12,11 @@ export const metadata: Metadata = {
 export default async function UnsubscribeReminderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ success?: string; error?: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const { success, error } = await searchParams;
-  const isSuccess = success === "true";
+  const resolvedParams = await searchParams;
+  const isSuccess = resolvedParams?.success === "true";
+  const error = typeof resolvedParams?.error === "string" ? resolvedParams.error : "";
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center py-16 px-4 sm:px-6">

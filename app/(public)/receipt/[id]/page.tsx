@@ -45,7 +45,7 @@ export default async function DonationReceiptPage({
     month: "long",
     day: "numeric",
   });
-  const receiptNo = `GJTF-REC-${donation.id.slice(-8).toUpperCase()}`;
+  const receiptNo = `GJTF-REC-${String(donation.id || "").slice(-8).toUpperCase()}`;
 
   return (
     <div className="min-h-screen bg-slate-100 py-10 px-4 sm:px-6 lg:px-8 print:bg-white print:py-0 print:px-0">
