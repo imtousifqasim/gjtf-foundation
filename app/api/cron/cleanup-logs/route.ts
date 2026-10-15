@@ -3,6 +3,15 @@ import { getEmailSettingsDb, cleanupOldEmailLogsDb } from "@/lib/db/mysql";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Unified Nightly Cron Runner for GJTF Foundation.
+ * Fully compatible with Vercel Hobby (1 Cron Job limit) and expandable for Pro.
+ * 
+ * Executes:
+ * 1. Email log auto-cleanup per retention settings.
+ * 2. Automated monthly plan reminders (3-day notice) & next-cycle generation.
+ * 3. Pending donation pledge follow-up reminders.
+ */
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -17,9 +26,9 @@ export async function GET(req: NextRequest) {
     timestamp: new Date().toISOString(),
   };
 
+  // 1. Email Log Auto-Cleanup
   try {
     const settings = await getEmailSettingsDb();
-
     if (settings.auto_delete_enabled) {
       const deletedCount = await cleanupOldEmailLogsDb(settings.retention_days);
       results.logCleanup = {
@@ -30,7 +39,7 @@ export async function GET(req: NextRequest) {
     } else {
       results.logCleanup = {
         success: true,
-        message: "Auto-cleanup is disabled in email settings.",
+        message: "Auto-cleanup disabled in email settings.",
         deleted: 0,
       };
     }
@@ -39,22 +48,44 @@ export async function GET(req: NextRequest) {
     results.logCleanup = { success: false, error: err.message };
   }
 
-  // Also process monthly plans as part of nightly maintenance
+  // 2. Monthly Education Commitments & 3-Day Reminders
   try {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://gjtfoundation.com";
-    const cronUrl = new URL("/api/cron/monthly-plans", siteUrl).toString();
+    const planCronUrl = new URL("/api/cron/monthly-plans", siteUrl).toString();
 
     const headers: Record<string, string> = {};
     if (cronSecret) {
       headers["Authorization"] = `Bearer ${cronSecret}`;
     }
 
-    const planRes = await fetch(cronUrl, { headers });
+    const planRes = await fetch(planCronUrl, { headers });
     if (planRes.ok) {
       results.monthlyPlans = await planRes.json();
+    } else {
+      results.monthlyPlans = { status: planRes.status, statusText: planRes.statusText };
     }
   } catch (planErr: any) {
     results.monthlyPlans = { error: planErr.message };
+  }
+
+  // 3. Pending Donation Pledge Follow-up Reminders
+  try {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://gjtfoundation.com";
+    const reminderCronUrl = new URL("/api/cron/donation-reminders", siteUrl).toString();
+
+    const headers: Record<string, string> = {};
+    if (cronSecret) {
+      headers["Authorization"] = `Bearer ${cronSecret}`;
+    }
+
+    const reminderRes = await fetch(reminderCronUrl, { headers });
+    if (reminderRes.ok) {
+      results.donationReminders = await reminderRes.json();
+    } else {
+      results.donationReminders = { status: reminderRes.status, statusText: reminderRes.statusText };
+    }
+  } catch (remErr: any) {
+    results.donationReminders = { error: remErr.message };
   }
 
   return NextResponse.json({
