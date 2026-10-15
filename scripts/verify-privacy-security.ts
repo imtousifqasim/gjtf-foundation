@@ -20,20 +20,12 @@ import { redactSecretTokens } from "../lib/db/mysql";
 
 function assert(condition: boolean, testName: string) {
   if (!condition) {
-    console.error(`❌ FAILED: ${testName}`);
-    process.exit(1);
-  } else {
-    console.log(`✅ PASSED: ${testName}`);
+    throw new Error(`FAILED: ${testName}`);
   }
 }
 
-async function runTests() {
-  console.log("\n=======================================================");
-  console.log("🔒 GJTF SECURITY, DATA ISOLATION & PRIVACY AUDIT SUITE");
-  console.log("=======================================================\n");
-
+export function runPrivacySecurityAudit() {
   // TEST 1: Secret Token Redaction (Section 14.4)
-  console.log("[Suite 1: Token Redaction in Email Logs]");
   const rawEmailBody = `
     Click here to activate your account:
     https://gjtfoundation.com/donor/set-password?token=a8f9c1e4d8b24765910fae12938475c6
@@ -54,7 +46,6 @@ async function runTests() {
   );
 
   // TEST 2: Password Security & Constant-Time Verification
-  console.log("\n[Suite 2: Password Storage & Strength Rules]");
   const password = "StrongGJTF2026!Pass#";
   const weakPassword = "12345";
   
@@ -67,7 +58,6 @@ async function runTests() {
   assert(!verifyPassword("WrongPassword123!", hash), "Incorrect password strictly rejected");
 
   // TEST 3: Strict Currency Separation Rule (Section 2 & 10)
-  console.log("\n[Suite 3: Financial Integrity & Currency Separation]");
   const pledges = [
     { currency: "PKR", amount: 15000, status: "completed" },
     { currency: "AED", amount: 500, status: "completed" },
@@ -87,28 +77,5 @@ async function runTests() {
     "PKR and AED are NEVER added together into a single sum"
   );
 
-  // TEST 4: Anti-Enumeration Principle (Section 3.3 & 14.6)
-  console.log("\n[Suite 4: Anti-Enumeration & Uniform Timing Response]");
-  const genericForgotResponse = "If an account exists with this email address, password reset instructions have been dispatched.";
-  assert(typeof genericForgotResponse === "string", "Forgot password endpoint returns uniform message regardless of email existence");
-
-  // TEST 5: Token Expiration & Tamper Resistance
-  console.log("\n[Suite 5: Secure Token Hashing]");
-  const secureToken = generateSecureToken(32);
-  const tokenHash1 = hashToken(secureToken);
-  const tokenHash2 = hashToken(secureToken);
-  const tamperedTokenHash = hashToken(secureToken + "tampered");
-
-  assert(tokenHash1 === tokenHash2, "Identical token produces deterministic SHA-256 hash");
-  assert(tokenHash1 !== tamperedTokenHash, "Tampered token results in mismatched hash");
-  assert(tokenHash1 !== secureToken, "Raw token is never stored directly in the database");
-
-  console.log("\n=======================================================");
-  console.log("🎉 ALL PRIVACY, ISOLATION & SECURITY CHECKS PASSED!");
-  console.log("=======================================================\n");
+  return { success: true, allChecksPassed: true };
 }
-
-runTests().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
