@@ -1144,7 +1144,7 @@ export async function getEmailLogsDb(filters?: {
 
   const whereClause = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
-  const [countRows]: any = await query(
+  const countRows = await query<RowDataPacket[]>(
     `SELECT COUNT(*) as cnt FROM email_logs ${whereClause}`,
     params
   );
