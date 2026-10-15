@@ -18,6 +18,7 @@ import {
 import { sendTransactionalEmail, retryEmailLog } from "@/lib/email/sender";
 import { createVolunteerReplyEmail } from "@/lib/email/templates/volunteerTemplates";
 import { createDonationReminderEmail } from "@/lib/email/templates/donationTemplates";
+import { validateEmail } from "@/lib/validation";
 
 // -------------------------------------------------------------
 // Email Logs & Cleanup Actions
@@ -134,6 +135,14 @@ export async function sendVolunteerReplyAction({
   try {
     if (!recipientEmail || !message.trim()) {
       return { success: false, message: "Email and message are required." };
+    }
+
+    const emailRes = validateEmail(recipientEmail);
+    if (!emailRes.valid) {
+      return {
+        success: false,
+        message: `Recipient email is invalid: ${emailRes.error || "Please verify the recipient email address."}`,
+      };
     }
 
     const { subject: emailSubject, html, text } = createVolunteerReplyEmail({

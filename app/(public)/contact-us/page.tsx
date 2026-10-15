@@ -21,6 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { SectionHeading } from "@/components/shared/SectionHeading";
 import { submitContactForm } from "@/app/actions/contact";
+import { validateEmail } from "@/lib/validation";
+import { ValidationFeedback } from "@/components/shared/ValidationFeedback";
 
 export default function ContactUsPage() {
   const { settings } = useSiteSettings();
@@ -29,6 +31,9 @@ export default function ContactUsPage() {
   const [subject, setSubject] = React.useState("");
   const [message, setMessage] = React.useState("");
 
+  const [emailError, setEmailError] = React.useState<string | null>(null);
+  const [emailSuggestion, setEmailSuggestion] = React.useState<string | null>(null);
+
   const [submitting, setSubmitting] = React.useState(false);
   const [success, setSuccess] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
@@ -36,8 +41,32 @@ export default function ContactUsPage() {
   const charCount = message.length;
   const MAX_CHARS = 180;
 
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    if (!val.trim()) {
+      setEmailError(null);
+      setEmailSuggestion(null);
+      return;
+    }
+    const res = validateEmail(val);
+    if (!res.valid) {
+      setEmailError(res.error || null);
+      setEmailSuggestion(res.suggestion || null);
+    } else {
+      setEmailError(null);
+      setEmailSuggestion(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailRes = validateEmail(email);
+    if (!emailRes.valid) {
+      setEmailError(emailRes.error || "Please enter a valid email address");
+      setEmailSuggestion(emailRes.suggestion || null);
+      return;
+    }
+
     setSubmitting(true);
     setErrorMsg(null);
 
@@ -252,7 +281,17 @@ export default function ContactUsPage() {
                       required
                       placeholder="name@example.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => handleEmailChange(e.target.value)}
+                      className={emailError ? "border-red-400 focus-visible:ring-red-400" : ""}
+                    />
+                    <ValidationFeedback
+                      error={emailError}
+                      suggestion={emailSuggestion}
+                      onApplySuggestion={(sug) => {
+                        setEmail(sug);
+                        setEmailError(null);
+                        setEmailSuggestion(null);
+                      }}
                     />
                   </div>
 

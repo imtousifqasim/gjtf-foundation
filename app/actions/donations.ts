@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createDonationDb } from "@/lib/db/mysql";
 import { sendTransactionalEmail } from "@/lib/email/sender";
 import { createDonationReceivedEmail } from "@/lib/email/templates/donationTemplates";
+import { validateEmail, validatePhoneNumber } from "@/lib/validation";
 
 const donationSchema = z.object({
   cause: z.enum([
@@ -19,8 +20,8 @@ const donationSchema = z.object({
   donation_type: z.enum(["General", "Zakat", "Sadqah"]),
   country: z.string().min(1, "Please select a country"),
   donor_name: z.string().min(2, "Name is required").optional().or(z.literal("")),
-  donor_email: z.string().email("Valid email is required").optional().or(z.literal("")),
-  donor_phone: z.string().min(8, "Valid phone number is required").optional().or(z.literal("")),
+  donor_email: z.string().optional().or(z.literal("")),
+  donor_phone: z.string().optional().or(z.literal("")),
   message: z.string().max(500).optional(),
 });
 
@@ -37,8 +38,38 @@ export async function submitDonation(input: DonationInput) {
     };
   }
 
+  const rawEmail = (parsed.data.donor_email || "").trim();
+  let cleanedEmail = "";
+  if (rawEmail) {
+    const emailRes = validateEmail(rawEmail);
+    if (!emailRes.valid) {
+      return {
+        success: false,
+        message: emailRes.error || "Please enter a valid donor email address.",
+      };
+    }
+    cleanedEmail = emailRes.cleaned;
+  }
+
+  const rawPhone = (parsed.data.donor_phone || "").trim();
+  let cleanedPhone = "";
+  if (rawPhone) {
+    const phoneRes = validatePhoneNumber(rawPhone);
+    if (!phoneRes.valid) {
+      return {
+        success: false,
+        message: phoneRes.error || "Please enter a valid donor phone / WhatsApp number.",
+      };
+    }
+    cleanedPhone = phoneRes.formatted;
+  }
+
   try {
-    const data = parsed.data;
+    const data = {
+      ...parsed.data,
+      donor_email: cleanedEmail || null,
+      donor_phone: cleanedPhone || null,
+    };
     const donationId = await createDonationDb(data);
 
     // Asynchronously dispatch donation acknowledgment email

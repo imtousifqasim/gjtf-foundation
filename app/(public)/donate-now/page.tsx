@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { submitDonation, DonationInput } from "@/app/actions/donations";
 import { formatCurrency } from "@/lib/utils";
+import { validateEmail, validatePhoneNumber } from "@/lib/validation";
+import { ValidationFeedback } from "@/components/shared/ValidationFeedback";
 
 const CAUSES = [
   { id: "General Education", label: "General Education", desc: "Support foundational schooling & literacy" },
@@ -52,9 +54,44 @@ export default function DonateNowPage() {
   const [donorPhone, setDonorPhone] = React.useState("");
   const [donorMessage, setDonorMessage] = React.useState("");
 
+  const [emailError, setEmailError] = React.useState<string | null>(null);
+  const [emailSuggestion, setEmailSuggestion] = React.useState<string | null>(null);
+  const [phoneError, setPhoneError] = React.useState<string | null>(null);
+
   const [submitting, setSubmitting] = React.useState(false);
   const [submittedId, setSubmittedId] = React.useState<string | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  const handleEmailChange = (val: string) => {
+    setDonorEmail(val);
+    if (!val.trim()) {
+      setEmailError(null);
+      setEmailSuggestion(null);
+      return;
+    }
+    const res = validateEmail(val);
+    if (!res.valid) {
+      setEmailError(res.error || null);
+      setEmailSuggestion(res.suggestion || null);
+    } else {
+      setEmailError(null);
+      setEmailSuggestion(null);
+    }
+  };
+
+  const handlePhoneChange = (val: string) => {
+    setDonorPhone(val);
+    if (!val.trim()) {
+      setPhoneError(null);
+      return;
+    }
+    const res = validatePhoneNumber(val);
+    if (!res.valid) {
+      setPhoneError(res.error || null);
+    } else {
+      setPhoneError(null);
+    }
+  };
 
   // Calculate actual numeric amount
   const finalAmount = isCustom ? Number(customAmount) || 0 : selectedAmount;
@@ -89,6 +126,23 @@ export default function DonateNowPage() {
     if (finalAmount < 100) {
       setErrorMsg("Please enter a donation amount of at least 100.");
       return;
+    }
+
+    if (donorEmail.trim()) {
+      const emailRes = validateEmail(donorEmail);
+      if (!emailRes.valid) {
+        setEmailError(emailRes.error || "Please enter a valid email address");
+        setEmailSuggestion(emailRes.suggestion || null);
+        return;
+      }
+    }
+
+    if (donorPhone.trim()) {
+      const phoneRes = validatePhoneNumber(donorPhone);
+      if (!phoneRes.valid) {
+        setPhoneError(phoneRes.error || "Please enter a valid phone number");
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -458,20 +512,32 @@ export default function DonateNowPage() {
                     type="email"
                     placeholder="donor@example.com"
                     value={donorEmail}
-                    onChange={(e) => setDonorEmail(e.target.value)}
+                    onChange={(e) => handleEmailChange(e.target.value)}
+                    className={emailError ? "border-red-400 focus-visible:ring-red-400" : ""}
+                  />
+                  <ValidationFeedback
+                    error={emailError}
+                    suggestion={emailSuggestion}
+                    onApplySuggestion={(sug) => {
+                      setDonorEmail(sug);
+                      setEmailError(null);
+                      setEmailSuggestion(null);
+                    }}
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-charcoal mb-1">
-                  Phone Number (For doorstep collection or WhatsApp confirmation)
+                  Phone / WhatsApp Number (For doorstep collection or confirmation)
                 </label>
                 <Input
-                  placeholder="0300-1234567"
+                  placeholder="0300-1234567 or +923001234567"
                   value={donorPhone}
-                  onChange={(e) => setDonorPhone(e.target.value)}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  className={phoneError ? "border-red-400 focus-visible:ring-red-400" : ""}
                 />
+                <ValidationFeedback error={phoneError} />
               </div>
 
               {/* Order Summary Pill */}
