@@ -3,6 +3,8 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createDonationDb } from "@/lib/db/mysql";
+import { sendTransactionalEmail } from "@/lib/email/sender";
+import { createDonationReceivedEmail } from "@/lib/email/templates/donationTemplates";
 
 const donationSchema = z.object({
   cause: z.enum([
@@ -38,6 +40,37 @@ export async function submitDonation(input: DonationInput) {
   try {
     const data = parsed.data;
     const donationId = await createDonationDb(data);
+
+    // Asynchronously dispatch donation acknowledgment email
+    if (data.donor_email && data.donor_email.trim() !== "") {
+      (async () => {
+        try {
+          const { subject, html, text } = createDonationReceivedEmail({
+            pledgeId: donationId,
+            donorName: data.donor_name,
+            donorEmail: data.donor_email,
+            donorPhone: data.donor_phone,
+            amount: data.amount,
+            currency: data.currency || "PKR",
+            cause: data.cause,
+            frequency: data.frequency,
+            donationType: data.donation_type,
+          });
+
+          await sendTransactionalEmail({
+            to: data.donor_email,
+            recipientName: data.donor_name,
+            emailType: "donation_received",
+            subject,
+            html,
+            text,
+            metadata: { donationId, amount: data.amount, currency: data.currency },
+          });
+        } catch (emErr: any) {
+          console.warn("Could not dispatch donation confirmation email:", emErr.message);
+        }
+      })();
+    }
 
     revalidatePath("/admin");
     revalidatePath("/admin/donations");

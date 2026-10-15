@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 import { createVolunteerSignupDb } from "@/lib/db/mysql";
+import { sendTransactionalEmail } from "@/lib/email/sender";
+import { createVolunteerSignupEmail } from "@/lib/email/templates/volunteerTemplates";
 
 const volunteerSchema = z.object({
   type: z.enum(["general", "university_chapter", "city_chapter"]),
@@ -28,11 +30,39 @@ export async function submitVolunteerSignup(input: VolunteerInput) {
 
   try {
     const data = parsed.data;
-    await createVolunteerSignupDb(data);
+    const signupId = await createVolunteerSignupDb(data);
+
+    // Asynchronously dispatch confirmation email without blocking user response
+    (async () => {
+      try {
+        const { subject, html, text } = createVolunteerSignupEmail({
+          full_name: data.full_name,
+          email: data.email,
+          phone: data.phone,
+          type: data.type,
+          city: data.city,
+          university: data.university,
+          message: data.message,
+        });
+
+        await sendTransactionalEmail({
+          to: data.email,
+          recipientName: data.full_name,
+          emailType: "volunteer_signup",
+          subject,
+          html,
+          text,
+          metadata: { signupId, role: data.type },
+        });
+      } catch (emErr: any) {
+        console.warn("Could not dispatch volunteer signup email:", emErr.message);
+      }
+    })();
 
     return {
       success: true,
-      message: "Welcome to GJTF Volunteers! Our chapter coordinator will contact you shortly.",
+      signupId,
+      message: "Welcome to GJTF Volunteers! A confirmation email has been sent and our chapter coordinator will contact you shortly.",
     };
   } catch (error) {
     console.error("Server Action submitVolunteerSignup exception:", error);

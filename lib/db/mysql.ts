@@ -899,6 +899,9 @@ export async function exportFullDatabaseSql(): Promise<string> {
     "smtp_settings",
     "admin_security",
     "page_contents",
+    "email_logs",
+    "donation_reminders",
+    "email_settings",
   ];
 
   let sqlDump = `-- =============================================================\n`;
@@ -966,3 +969,394 @@ export async function exportFullDatabaseSql(): Promise<string> {
   sqlDump += `-- [End of GJTF Database Backup]\n`;
   return sqlDump;
 }
+
+// -------------------------------------------------------------
+// 14. Transactional Email System: Logs, Settings, Reminders
+// -------------------------------------------------------------
+
+let emailTablesInitialized = false;
+let emailTablesInitPromise: Promise<void> | null = null;
+
+export async function ensureEmailTablesDb(): Promise<void> {
+  if (emailTablesInitialized) return;
+  if (emailTablesInitPromise) return emailTablesInitPromise;
+
+  emailTablesInitPromise = (async () => {
+    try {
+      const pool = getPool();
+
+      // 1. email_logs
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS email_logs (
+          id VARCHAR(64) PRIMARY KEY,
+          recipient_name VARCHAR(255) NULL,
+          recipient_email VARCHAR(255) NOT NULL,
+          email_type VARCHAR(64) NOT NULL,
+          subject VARCHAR(500) NOT NULL,
+          body_html LONGTEXT NOT NULL,
+          body_text LONGTEXT NULL,
+          status VARCHAR(32) NOT NULL DEFAULT 'sent',
+          error_message TEXT NULL,
+          metadata JSON NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_created (created_at),
+          INDEX idx_type (email_type),
+          INDEX idx_status (status),
+          INDEX idx_recipient (recipient_email)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      // 2. donation_reminders
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS donation_reminders (
+          id VARCHAR(64) PRIMARY KEY,
+          pledge_id VARCHAR(64) NOT NULL,
+          scheduled_at TIMESTAMP NOT NULL,
+          repeat_interval_days INT DEFAULT 0,
+          max_reminders INT DEFAULT 1,
+          sent_count INT DEFAULT 0,
+          last_sent_at TIMESTAMP NULL,
+          custom_message TEXT NULL,
+          status VARCHAR(32) NOT NULL DEFAULT 'active',
+          unsubscribe_token VARCHAR(128) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_pledge (pledge_id),
+          INDEX idx_scheduled (scheduled_at),
+          INDEX idx_status (status),
+          INDEX idx_token (unsubscribe_token)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      // 3. email_settings
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS email_settings (
+          id VARCHAR(32) PRIMARY KEY DEFAULT 'default',
+          auto_delete_enabled TINYINT(1) DEFAULT 0,
+          retention_days INT DEFAULT 30,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await pool.query(`
+        INSERT IGNORE INTO email_settings (id, auto_delete_enabled, retention_days)
+        VALUES ('default', 0, 30);
+      `);
+
+      emailTablesInitialized = true;
+    } catch (err: any) {
+      console.warn("Could not auto-create email tables on MySQL:", err.message);
+    } finally {
+      emailTablesInitPromise = null;
+    }
+  })();
+
+  return emailTablesInitPromise;
+}
+
+export interface EmailLogEntry {
+  id?: string;
+  recipient_name?: string | null;
+  recipient_email: string;
+  email_type: string;
+  subject: string;
+  body_html: string;
+  body_text?: string | null;
+  status: "sent" | "failed";
+  error_message?: string | null;
+  metadata?: any;
+}
+
+export async function saveEmailLogDb(entry: EmailLogEntry): Promise<string> {
+  await ensureEmailTablesDb();
+  const id = entry.id || "eml_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now().toString(36);
+  const metadataJson = entry.metadata ? JSON.stringify(entry.metadata) : null;
+
+  const sql = `
+    INSERT INTO email_logs (
+      id, recipient_name, recipient_email, email_type, subject,
+      body_html, body_text, status, error_message, metadata
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      status = VALUES(status),
+      error_message = VALUES(error_message),
+      updated_at = CURRENT_TIMESTAMP;
+  `;
+
+  await query(sql, [
+    id,
+    entry.recipient_name || null,
+    entry.recipient_email,
+    entry.email_type,
+    entry.subject,
+    entry.body_html,
+    entry.body_text || null,
+    entry.status,
+    entry.error_message || null,
+    metadataJson,
+  ]);
+
+  return id;
+}
+
+export async function getEmailLogsDb(filters?: {
+  search?: string;
+  type?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ logs: any[]; total: number }> {
+  await ensureEmailTablesDb();
+  const limit = Math.min(filters?.limit || 50, 200);
+  const offset = filters?.offset || 0;
+
+  const conditions: string[] = [];
+  const params: any[] = [];
+
+  if (filters?.search?.trim()) {
+    conditions.push("(recipient_name LIKE ? OR recipient_email LIKE ? OR subject LIKE ?)");
+    const s = `%${filters.search.trim()}%`;
+    params.push(s, s, s);
+  }
+
+  if (filters?.type && filters.type !== "All") {
+    conditions.push("email_type = ?");
+    params.push(filters.type);
+  }
+
+  if (filters?.status && filters.status !== "All") {
+    conditions.push("status = ?");
+    params.push(filters.status);
+  }
+
+  if (filters?.startDate) {
+    conditions.push("created_at >= ?");
+    params.push(filters.startDate + " 00:00:00");
+  }
+
+  if (filters?.endDate) {
+    conditions.push("created_at <= ?");
+    params.push(filters.endDate + " 23:59:59");
+  }
+
+  const whereClause = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
+
+  const [countRows]: any = await query(
+    `SELECT COUNT(*) as cnt FROM email_logs ${whereClause}`,
+    params
+  );
+  const total = Number(countRows[0]?.cnt) || 0;
+
+  const logs = await query<RowDataPacket[]>(
+    `SELECT id, recipient_name, recipient_email, email_type, subject, status, error_message, created_at
+     FROM email_logs ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+
+  return { logs, total };
+}
+
+export async function getEmailLogByIdDb(id: string): Promise<any | null> {
+  await ensureEmailTablesDb();
+  const rows = await query<RowDataPacket[]>(
+    "SELECT * FROM email_logs WHERE id = ? LIMIT 1",
+    [id]
+  );
+  if (!rows || rows.length === 0) return null;
+  const log = rows[0];
+  if (typeof log.metadata === "string") {
+    try {
+      log.metadata = JSON.parse(log.metadata);
+    } catch {}
+  }
+  return log;
+}
+
+export async function deleteEmailLogDb(id: string): Promise<void> {
+  await ensureEmailTablesDb();
+  await query("DELETE FROM email_logs WHERE id = ?", [id]);
+}
+
+export async function bulkDeleteEmailLogsDb(ids: string[]): Promise<number> {
+  await ensureEmailTablesDb();
+  if (!ids || ids.length === 0) return 0;
+  const placeholders = ids.map(() => "?").join(",");
+  const res: any = await query(`DELETE FROM email_logs WHERE id IN (${placeholders})`, ids);
+  return res.affectedRows || 0;
+}
+
+export async function clearAllEmailLogsDb(): Promise<void> {
+  await ensureEmailTablesDb();
+  await query("TRUNCATE TABLE email_logs");
+}
+
+export async function cleanupOldEmailLogsDb(retentionDays: number): Promise<number> {
+  await ensureEmailTablesDb();
+  const safeDays = Math.max(1, retentionDays);
+  const res: any = await query(
+    `DELETE FROM email_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)`,
+    [safeDays]
+  );
+  return res.affectedRows || 0;
+}
+
+// Email Settings
+export async function getEmailSettingsDb(): Promise<{ auto_delete_enabled: boolean; retention_days: number }> {
+  await ensureEmailTablesDb();
+  const rows = await query<RowDataPacket[]>(
+    "SELECT auto_delete_enabled, retention_days FROM email_settings WHERE id = 'default' LIMIT 1"
+  );
+  if (!rows || rows.length === 0) {
+    return { auto_delete_enabled: false, retention_days: 30 };
+  }
+  return {
+    auto_delete_enabled: Boolean(rows[0].auto_delete_enabled),
+    retention_days: Number(rows[0].retention_days) || 30,
+  };
+}
+
+export async function saveEmailSettingsDb(settings: {
+  auto_delete_enabled: boolean;
+  retention_days: number;
+}): Promise<void> {
+  await ensureEmailTablesDb();
+  await query(
+    `INSERT INTO email_settings (id, auto_delete_enabled, retention_days)
+     VALUES ('default', ?, ?)
+     ON DUPLICATE KEY UPDATE
+       auto_delete_enabled = VALUES(auto_delete_enabled),
+       retention_days = VALUES(retention_days),
+       updated_at = CURRENT_TIMESTAMP`,
+    [settings.auto_delete_enabled ? 1 : 0, settings.retention_days]
+  );
+}
+
+// Donation Reminders
+export interface DonationReminderDbRecord {
+  id: string;
+  pledge_id: string;
+  scheduled_at: string;
+  repeat_interval_days: number;
+  max_reminders: number;
+  sent_count: number;
+  last_sent_at?: string | null;
+  custom_message?: string | null;
+  status: "active" | "cancelled" | "completed";
+  unsubscribe_token: string;
+}
+
+export async function saveDonationReminderDb(data: {
+  pledge_id: string;
+  scheduled_at: string;
+  repeat_interval_days?: number;
+  max_reminders?: number;
+  custom_message?: string | null;
+}): Promise<string> {
+  await ensureEmailTablesDb();
+  const existing = await getDonationReminderByPledgeDb(data.pledge_id);
+  const id = existing?.id || "rem_" + Math.random().toString(36).substring(2, 11);
+  const token = existing?.unsubscribe_token || "unsub_" + Math.random().toString(36).substring(2, 15) + "_" + Date.now().toString(36);
+
+  const sql = `
+    INSERT INTO donation_reminders (
+      id, pledge_id, scheduled_at, repeat_interval_days, max_reminders,
+      sent_count, custom_message, status, unsubscribe_token
+    ) VALUES (?, ?, ?, ?, ?, 0, ?, 'active', ?)
+    ON DUPLICATE KEY UPDATE
+      scheduled_at = VALUES(scheduled_at),
+      repeat_interval_days = VALUES(repeat_interval_days),
+      max_reminders = VALUES(max_reminders),
+      custom_message = VALUES(custom_message),
+      status = 'active',
+      updated_at = CURRENT_TIMESTAMP;
+  `;
+
+  await query(sql, [
+    id,
+    data.pledge_id,
+    data.scheduled_at,
+    data.repeat_interval_days || 0,
+    data.max_reminders || 1,
+    data.custom_message || null,
+    token,
+  ]);
+
+  return id;
+}
+
+export async function getDonationReminderByPledgeDb(pledge_id: string): Promise<DonationReminderDbRecord | null> {
+  await ensureEmailTablesDb();
+  const rows = await query<RowDataPacket[]>(
+    "SELECT * FROM donation_reminders WHERE pledge_id = ? ORDER BY created_at DESC LIMIT 1",
+    [pledge_id]
+  );
+  if (!rows || rows.length === 0) return null;
+  return rows[0] as DonationReminderDbRecord;
+}
+
+export async function getAllActiveDonationRemindersDb(): Promise<DonationReminderDbRecord[]> {
+  await ensureEmailTablesDb();
+  const rows = await query<RowDataPacket[]>(
+    "SELECT * FROM donation_reminders WHERE status = 'active'"
+  );
+  return rows as DonationReminderDbRecord[];
+}
+
+export async function getDueDonationRemindersDb(): Promise<any[]> {
+  await ensureEmailTablesDb();
+  const sql = `
+    SELECT r.*, d.donor_name, d.donor_email, d.donor_phone, d.amount, d.currency, d.cause, d.status as donation_status, d.created_at as pledge_date
+    FROM donation_reminders r
+    INNER JOIN donations d ON r.pledge_id = d.id
+    WHERE r.status = 'active'
+      AND r.scheduled_at <= NOW()
+      AND d.status = 'pending'
+      AND d.donor_email IS NOT NULL
+      AND d.donor_email != ''
+  `;
+  return await query<RowDataPacket[]>(sql);
+}
+
+export async function markReminderSentDb(id: string, nextSchedule?: string | null): Promise<void> {
+  await ensureEmailTablesDb();
+  if (nextSchedule) {
+    await query(
+      `UPDATE donation_reminders
+       SET sent_count = sent_count + 1,
+           last_sent_at = NOW(),
+           scheduled_at = ?
+       WHERE id = ?`,
+      [nextSchedule, id]
+    );
+  } else {
+    await query(
+      `UPDATE donation_reminders
+       SET sent_count = sent_count + 1,
+           last_sent_at = NOW(),
+           status = 'completed'
+       WHERE id = ?`,
+      [id]
+    );
+  }
+}
+
+export async function cancelDonationReminderDb(pledge_id: string): Promise<void> {
+  await ensureEmailTablesDb();
+  await query(
+    "UPDATE donation_reminders SET status = 'cancelled' WHERE pledge_id = ? AND status = 'active'",
+    [pledge_id]
+  );
+}
+
+export async function unsubscribeDonationReminderDb(token: string): Promise<boolean> {
+  await ensureEmailTablesDb();
+  const res: any = await query(
+    "UPDATE donation_reminders SET status = 'cancelled' WHERE unsubscribe_token = ?",
+    [token]
+  );
+  return (res.affectedRows || 0) > 0;
+}
+

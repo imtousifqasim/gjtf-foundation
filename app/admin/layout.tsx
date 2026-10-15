@@ -19,7 +19,7 @@ import {
   ShieldCheck,
   Server,
   MailCheck,
-  Edit3,
+  Send,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ const ADMIN_NAV = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Live Visual Editor", href: "/admin/visual-editor", icon: Edit3 },
   { label: "Donations", href: "/admin/donations", icon: Heart },
+  { label: "Email Logs", href: "/admin/email-logs", icon: Send },
   { label: "Contact Messages", href: "/admin/contact-messages", icon: Mail },
   { label: "Volunteer Sign-ups", href: "/admin/volunteer-signups", icon: Users },
   { label: "Subscribers", href: "/admin/subscribers", icon: MailCheck },
