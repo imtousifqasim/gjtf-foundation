@@ -20,6 +20,7 @@ import {
   Server,
   MailCheck,
   Send,
+  Edit3,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
