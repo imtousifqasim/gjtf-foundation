@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { resetPasswordWithTokenAction } from "@/app/actions/donorAuth";
 
-export default function DonorResetPasswordPage() {
+function DonorResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
@@ -173,5 +173,19 @@ export default function DonorResetPasswordPage() {
         </form>
       )}
     </div>
+  );
+}
+
+export default function DonorResetPasswordPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="min-h-[300px] flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-emerald-700" />
+        </div>
+      }
+    >
+      <DonorResetPasswordForm />
+    </React.Suspense>
   );
 }

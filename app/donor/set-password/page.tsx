@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setPasswordFromWelcomeAction } from "@/app/actions/donorAuth";
 
-export default function DonorSetPasswordPage() {
+function DonorSetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
@@ -172,5 +172,19 @@ export default function DonorSetPasswordPage() {
         </form>
       )}
     </div>
+  );
+}
+
+export default function DonorSetPasswordPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="min-h-[300px] flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-emerald-700" />
+        </div>
+      }
+    >
+      <DonorSetPasswordForm />
+    </React.Suspense>
   );
 }

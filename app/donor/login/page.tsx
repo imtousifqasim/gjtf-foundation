@@ -22,7 +22,7 @@ import {
   verifyMagicLinkOrOtpAction,
 } from "@/app/actions/donorAuth";
 
-export default function DonorLoginPage() {
+function DonorLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tokenFromUrl = searchParams.get("token");
@@ -332,5 +332,19 @@ export default function DonorLoginPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function DonorLoginPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="min-h-[300px] flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-emerald-700" />
+        </div>
+      }
+    >
+      <DonorLoginForm />
+    </React.Suspense>
   );
 }
