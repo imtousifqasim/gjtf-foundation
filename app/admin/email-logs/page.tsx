@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   Send,
   Search,
@@ -14,6 +15,7 @@ import {
   Settings,
   Calendar,
   AlertTriangle,
+  AlertCircle,
   RotateCw,
   FileText,
   Mail,
@@ -348,10 +350,35 @@ export default function AdminEmailLogsPage() {
           <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700 mt-1">{sentCount}</div>
           <div className="text-xs text-slate-400 mt-0.5">On current page</div>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="text-xs font-bold uppercase tracking-wider text-red-600">Failed / Retries</div>
+        <div className={`p-5 rounded-2xl border shadow-sm transition-all ${
+          failedCount > 0 ? "bg-red-50/50 border-red-200" : "bg-white border-slate-200"
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-bold uppercase tracking-wider text-red-600">Failed / Retries</div>
+            {failedCount > 0 && (
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+              </span>
+            )}
+          </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-red-700 mt-1">{failedCount}</div>
-          <div className="text-xs text-slate-400 mt-0.5">Requiring attention</div>
+          <div className="text-xs mt-0.5">
+            {failedCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter("failed");
+                  setPage(1);
+                }}
+                className="text-red-700 font-bold hover:underline inline-flex items-center gap-1"
+              >
+                Show {failedCount} failed record{failedCount > 1 ? "s" : ""} &rarr;
+              </button>
+            ) : (
+              <span className="text-slate-400">All systems healthy</span>
+            )}
+          </div>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="text-xs font-bold uppercase tracking-wider text-primary-700">Auto-Cleanup</div>
@@ -362,6 +389,33 @@ export default function AdminEmailLogsPage() {
           <div className="text-xs text-slate-400 mt-0.5">Vercel Cron scheduled</div>
         </div>
       </div>
+
+      {/* Failure Attention Banner (Shows reason highlights if any emails failed) */}
+      {failedCount > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-red-100 border border-red-200 flex items-center justify-center shrink-0 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-red-900">
+                Action Required: {failedCount} Email Delivery Failure{failedCount > 1 ? "s" : ""}
+              </h2>
+              <p className="text-xs sm:text-sm text-red-700 mt-0.5 leading-relaxed">
+                Specific error reasons are displayed directly under each failed email below. If SMTP credentials (host/password) are not yet set or expired, configure them to resume delivery.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
+            <Link
+              href="/admin/smtp"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
+            >
+              Configure SMTP Credentials &rarr;
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3">
@@ -515,10 +569,25 @@ export default function AdminEmailLogsPage() {
                         {log.email_type.replace(/_/g, " ")}
                       </span>
                     </TableCell>
-                    <TableCell className="max-w-xs">
-                      <div className="text-xs sm:text-sm font-medium text-slate-800 truncate" title={log.subject}>
+                    <TableCell className="max-w-md">
+                      <div className="text-xs sm:text-sm font-semibold text-slate-800" title={log.subject}>
                         {log.subject}
                       </div>
+                      {log.status === "failed" && (
+                        <div className="mt-1.5 p-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs shadow-sm">
+                          <div className="flex items-start gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <span className="font-bold text-red-900 block text-[11px] uppercase tracking-wider">
+                                Failure Reason / Error:
+                              </span>
+                              <span className="font-mono text-[11px] text-red-800 break-words leading-tight block mt-0.5">
+                                {log.error_message || "Delivery rejected: SMTP credentials missing or authentication failed"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-center">
                       {log.status === "sent" ? (
@@ -526,12 +595,14 @@ export default function AdminEmailLogsPage() {
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Sent
                         </span>
                       ) : (
-                        <span
-                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200 cursor-pointer"
-                          title={log.error_message || "Delivery failed"}
-                        >
-                          <XCircle className="w-3.5 h-3.5 text-red-600" /> Failed
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200"
+                          >
+                            <XCircle className="w-3.5 h-3.5 text-red-600" /> Failed
+                          </span>
+                          <span className="text-[10px] font-semibold text-red-600">Requires Attention</span>
+                        </div>
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-slate-500 whitespace-nowrap">
@@ -642,6 +713,29 @@ export default function AdminEmailLogsPage() {
                 {new Date(viewLogData.created_at).toLocaleString()}
               </DialogDescription>
             </DialogHeader>
+
+            {/* Failure Reason Banner in Modal */}
+            {viewLogData.status === "failed" && (
+              <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs shrink-0 space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-red-900 text-sm">
+                  <AlertCircle className="w-4 h-4 text-red-600" />
+                  Email Delivery Failed
+                </div>
+                <div>
+                  <span className="font-bold text-red-900">Recorded Reason / Server Message:</span>
+                  <p className="mt-1 font-mono text-[11px] bg-white p-2.5 rounded-lg border border-red-200 text-red-700 break-words">
+                    {viewLogData.error_message || "Delivery rejected: SMTP host credentials not configured or authentication failed."}
+                  </p>
+                </div>
+                <div className="pt-1 text-[11px] text-slate-600 flex flex-wrap items-center gap-1.5">
+                  <span>How to fix: Verify host, username, and password in</span>
+                  <Link href="/admin/smtp" className="text-primary-700 font-bold underline hover:text-primary-800">
+                    SMTP Configuration
+                  </Link>
+                  <span>or add RESEND_API_KEY in Vercel.</span>
+                </div>
+              </div>
+            )}
 
             {/* Tabs */}
             <div className="flex items-center gap-2 border-b border-slate-200 pb-2 shrink-0">

@@ -56,6 +56,12 @@ export async function GET(
         const data = await getSiteSettingsDb();
         return NextResponse.json({ success: true, data }, { headers: noCacheHeaders });
       }
+      case "email-logs":
+      case "email_logs": {
+        const { getEmailLogsDb } = await import("@/lib/db/mysql");
+        const data = await getEmailLogsDb({ limit: 20 });
+        return NextResponse.json({ success: true, data }, { headers: noCacheHeaders });
+      }
       default:
         return NextResponse.json(
           { success: false, error: "Invalid table requested" },

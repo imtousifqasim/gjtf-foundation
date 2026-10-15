@@ -139,6 +139,17 @@ export async function retryEmailLog(logId: string): Promise<{ success: boolean; 
 
       return { success: true, message: "Email re-sent successfully!" };
     } else {
+      await saveEmailLogDb({
+        id: log.id,
+        recipient_name: log.recipient_name,
+        recipient_email: log.recipient_email,
+        email_type: log.email_type,
+        subject: log.subject,
+        body_html: log.body_html,
+        body_text: log.body_text,
+        status: "failed",
+        error_message: res.error || "Retry failed to send email.",
+      });
       return { success: false, message: res.error || "Retry failed to send email." };
     }
   } catch (err: any) {
