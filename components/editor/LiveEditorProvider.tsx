@@ -209,7 +209,11 @@ function initPageElementKeys(normPath: string) {
   );
 
   elements.forEach((el) => {
-    if (el.closest("[data-editor-ui='true']")) return;
+    if (
+      el.closest("[data-editor-ui='true']") ||
+      el.closest("[data-dynamic-stat='true']") ||
+      el.classList.contains("tabular-nums")
+    ) return;
 
     // For spans, only index if they contain direct text and no block children
     if (el.tagName.toLowerCase() === "span") {
@@ -268,7 +272,12 @@ function applyDbEditsToDom(edits: Record<string, { text?: string; url?: string }
       }
     }
 
-    if (el && document.activeElement !== el) {
+    if (
+      el &&
+      document.activeElement !== el &&
+      !el.closest("[data-dynamic-stat='true']") &&
+      !el.classList.contains("tabular-nums")
+    ) {
       if (val.text !== undefined && val.text !== null && val.text !== "") {
         if (el.innerText !== val.text) {
           // If element has icon SVG, preserve icon if it's a simple button/badge

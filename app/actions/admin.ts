@@ -18,6 +18,7 @@ export async function updateDonationStatus(donationId: string, status: "pending"
   try {
     await updateDonationStatusDb(donationId, status);
     revalidatePath("/admin/donations");
+    revalidatePath("/admin");
     return { success: true };
   } catch (err: any) {
     console.error("updateDonationStatus error:", err);
@@ -29,6 +30,7 @@ export async function deleteDonation(donationId: string) {
   try {
     await deleteDonationDb(donationId);
     revalidatePath("/admin/donations");
+    revalidatePath("/admin");
     return { success: true };
   } catch (err: any) {
     console.error("deleteDonation error:", err);
@@ -40,6 +42,7 @@ export async function updateContactStatus(messageId: string, status: "new" | "re
   try {
     await updateContactStatusDb(messageId, status);
     revalidatePath("/admin/contact-messages");
+    revalidatePath("/admin");
     return { success: true };
   } catch (err: any) {
     console.error("updateContactStatus error:", err);
@@ -51,6 +54,7 @@ export async function deleteContactMessage(messageId: string) {
   try {
     await deleteContactMessageDb(messageId);
     revalidatePath("/admin/contact-messages");
+    revalidatePath("/admin");
     return { success: true };
   } catch (err: any) {
     console.error("deleteContactMessage error:", err);
@@ -62,6 +66,7 @@ export async function updateVolunteerStatus(signupId: string, status: "new" | "c
   try {
     await updateVolunteerStatusDb(signupId, status);
     revalidatePath("/admin/volunteer-signups");
+    revalidatePath("/admin");
     return { success: true };
   } catch (err: any) {
     console.error("updateVolunteerStatus error:", err);
@@ -73,6 +78,7 @@ export async function deleteVolunteerSignup(signupId: string) {
   try {
     await deleteVolunteerSignupDb(signupId);
     revalidatePath("/admin/volunteer-signups");
+    revalidatePath("/admin");
     return { success: true };
   } catch (err: any) {
     console.error("deleteVolunteerSignup error:", err);
@@ -84,7 +90,10 @@ export async function saveSchool(schoolData: any) {
   try {
     await saveSchoolDb(schoolData);
     revalidatePath("/admin/schools");
+    revalidatePath("/admin");
     revalidatePath("/our-school");
+    revalidatePath("/");
+    revalidatePath("/(public)", "layout");
     return { success: true };
   } catch (err: any) {
     console.error("saveSchool error:", err);
@@ -96,7 +105,10 @@ export async function deleteSchool(schoolId: string) {
   try {
     await deleteSchoolDb(schoolId);
     revalidatePath("/admin/schools");
+    revalidatePath("/admin");
     revalidatePath("/our-school");
+    revalidatePath("/");
+    revalidatePath("/(public)", "layout");
     return { success: true };
   } catch (err: any) {
     console.error("deleteSchool error:", err);

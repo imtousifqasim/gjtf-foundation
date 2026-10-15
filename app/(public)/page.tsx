@@ -18,7 +18,7 @@ import {
   Award,
 } from "lucide-react";
 import { media } from "@/data/media";
-import { schools } from "@/data/schools";
+import { schools as staticSchools, School } from "@/data/schools";
 import { stories } from "@/data/stories";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -31,9 +31,53 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { HeroVideoBackground } from "@/components/shared/HeroVideoBackground";
 import { StoryVideoCard } from "@/components/shared/StoryVideoCard";
 import { EditableText, EditableButton } from "@/components/editor/LiveEditorProvider";
+import { getLiveStatsDb, getSchoolsDb } from "@/lib/db/mysql";
 
-export default function HomePage() {
-  const meghaniSchool = schools[0];
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  let stats = {
+    totalSchools: staticSchools.length,
+    totalStudents: staticSchools.reduce((acc, s) => acc + (s.currentStudents || 0), 0),
+    yearsOfService: 11,
+    nomadsTargetMillion: 20,
+  };
+  let displaySchools: School[] = staticSchools;
+
+  try {
+    const [liveStats, liveSchools] = await Promise.all([
+      getLiveStatsDb(),
+      getSchoolsDb(),
+    ]);
+    if (liveStats) stats = liveStats;
+    if (liveSchools && liveSchools.length > 0) {
+      displaySchools = liveSchools.map((s: any) => ({
+        id: s.id,
+        slug: s.slug,
+        name: s.name,
+        campusType: (s.campus_type || "Primary") as any,
+        shift: (s.shift || "Morning") as any,
+        city: s.city || "",
+        province: (s.province || "Punjab") as any,
+        areaSqFt: s.area_sq_ft || 0,
+        classrooms: s.classrooms || 0,
+        studentCapacity: s.student_capacity || 0,
+        currentStudents: s.current_students || 0,
+        establishedYear: s.established_year || 2024,
+        description: s.description || "",
+        facilities: Array.isArray(s.facilities) ? s.facilities : [],
+        cardImage: s.card_image || "https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=900",
+        heroImage: s.hero_image || s.card_image || "https://images.unsplash.com/photo-1580582932707-520aed937b7b?q=80&w=1800",
+        galleryImages: Array.isArray(s.gallery_images) ? s.gallery_images : [],
+        featured: Boolean(s.featured),
+        coordinates: { lat: 31.5204, lng: 74.3587 },
+      }));
+    }
+  } catch (err) {
+    // Keep static fallback
+  }
+
+  const meghaniSchool = displaySchools[0];
 
   return (
     <div className="space-y-24 md:space-y-32">
@@ -103,7 +147,7 @@ export default function HomePage() {
           </div>
 
           {/* Dynamic Live Stats Floating Pills */}
-          <HeroStatsPills />
+          <HeroStatsPills initialStats={stats} />
         </div>
       </section>
 
@@ -253,7 +297,7 @@ export default function HomePage() {
             title="A Decade of Changing Lives"
             subtitle="Through our Jhuggi Taleemi Project, we are systematically turning marginalized settlements into centers of learning and hope."
           />
-          <StatsCounter />
+          <StatsCounter initialStats={stats} />
         </div>
       </section>
 
@@ -728,13 +772,13 @@ export default function HomePage() {
           </div>
           <Link href="/our-school" className="inline-block">
             <Button variant="outline" size="sm" className="font-semibold border-slate-300 text-slate-800 hover:bg-slate-50">
-              View All 24+ School Units <ArrowRight className="w-4 h-4 ml-1" />
+              View All {stats.totalSchools}+ School Units <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {schools.slice(0, 3).map((school) => (
+          {displaySchools.slice(0, 3).map((school) => (
             <SchoolCard key={school.id} school={school} />
           ))}
         </div>

@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { createDonationDb } from "@/lib/db/mysql";
 
 const donationSchema = z.object({
@@ -11,8 +12,8 @@ const donationSchema = z.object({
     "Support a Child: KG to Matric",
   ]),
   frequency: z.enum(["once", "monthly"]),
-  currency: z.enum(["PKR", "AED"]),
-  amount: z.number().min(100, "Minimum donation amount is 100"),
+  currency: z.string().min(2).max(10).default("PKR"),
+  amount: z.number().min(1, "Minimum donation amount is 1"),
   donation_type: z.enum(["General", "Zakat", "Sadqah"]),
   country: z.string().min(1, "Please select a country"),
   donor_name: z.string().min(2, "Name is required").optional().or(z.literal("")),
@@ -37,6 +38,9 @@ export async function submitDonation(input: DonationInput) {
   try {
     const data = parsed.data;
     const donationId = await createDonationDb(data);
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/donations");
 
     return {
       success: true,

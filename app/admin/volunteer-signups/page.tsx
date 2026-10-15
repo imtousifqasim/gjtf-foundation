@@ -207,8 +207,8 @@ export default function AdminVolunteerSignupsPage() {
                         vol.type === "city_chapter"
                           ? "accent"
                           : vol.type === "university_chapter"
-                          ? "default"
-                          : "secondary"
+                            ? "default"
+                            : "secondary"
                       }
                       className="text-[10px] uppercase"
                     >
@@ -225,8 +225,8 @@ export default function AdminVolunteerSignupsPage() {
                         vol.status === "new"
                           ? "accent"
                           : vol.status === "contacted"
-                          ? "success"
-                          : "outline"
+                            ? "success"
+                            : "outline"
                       }
                       className="text-[10px] capitalize"
                     >
@@ -284,8 +284,8 @@ export default function AdminVolunteerSignupsPage() {
                     selectedVolunteer.status === "new"
                       ? "default"
                       : selectedVolunteer.status === "contacted"
-                      ? "secondary"
-                      : "outline"
+                        ? "secondary"
+                        : "outline"
                   }
                   className="capitalize text-xs font-semibold px-2.5 py-0.5"
                 >

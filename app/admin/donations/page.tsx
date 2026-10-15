@@ -45,71 +45,8 @@ interface DonationRecord {
   payment_reference: string | null;
 }
 
-const INITIAL_RECORDS: DonationRecord[] = [
-  {
-    id: "dn-101",
-    created_at: "2025-02-14T10:30:00Z",
-    cause: "Support a Classroom",
-    frequency: "monthly",
-    currency: "PKR",
-    amount: 20000,
-    donation_type: "Zakat",
-    country: "Pakistan",
-    donor_name: "Farhan Malik",
-    donor_email: "farhan@example.com",
-    donor_phone: "0300-1122334",
-    status: "completed",
-    payment_reference: "MEZN-99382",
-  },
-  {
-    id: "dn-102",
-    created_at: "2025-02-14T08:15:00Z",
-    cause: "Educate a Child",
-    frequency: "once",
-    currency: "PKR",
-    amount: 5000,
-    donation_type: "Sadqah",
-    country: "Pakistan",
-    donor_name: "Ayesha Siddiqui",
-    donor_email: "ayesha@example.com",
-    donor_phone: "0321-9988776",
-    status: "pending",
-    payment_reference: null,
-  },
-  {
-    id: "dn-103",
-    created_at: "2025-02-13T16:45:00Z",
-    cause: "General Education",
-    frequency: "monthly",
-    currency: "AED",
-    amount: 300,
-    donation_type: "General",
-    country: "United Arab Emirates",
-    donor_name: "Tariq Mahmood",
-    donor_email: "tariq.dxb@example.com",
-    donor_phone: "+971-50-1234567",
-    status: "completed",
-    payment_reference: "STRIPE-AED-204",
-  },
-  {
-    id: "dn-104",
-    created_at: "2025-02-12T11:20:00Z",
-    cause: "Support a Child: KG to Matric",
-    frequency: "once",
-    currency: "PKR",
-    amount: 15000,
-    donation_type: "Zakat",
-    country: "United Kingdom",
-    donor_name: "Dr. Bilal Tariq",
-    donor_email: "bilal.t@example.co.uk",
-    donor_phone: "+44-7700-900123",
-    status: "completed",
-    payment_reference: "BK-TRANSFER-91",
-  },
-];
-
 export default function AdminDonationsPage() {
-  const [donations, setDonations] = React.useState<DonationRecord[]>(INITIAL_RECORDS);
+  const [donations, setDonations] = React.useState<DonationRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("All");
@@ -123,7 +60,7 @@ export default function AdminDonationsPage() {
         const res = await fetch("/api/data/donations", { cache: "no-store" });
         if (res.ok) {
           const json = await res.json();
-          if (json.data && json.data.length > 0) {
+          if (Array.isArray(json.data)) {
             setDonations(json.data);
           }
         }
@@ -200,6 +137,20 @@ export default function AdminDonationsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const pkrTotal = donations
+    .filter((d) => (d.currency || "").toUpperCase() === "PKR")
+    .reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+
+  const aedTotal = donations
+    .filter((d) => (d.currency || "").toUpperCase() === "AED")
+    .reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+
+  const pkrCount = donations.filter((d) => (d.currency || "").toUpperCase() === "PKR").length;
+  const aedCount = donations.filter((d) => (d.currency || "").toUpperCase() === "AED").length;
+
+  const completedCount = donations.filter((d) => d.status === "completed").length;
+  const pendingCount = donations.filter((d) => d.status === "pending").length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -221,6 +172,61 @@ export default function AdminDonationsPage() {
         >
           <Download className="w-4 h-4" /> Export CSV ({filteredDonations.length})
         </Button>
+      </div>
+
+      {/* Live Financial Metrics Bar */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">PKR Pledges</span>
+            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">PKR</span>
+          </div>
+          <div className="mt-2">
+            <div className="text-xl sm:text-2xl font-black font-heading text-slate-900">
+              Rs. {pkrTotal.toLocaleString()}
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">{pkrCount} {pkrCount === 1 ? "pledge" : "pledges"}</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">AED Pledges</span>
+            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">AED</span>
+          </div>
+          <div className="mt-2">
+            <div className="text-xl sm:text-2xl font-black font-heading text-slate-900">
+              AED {aedTotal.toLocaleString()}
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">{aedCount} {aedCount === 1 ? "pledge" : "pledges"}</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Verified & Received</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="mt-2">
+            <div className="text-xl sm:text-2xl font-black font-heading text-emerald-700">
+              {completedCount} Completed
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">Funds reconciled</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Awaiting Proof</span>
+            <Clock className="w-4 h-4 text-amber-600" />
+          </div>
+          <div className="mt-2">
+            <div className="text-xl sm:text-2xl font-black font-heading text-amber-700">
+              {pendingCount} Pending
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">Verification required</div>
+          </div>
+        </div>
       </div>
 
       {/* Filter Bar */}

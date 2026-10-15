@@ -60,7 +60,7 @@ export function Footer() {
                 Become a part of our vibrant community, Subscribe to our mailing list!
               </h3>
               <p className="text-primary-100/80 text-sm md:text-base leading-relaxed">
-                Receive inspiring stories of slum children whose lives are transformed, updates from our 2,033+ school units, and invitations to volunteer gatherings.
+                Receive inspiring stories of slum children whose lives are transformed, updates from our nationwide school units, and invitations to volunteer gatherings.
               </p>
             </div>
 
@@ -157,7 +157,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/our-school" className="hover:text-white transition-colors flex items-center gap-1.5 text-white/70 hover:text-white">
-                  <ArrowRight className="w-3 h-3 text-primary-400" /> Our Schools (2,033)
+                  <ArrowRight className="w-3 h-3 text-primary-400" /> Our Schools Directory
                 </Link>
               </li>
               <li>

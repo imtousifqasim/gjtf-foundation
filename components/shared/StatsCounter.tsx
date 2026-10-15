@@ -16,6 +16,12 @@ export interface StatItem {
 
 export interface StatsCounterProps {
   stats?: StatItem[];
+  initialStats?: {
+    totalSchools?: number;
+    totalStudents?: number;
+    yearsOfService?: number;
+    nomadsTargetMillion?: number;
+  };
   className?: string;
   theme?: "light" | "dark";
 }
@@ -48,7 +54,7 @@ function CounterNumber({ value, prefix = "", suffix = "" }: { value: number; pre
   }, [isInView, value]);
 
   return (
-    <span ref={ref} className="tabular-nums">
+    <span ref={ref} className="tabular-nums" data-dynamic-stat="true">
       {prefix}
       {count.toLocaleString()}
       {suffix}
@@ -65,13 +71,13 @@ const DEFAULT_STATS: StatItem[] = [
   },
   {
     label: "School Units",
-    value: 24,
+    value: 7,
     suffix: "+",
     description: "Schools established in nomadic settlements",
   },
   {
     label: "Students",
-    value: 7000,
+    value: 1081,
     suffix: "+",
     description: "Educating thousands of nomadic children",
   },
@@ -85,46 +91,88 @@ const DEFAULT_STATS: StatItem[] = [
 
 export function StatsCounter({
   stats,
+  initialStats,
   className,
   theme = "light",
 }: StatsCounterProps) {
-  const [currentStats, setCurrentStats] = React.useState<StatItem[]>(stats || DEFAULT_STATS);
+  const [currentStats, setCurrentStats] = React.useState<StatItem[]>(() => {
+    if (stats) return stats;
+    if (initialStats) {
+      return [
+        {
+          label: "Years",
+          value: initialStats.yearsOfService ?? 11,
+          suffix: "+",
+          description: "Empowering nomadic families since 2014",
+        },
+        {
+          label: "School Units",
+          value: initialStats.totalSchools ?? 7,
+          suffix: "+",
+          description: "Schools established in nomadic settlements",
+        },
+        {
+          label: "Students",
+          value: initialStats.totalStudents ?? 1081,
+          suffix: "+",
+          description: "Educating thousands of nomadic children",
+        },
+        {
+          label: "Nomads Uplift Target",
+          value: initialStats.nomadsTargetMillion ?? 20,
+          suffix: "M+",
+          description: "Aiming to uplift 20 million nomads across Pakistan",
+        },
+      ];
+    }
+    return DEFAULT_STATS;
+  });
 
   React.useEffect(() => {
     if (stats) {
       setCurrentStats(stats);
       return;
     }
+    let isMounted = true;
+
     // Fetch live statistics from Hostinger MySQL
     async function fetchLiveStats() {
       try {
-        const res = await fetch("/api/data/stats", { cache: "no-store" });
+        const res = await fetch("/api/data/stats", {
+          cache: "no-store",
+          headers: { Pragma: "no-cache", "Cache-Control": "no-cache" },
+        });
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.data) {
+          if (json.success && json.data && isMounted) {
             const d = json.data;
+            const schoolsCount = d.totalSchools !== undefined && d.totalSchools !== null ? Number(d.totalSchools) : 7;
+            const studentsCount = d.totalStudents !== undefined && d.totalStudents !== null ? Number(d.totalStudents) : 1081;
+            const yearsCount = Number(d.yearsOfService) || 11;
+            const nomadsTarget = Number(d.nomadsTargetMillion) || 20;
+
             setCurrentStats([
               {
                 label: "Years",
-                value: d.yearsOfService || 11,
+                value: yearsCount,
                 suffix: "+",
                 description: "Empowering nomadic families since 2014",
               },
               {
                 label: "School Units",
-                value: d.totalSchools || 24,
+                value: schoolsCount,
                 suffix: "+",
                 description: "Schools established in nomadic settlements",
               },
               {
                 label: "Students",
-                value: d.totalStudents || 7000,
+                value: studentsCount,
                 suffix: "+",
                 description: "Educating thousands of nomadic children",
               },
               {
                 label: "Nomads Uplift Target",
-                value: d.nomadsTargetMillion || 20,
+                value: nomadsTarget,
                 suffix: "M+",
                 description: "Aiming to uplift 20 million nomads across Pakistan",
               },
@@ -136,10 +184,19 @@ export function StatsCounter({
       }
     }
     fetchLiveStats();
+
+    // Re-check live stats when tab regains focus (e.g. after adding a school in admin)
+    const onFocus = () => fetchLiveStats();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", onFocus);
+    };
   }, [stats]);
 
   return (
     <div
+      data-dynamic-stat="true"
       className={cn(
         "grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6",
         className
@@ -200,24 +257,36 @@ export function StatsCounter({
 // -------------------------------------------------------------
 // Live Floating Hero Stats Pills (Dynamically synchronized with MySQL)
 // -------------------------------------------------------------
-export function HeroStatsPills() {
+export function HeroStatsPills({
+  initialStats,
+}: {
+  initialStats?: {
+    totalSchools?: number;
+    totalStudents?: number;
+    yearsOfService?: number;
+  };
+}) {
   const [stats, setStats] = React.useState({
-    totalStudents: 7000,
-    totalSchools: 24,
-    yearsOfService: 11,
+    totalStudents: initialStats?.totalStudents ?? 1081,
+    totalSchools: initialStats?.totalSchools ?? 7,
+    yearsOfService: initialStats?.yearsOfService ?? 11,
   });
 
   React.useEffect(() => {
+    let isMounted = true;
     async function fetchStats() {
       try {
-        const res = await fetch("/api/data/stats", { cache: "no-store" });
+        const res = await fetch("/api/data/stats", {
+          cache: "no-store",
+          headers: { Pragma: "no-cache", "Cache-Control": "no-cache" },
+        });
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.data) {
+          if (json.success && json.data && isMounted) {
             setStats({
-              totalStudents: json.data.totalStudents || 7000,
-              totalSchools: json.data.totalSchools || 24,
-              yearsOfService: json.data.yearsOfService || 11,
+              totalStudents: json.data.totalStudents !== undefined ? Number(json.data.totalStudents) : 1081,
+              totalSchools: json.data.totalSchools !== undefined ? Number(json.data.totalSchools) : 7,
+              yearsOfService: Number(json.data.yearsOfService) || 11,
             });
           }
         }
@@ -226,10 +295,17 @@ export function HeroStatsPills() {
       }
     }
     fetchStats();
+
+    const onFocus = () => fetchStats();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", onFocus);
+    };
   }, []);
 
   return (
-    <div className="pt-6 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm text-white">
+    <div data-dynamic-stat="true" className="pt-6 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm text-white">
       <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
         <EditableText id="hero_pill_zakat" defaultText="100% Zakat & Sadqah Verified" className="font-medium" />
@@ -237,31 +313,22 @@ export function HeroStatsPills() {
 
       <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-        <span className="font-medium">
-          <EditableText
-            id="hero_pill_students"
-            defaultText={`${stats.totalStudents.toLocaleString()}+ Students`}
-          />
+        <span className="font-medium tabular-nums" data-dynamic-stat="true">
+          {stats.totalStudents.toLocaleString()}+ Students
         </span>
       </div>
 
       <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-        <span className="font-medium">
-          <EditableText
-            id="hero_pill_schools"
-            defaultText={`${stats.totalSchools}+ School Units`}
-          />
+        <span className="font-medium tabular-nums" data-dynamic-stat="true">
+          {stats.totalSchools}+ School Units
         </span>
       </div>
 
       <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-        <span className="font-medium">
-          <EditableText
-            id="hero_pill_years"
-            defaultText={`${stats.yearsOfService}+ Years of Service`}
-          />
+        <span className="font-medium tabular-nums" data-dynamic-stat="true">
+          {stats.yearsOfService}+ Years of Service
         </span>
       </div>
     </div>

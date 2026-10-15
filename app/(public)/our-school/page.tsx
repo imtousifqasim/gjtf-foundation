@@ -131,23 +131,23 @@ export default function OurSchoolPage() {
                 Nationwide Footprint
               </span>
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold font-heading text-white leading-tight">
-                We have a network of 2,033 school units across Pakistan
+                We have a network of {schoolsList.length}+ school units across Pakistan
               </h2>
               <p className="text-primary-100/90 text-base sm:text-lg leading-relaxed">
-                Operating actively in 24 cities across Punjab, Sindh, Khyber Pakhtunkhwa, Balochistan, and Islamabad Capital Territory, transforming nomadic squatter settlements into centers of literacy.
+                Operating actively across {new Set(schoolsList.map((s) => s.city.trim()).filter(Boolean)).size || 5} regions in Punjab, Sindh, Khyber Pakhtunkhwa, Balochistan, and Islamabad Capital Territory, transforming nomadic squatter settlements into centers of literacy.
               </p>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2">
                 <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10">
-                  <div className="text-2xl font-bold text-accent-400">24</div>
+                  <div className="text-2xl font-bold text-accent-400">{new Set(schoolsList.map((s) => s.city.trim()).filter(Boolean)).size || 5}</div>
                   <div className="text-xs text-primary-200">Cities Reached</div>
                 </div>
                 <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10">
-                  <div className="text-2xl font-bold text-accent-400">2,033</div>
+                  <div className="text-2xl font-bold text-accent-400">{schoolsList.length}+</div>
                   <div className="text-xs text-primary-200">School Units</div>
                 </div>
                 <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 col-span-2 sm:col-span-1">
-                  <div className="text-2xl font-bold text-accent-400">5,500+</div>
+                  <div className="text-2xl font-bold text-accent-400">{schoolsList.reduce((acc, s) => acc + (Number(s.currentStudents) || 0), 0).toLocaleString()}+</div>
                   <div className="text-xs text-primary-200">Slum Students</div>
                 </div>
               </div>

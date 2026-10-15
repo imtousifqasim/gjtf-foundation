@@ -235,6 +235,40 @@ export async function getDonationsDb(limit = 100): Promise<any[]> {
   );
 }
 
+export async function getDonationStatsDb(): Promise<{
+  byCurrency: Array<{ currency: string; totalAmount: number; count: number; completedAmount: number }>;
+  totalPledges: number;
+}> {
+  try {
+    const [rows, totalRes] = await Promise.all([
+      query<RowDataPacket[]>(
+        `SELECT 
+          UPPER(TRIM(currency)) as currency, 
+          COALESCE(SUM(amount), 0) as total_amount,
+          COALESCE(SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END), 0) as completed_amount,
+          COUNT(*) as count
+        FROM donations 
+        GROUP BY UPPER(TRIM(currency))
+        ORDER BY total_amount DESC`
+      ),
+      query<RowDataPacket[]>("SELECT COUNT(*) as total FROM donations"),
+    ]);
+
+    return {
+      byCurrency: (rows || []).map((r) => ({
+        currency: r.currency || "PKR",
+        totalAmount: Number(r.total_amount) || 0,
+        completedAmount: Number(r.completed_amount) || 0,
+        count: Number(r.count) || 0,
+      })),
+      totalPledges: Number(totalRes[0]?.total) || 0,
+    };
+  } catch (err: any) {
+    console.error("Error calculating donation stats:", err.message);
+    return { byCurrency: [], totalPledges: 0 };
+  }
+}
+
 export async function createDonationDb(data: any): Promise<string> {
   const id = "dn_" + Math.random().toString(36).substring(2, 11);
   const sql = `
@@ -796,11 +830,31 @@ export async function getLiveStatsDb(): Promise<{
       ),
     ]);
 
-    const count = Number(schoolsRes[0]?.count) || 7;
-    const students = Number(schoolsRes[0]?.total_students) || 7000;
+    const count = schoolsRes[0]?.count !== undefined && schoolsRes[0]?.count !== null ? Number(schoolsRes[0]?.count) : 0;
+    const students = schoolsRes[0]?.total_students !== undefined && schoolsRes[0]?.total_students !== null ? Number(schoolsRes[0]?.total_students) : 0;
     const currentYear = new Date().getFullYear();
     const minYear = Number(schoolsRes[0]?.min_year) || 2014;
     const years = Math.max(11, currentYear - minYear);
+
+    // If table is empty (0 rows), fallback to static schools configuration
+    if (count === 0 && students === 0) {
+      try {
+        const { schools: staticSchools } = await import("@/data/schools");
+        return {
+          totalSchools: staticSchools.length,
+          totalStudents: staticSchools.reduce((acc, s) => acc + (s.currentStudents || 0), 0),
+          yearsOfService: years,
+          nomadsTargetMillion: 20,
+        };
+      } catch {
+        return {
+          totalSchools: 7,
+          totalStudents: 1081,
+          yearsOfService: years,
+          nomadsTargetMillion: 20,
+        };
+      }
+    }
 
     return {
       totalSchools: count,
@@ -810,12 +864,22 @@ export async function getLiveStatsDb(): Promise<{
     };
   } catch (err: any) {
     console.error("Error calculating live stats from DB:", err.message);
-    return {
-      totalSchools: 24,
-      totalStudents: 7000,
-      yearsOfService: 11,
-      nomadsTargetMillion: 20,
-    };
+    try {
+      const { schools: staticSchools } = await import("@/data/schools");
+      return {
+        totalSchools: staticSchools.length,
+        totalStudents: staticSchools.reduce((acc, s) => acc + (s.currentStudents || 0), 0),
+        yearsOfService: 11,
+        nomadsTargetMillion: 20,
+      };
+    } catch {
+      return {
+        totalSchools: 7,
+        totalStudents: 1081,
+        yearsOfService: 11,
+        nomadsTargetMillion: 20,
+      };
+    }
   }
 }
 
