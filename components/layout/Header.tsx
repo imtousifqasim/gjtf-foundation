@@ -23,6 +23,7 @@ import { useSiteSettings } from "@/lib/hooks/useSiteSettings";
 import { Button } from "@/components/ui/button";
 import { logoutDonorAction } from "@/app/actions/donorAuth";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   donorLoggedIn?: boolean;

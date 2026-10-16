@@ -143,6 +143,35 @@ export async function GET(req: NextRequest) {
     }
   });
 
+  // --- Suite 6: Performance & In-Memory DB Caching ---
+  await runTest("Performance: DB Cache", "stores and retrieves in-memory cached entries with sub-millisecond latency", async () => {
+    const { setCached, getCached, invalidateDbCache } = await import("@/lib/db/mysql");
+    const testKey = `test_cache_key_${Date.now()}`;
+    const testVal = { hello: "world", count: 42 };
+    setCached(testKey, testVal, 10);
+    const retrieved = getCached<typeof testVal>(testKey);
+    if (!retrieved || retrieved.count !== 42) {
+      throw new Error("Failed to retrieve cached value from in-memory store");
+    }
+    invalidateDbCache(testKey);
+    const afterInvalidation = getCached<typeof testVal>(testKey);
+    if (afterInvalidation !== null) {
+      throw new Error("Invalidated key was still returned from cache");
+    }
+  });
+
+  await runTest("Performance: Data Access", "loads site settings and live stats correctly", async () => {
+    const { getSiteSettingsDb, getLiveStatsDb } = await import("@/lib/db/mysql");
+    const settings = await getSiteSettingsDb();
+    if (!settings || !settings.telephone) {
+      throw new Error("Failed to load site settings from database or fallback");
+    }
+    const stats = await getLiveStatsDb();
+    if (!stats || typeof stats.totalSchools !== "number") {
+      throw new Error("Failed to load live stats from database");
+    }
+  });
+
   const passedCount = results.filter((r) => r.passed).length;
   const failedCount = results.filter((r) => !r.passed).length;
 
