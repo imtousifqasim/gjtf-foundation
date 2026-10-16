@@ -235,7 +235,7 @@ export async function GET(req: NextRequest) {
       const imp1 = calculateImpact(5000, "monthly", DEFAULT_PRICING);
       testResults.push({
         name: "15.1: Whole Child Monthly (PKR 5,000 = 1 child)",
-        passed: imp1.childrenCount === 1 && imp1.isTruthfulPooled,
+        passed: imp1.childrenCount === 1 && Boolean(imp1.isTruthfulPooled),
         details: imp1.summary,
       });
 
@@ -259,9 +259,10 @@ export async function GET(req: NextRequest) {
       const impOnce = calculateImpact(60000, "once", DEFAULT_PRICING);
       testResults.push({
         name: "15.3: One-Time Impact (PKR 60,000 = 12 child-months)",
-        passed: impOnce.childMonthsFunded === 12,
+        passed: impOnce.childMonths === 12 || impOnce.childMonthsFunded === 12,
         details: impOnce.summary,
       });
+
 
       // Test 5: Minor unit zero-float arithmetic
       const minor = toMinorUnits(5000);

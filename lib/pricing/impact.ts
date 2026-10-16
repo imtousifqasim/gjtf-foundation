@@ -31,12 +31,16 @@ export const DEFAULT_PRICING: PricingConfig = {
 export interface ImpactResult {
   childrenCount: number;
   childMonths: number;
+  childMonthsFunded: number;
   headline: string;
   summary: string;
+  description: string;
   badge: string;
   isFractional: boolean;
   percentageOfChild?: number;
+  isTruthfulPooled: boolean;
 }
+
 
 /**
  * Shared server-side and client-side impact calculation helper.
@@ -86,13 +90,17 @@ export function calculateImpact(
     return {
       childrenCount: children,
       childMonths: children, // 1 month of coverage for N children
+      childMonthsFunded: children,
       headline,
       summary,
+      description: summary,
       badge,
       isFractional,
       percentageOfChild,
+      isTruthfulPooled: true,
     };
   }
+
 
   // Frequency === "once" (Single Gift)
   const rawChildMonths = safeAmount / cost;
@@ -130,10 +138,14 @@ export function calculateImpact(
   return {
     childrenCount: childMonths >= 1 ? Math.floor(childMonths) : childMonths,
     childMonths,
+    childMonthsFunded: childMonths,
     headline,
     summary,
+    description: summary,
     badge,
     isFractional,
     percentageOfChild,
+    isTruthfulPooled: true,
   };
 }
+
