@@ -1,5 +1,10 @@
 import { query, getPool } from "./mysql";
 
+declare global {
+  // eslint-disable-next-line no-var
+  var __coreTablesInitialized: boolean | undefined;
+}
+
 let coreTablesInitialized = false;
 let coreTablesInitPromise: Promise<void> | null = null;
 
@@ -7,13 +12,27 @@ let coreTablesInitPromise: Promise<void> | null = null;
  * Ensures all Enterprise Donor Portal, Monthly Commitment, Auth,
  * Payment Settings, Audit Logs and Receipt tables exist in MySQL.
  */
-export async function ensureCoreTablesDb(): Promise<void> {
-  if (coreTablesInitialized) return;
-  if (coreTablesInitPromise) return coreTablesInitPromise;
+export async function ensureCoreTablesDb(force = false): Promise<void> {
+  if (global.__coreTablesInitialized && !force) return;
+  if (coreTablesInitialized && !force) return;
+  if (coreTablesInitPromise && !force) return coreTablesInitPromise;
 
   coreTablesInitPromise = (async () => {
     try {
       const pool = getPool();
+
+      // Ultra-fast check: If donors table already exists in MySQL, schema is already provisioned!
+      // This eliminates 40+ blocking DDL/ALTER network roundtrips (saving 10-15 seconds) on cold starts.
+      if (!force) {
+        try {
+          await pool.query("SELECT 1 FROM donors LIMIT 1");
+          coreTablesInitialized = true;
+          global.__coreTablesInitialized = true;
+          return;
+        } catch {
+          // Table missing, proceed to full provisioning below
+        }
+      }
 
       // 1. donors table
       await pool.query(`
@@ -351,6 +370,7 @@ export async function ensureCoreTablesDb(): Promise<void> {
       }
 
       coreTablesInitialized = true;
+      global.__coreTablesInitialized = true;
     } catch (err: any) {
       console.warn("[Core Schema] Table initialization warning:", err.message);
     } finally {

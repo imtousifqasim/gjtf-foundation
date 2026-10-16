@@ -296,16 +296,26 @@ export async function deleteStoryDb(id: string): Promise<void> {
 // 3. Donations
 // -------------------------------------------------------------
 export async function getDonationsDb(limit = 100): Promise<any[]> {
-  return await query<RowDataPacket[]>(
+  const cacheKey = `donations:${limit}`;
+  const cached = getCached<any[]>(cacheKey);
+  if (cached) return cached;
+
+  const rows = await query<RowDataPacket[]>(
     "SELECT * FROM donations ORDER BY created_at DESC LIMIT ?",
     [limit]
   );
+  setCached(cacheKey, rows, 30);
+  return rows;
 }
 
 export async function getDonationStatsDb(): Promise<{
   byCurrency: Array<{ currency: string; totalAmount: number; count: number; completedAmount: number }>;
   totalPledges: number;
 }> {
+  const cacheKey = "donations:stats";
+  const cached = getCached<any>(cacheKey);
+  if (cached) return cached;
+
   try {
     const [rows, totalRes] = await Promise.all([
       query<RowDataPacket[]>(
@@ -321,7 +331,7 @@ export async function getDonationStatsDb(): Promise<{
       query<RowDataPacket[]>("SELECT COUNT(*) as total FROM donations"),
     ]);
 
-    return {
+    const result = {
       byCurrency: (rows || []).map((r) => ({
         currency: r.currency || "PKR",
         totalAmount: Number(r.total_amount) || 0,
@@ -330,6 +340,8 @@ export async function getDonationStatsDb(): Promise<{
       })),
       totalPledges: Number(totalRes[0]?.total) || 0,
     };
+    setCached(cacheKey, result, 30);
+    return result;
   } catch (err: any) {
     console.error("Error calculating donation stats:", err.message);
     return { byCurrency: [], totalPledges: 0 };
@@ -426,11 +438,13 @@ export async function createDonationDb(data: any): Promise<string> {
     })
   );
 
+  invalidateDbCache("donations");
   return id;
 }
 
 export async function updateDonationStatusDb(id: string, status: string): Promise<void> {
   await query("UPDATE donations SET status = ? WHERE id = ?", [status, id]);
+  invalidateDbCache("donations");
   syncBackupToSupabase("updateDonationStatus", (sb) =>
     sb.from("donations").update({ status }).eq("id", id)
   );
@@ -438,6 +452,7 @@ export async function updateDonationStatusDb(id: string, status: string): Promis
 
 export async function deleteDonationDb(id: string): Promise<void> {
   await query("DELETE FROM donations WHERE id = ?", [id]);
+  invalidateDbCache("donations");
   syncBackupToSupabase("deleteDonation", (sb) => sb.from("donations").delete().eq("id", id));
 }
 
@@ -445,11 +460,17 @@ export async function deleteDonationDb(id: string): Promise<void> {
 // 4. Contact Submissions
 // -------------------------------------------------------------
 export async function getContactMessagesDb(limit = 100): Promise<any[]> {
+  const cacheKey = `contact_messages:${limit}`;
+  const cached = getCached<any[]>(cacheKey);
+  if (cached) return cached;
+
   await ensureCoreTablesDb();
-  return await query<RowDataPacket[]>(
+  const rows = await query<RowDataPacket[]>(
     "SELECT * FROM contact_submissions WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ?",
     [limit]
   );
+  setCached(cacheKey, rows, 30);
+  return rows;
 }
 
 export async function createContactMessageDb(data: any): Promise<string> {
@@ -460,6 +481,7 @@ export async function createContactMessageDb(data: any): Promise<string> {
     VALUES (?, ?, ?, ?, ?, ?);
   `;
   await query(sql, [id, data.name, data.email, data.subject, data.message, "new"]);
+  invalidateDbCache("contact_messages");
 
   syncBackupToSupabase("createContactMessage", (sb) =>
     sb.from("contact_submissions").insert({
@@ -478,6 +500,7 @@ export async function createContactMessageDb(data: any): Promise<string> {
 export async function updateContactStatusDb(id: string, status: string): Promise<void> {
   await ensureCoreTablesDb();
   await query("UPDATE contact_submissions SET status = ? WHERE id = ? AND deleted_at IS NULL", [status, id]);
+  invalidateDbCache("contact_messages");
   syncBackupToSupabase("updateContactStatus", (sb) =>
     sb.from("contact_submissions").update({ status }).eq("id", id)
   );
@@ -489,6 +512,7 @@ export async function deleteContactMessageDb(id: string): Promise<boolean> {
     "UPDATE contact_submissions SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL",
     [id]
   );
+  invalidateDbCache("contact_messages");
   const affected = (res?.affectedRows || 0) > 0;
   if (affected) {
     syncBackupToSupabase("deleteContactMessage", (sb) =>
@@ -506,6 +530,7 @@ export async function deleteContactMessagesBulkDb(ids: string[]): Promise<number
     `UPDATE contact_submissions SET deleted_at = NOW() WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
     ids
   );
+  invalidateDbCache("contact_messages");
   return res?.affectedRows || 0;
 }
 
@@ -654,10 +679,16 @@ export async function clearAllContactMessagesDb(confirmationWord: string): Promi
 // 5. Volunteer Signups
 // -------------------------------------------------------------
 export async function getVolunteerSignupsDb(limit = 100): Promise<any[]> {
-  return await query<RowDataPacket[]>(
+  const cacheKey = `volunteer_signups:${limit}`;
+  const cached = getCached<any[]>(cacheKey);
+  if (cached) return cached;
+
+  const rows = await query<RowDataPacket[]>(
     "SELECT * FROM volunteer_signups ORDER BY created_at DESC LIMIT ?",
     [limit]
   );
+  setCached(cacheKey, rows, 30);
+  return rows;
 }
 
 export async function createVolunteerSignupDb(data: any): Promise<string> {
@@ -677,6 +708,7 @@ export async function createVolunteerSignupDb(data: any): Promise<string> {
     data.message || null,
     "new",
   ]);
+  invalidateDbCache("volunteer_signups");
 
   syncBackupToSupabase("createVolunteerSignup", (sb) =>
     sb.from("volunteer_signups").insert({
@@ -697,6 +729,7 @@ export async function createVolunteerSignupDb(data: any): Promise<string> {
 
 export async function updateVolunteerStatusDb(id: string, status: string): Promise<void> {
   await query("UPDATE volunteer_signups SET status = ? WHERE id = ?", [status, id]);
+  invalidateDbCache("volunteer_signups");
   syncBackupToSupabase("updateVolunteerStatus", (sb) =>
     sb.from("volunteer_signups").update({ status }).eq("id", id)
   );
@@ -704,6 +737,7 @@ export async function updateVolunteerStatusDb(id: string, status: string): Promi
 
 export async function deleteVolunteerSignupDb(id: string): Promise<void> {
   await query("DELETE FROM volunteer_signups WHERE id = ?", [id]);
+  invalidateDbCache("volunteer_signups");
   syncBackupToSupabase("deleteVolunteerSignup", (sb) =>
     sb.from("volunteer_signups").delete().eq("id", id)
   );
@@ -713,9 +747,14 @@ export async function deleteVolunteerSignupDb(id: string): Promise<void> {
 // 6. Newsletter Subscribers
 // -------------------------------------------------------------
 export async function getSubscribersDb(): Promise<any[]> {
-  return await query<RowDataPacket[]>(
+  const cached = getCached<any[]>("subscribers:all");
+  if (cached) return cached;
+
+  const rows = await query<RowDataPacket[]>(
     "SELECT * FROM newsletter_subscribers ORDER BY created_at DESC"
   );
+  setCached("subscribers:all", rows, 30);
+  return rows;
 }
 
 export async function addSubscriberDb(email: string): Promise<void> {
@@ -724,6 +763,7 @@ export async function addSubscriberDb(email: string): Promise<void> {
     "INSERT INTO newsletter_subscribers (id, email, status) VALUES (?, ?, 'active') ON DUPLICATE KEY UPDATE status = 'active'",
     [id, email]
   );
+  invalidateDbCache("subscribers");
 
   syncBackupToSupabase("addSubscriber", (sb) =>
     sb.from("newsletter_subscribers").upsert({ email, status: "active" }, { onConflict: "email" })
@@ -1273,16 +1313,34 @@ export async function exportFullDatabaseSql(): Promise<string> {
 // 14. Transactional Email System: Logs, Settings, Reminders
 // -------------------------------------------------------------
 
+declare global {
+  // eslint-disable-next-line no-var
+  var __emailTablesInitialized: boolean | undefined;
+}
+
 let emailTablesInitialized = false;
 let emailTablesInitPromise: Promise<void> | null = null;
 
-export async function ensureEmailTablesDb(): Promise<void> {
-  if (emailTablesInitialized) return;
-  if (emailTablesInitPromise) return emailTablesInitPromise;
+export async function ensureEmailTablesDb(force = false): Promise<void> {
+  if (global.__emailTablesInitialized && !force) return;
+  if (emailTablesInitialized && !force) return;
+  if (emailTablesInitPromise && !force) return emailTablesInitPromise;
 
   emailTablesInitPromise = (async () => {
     try {
       const pool = getPool();
+
+      // Ultra-fast check: If email_logs table exists, tables are already provisioned!
+      if (!force) {
+        try {
+          await pool.query("SELECT 1 FROM email_logs LIMIT 1");
+          emailTablesInitialized = true;
+          global.__emailTablesInitialized = true;
+          return;
+        } catch {
+          // Table missing, proceed below
+        }
+      }
 
       // 1. email_logs
       await pool.query(`
@@ -1344,6 +1402,7 @@ export async function ensureEmailTablesDb(): Promise<void> {
       `);
 
       emailTablesInitialized = true;
+      global.__emailTablesInitialized = true;
     } catch (err: any) {
       console.warn("Could not auto-create email tables on MySQL:", err.message);
     } finally {
@@ -1425,6 +1484,10 @@ export async function getEmailLogsDb(filters?: {
   limit?: number;
   offset?: number;
 }): Promise<{ logs: any[]; total: number }> {
+  const cacheKey = `email_logs:${JSON.stringify(filters || {})}`;
+  const cached = getCached<{ logs: any[]; total: number }>(cacheKey);
+  if (cached) return cached;
+
   await ensureEmailTablesDb();
   const limit = Math.min(filters?.limit || 50, 200);
   const offset = filters?.offset || 0;
@@ -1472,10 +1535,16 @@ export async function getEmailLogsDb(filters?: {
     [...params, limit, offset]
   );
 
-  return { logs, total };
+  const result = { logs, total };
+  setCached(cacheKey, result, 20); // 20s cache
+  return result;
 }
 
 export async function getEmailLogByIdDb(id: string): Promise<any | null> {
+  const cacheKey = `email_log_detail:${id}`;
+  const cached = getCached<any>(cacheKey);
+  if (cached) return cached;
+
   await ensureEmailTablesDb();
   const rows = await query<RowDataPacket[]>(
     "SELECT * FROM email_logs WHERE id = ? LIMIT 1",
@@ -1488,25 +1557,32 @@ export async function getEmailLogByIdDb(id: string): Promise<any | null> {
       log.metadata = JSON.parse(log.metadata);
     } catch {}
   }
+  setCached(cacheKey, log, 60);
   return log;
 }
 
 export async function deleteEmailLogDb(id: string): Promise<void> {
   await ensureEmailTablesDb();
   await query("DELETE FROM email_logs WHERE id = ?", [id]);
+  invalidateDbCache("email_logs");
 }
 
 export async function bulkDeleteEmailLogsDb(ids: string[]): Promise<number> {
   await ensureEmailTablesDb();
   if (!ids || ids.length === 0) return 0;
   const placeholders = ids.map(() => "?").join(",");
-  const res: any = await query(`DELETE FROM email_logs WHERE id IN (${placeholders})`, ids);
-  return res.affectedRows || 0;
+  const res: any = await query(
+    `DELETE FROM email_logs WHERE id IN (${placeholders})`,
+    ids
+  );
+  invalidateDbCache("email_logs");
+  return res?.affectedRows || 0;
 }
 
 export async function clearAllEmailLogsDb(): Promise<void> {
   await ensureEmailTablesDb();
   await query("TRUNCATE TABLE email_logs");
+  invalidateDbCache("email_logs");
 }
 
 export async function cleanupOldEmailLogsDb(retentionDays: number): Promise<number> {
@@ -1516,7 +1592,8 @@ export async function cleanupOldEmailLogsDb(retentionDays: number): Promise<numb
     `DELETE FROM email_logs WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)`,
     [safeDays]
   );
-  return res.affectedRows || 0;
+  invalidateDbCache("email_logs");
+  return res?.affectedRows || 0;
 }
 
 // Email Settings
