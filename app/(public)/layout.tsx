@@ -4,8 +4,6 @@ import { LiveEditorProvider } from "@/components/editor/LiveEditorProvider";
 import { getPageContentsDb } from "@/lib/db/mysql";
 import { getAuthenticatedDonor } from "@/lib/auth/donor";
 
-export const dynamic = "force-dynamic";
-
 export default async function PublicLayout({
   children,
 }: {

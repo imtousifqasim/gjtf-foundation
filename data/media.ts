@@ -20,12 +20,12 @@ export const media = {
     heroYouTubeUrl: "https://www.youtube.com/watch?v=nyZjxfqfu-c",
     heroVideoStartTime: 100, // Starts at 1 minute 40 seconds (100s)
     // About Section - Official photo of educator with children in slum classroom
-    aboutSectionImage: "https://gjtfoundation.com/wp-content/uploads/2025/06/WhatsApp-Image-2022-08-21-at-10.32.19-PM-1.jpeg",
+    aboutSectionImage: "/images/aims-vision.jpg",
     // Our Model Section - Official photo of Jhuggi Taleemi Project students
-    ourModelImage: "https://gjtfoundation.com/wp-content/uploads/2025/06/2-scaled.jpeg",
+    ourModelImage: "/images/aims-education.jpg",
     // Real School Campus Units
-    faisalabadSchoolImage: "https://gjtfoundation.com/wp-content/uploads/2025/06/Faisalbad-School-scaled.jpg",
-    raiwindSchoolImage: "https://gjtfoundation.com/wp-content/uploads/2025/06/Raiwind-school-3.jpeg",
+    faisalabadSchoolImage: "/images/aims-services.jpg",
+    raiwindSchoolImage: "/images/aims-community-services.jpg",
     
     // Education Programmes Section (3 cards)
     educationProgrammes: {
@@ -63,12 +63,12 @@ export const media = {
       youthEmpowerment: "/images/volunteers/school-uniform-assembly.webp",
     },
 
-    // Photo Gallery Section (4 original full-res website images)
+    // Photo Gallery Section (High-performance local images)
     galleryImages: [
-      "https://gjtfoundation.com/wp-content/uploads/2025/06/WhatsApp-Image-2022-08-21-at-10.32.19-PM-1.jpeg",
-      "https://gjtfoundation.com/wp-content/uploads/2025/06/2-scaled.jpeg",
-      "https://gjtfoundation.com/wp-content/uploads/2025/06/Faisalbad-School-scaled.jpg",
-      "https://gjtfoundation.com/wp-content/uploads/2025/06/Raiwind-school-3.jpeg",
+      "/images/aims-vision.jpg",
+      "/images/aims-education.jpg",
+      "/images/aims-services.jpg",
+      "/images/aims-community-services.jpg",
     ],
 
     // Success Stories Video Showcase (Local MP4s)

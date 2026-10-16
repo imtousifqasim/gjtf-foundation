@@ -13,7 +13,7 @@ import { verifyAdminApi } from "@/lib/auth/admin";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const PUBLIC_TABLES = new Set(["schools", "stories"]);
+const PUBLIC_TABLES = new Set(["schools", "stories", "site-settings", "site_settings"]);
 
 export async function GET(
   request: NextRequest,
@@ -27,15 +27,24 @@ export async function GET(
       "Vary": "Cookie",
     };
 
-    // Public marketing content tables
+    const publicCacheHeaders = {
+      "Cache-Control": "public, s-maxage=60, stale-while-revalidate=3600",
+    };
+
+    // Public marketing content tables (Edge CDN cached for ultra-fast response)
     if (table === "schools") {
       const data = await getSchoolsDb();
-      return NextResponse.json({ success: true, data }, { headers: noCacheHeaders });
+      return NextResponse.json({ success: true, data }, { headers: publicCacheHeaders });
     }
 
     if (table === "stories") {
       const data = await getStoriesDb();
-      return NextResponse.json({ success: true, data }, { headers: noCacheHeaders });
+      return NextResponse.json({ success: true, data }, { headers: publicCacheHeaders });
+    }
+
+    if (table === "site-settings" || table === "site_settings") {
+      const data = await getSiteSettingsDb();
+      return NextResponse.json({ success: true, data }, { headers: publicCacheHeaders });
     }
 
     // P0 Security: All other data tables contain sensitive personal/financial data and require admin auth!
@@ -62,11 +71,6 @@ export async function GET(
       case "subscribers":
       case "newsletter_subscribers": {
         const data = await getSubscribersDb();
-        return NextResponse.json({ success: true, data }, { headers: noCacheHeaders });
-      }
-      case "site-settings":
-      case "site_settings": {
-        const data = await getSiteSettingsDb();
         return NextResponse.json({ success: true, data }, { headers: noCacheHeaders });
       }
       case "email-logs":

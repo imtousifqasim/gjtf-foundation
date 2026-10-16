@@ -15,7 +15,16 @@ export function HeroVideoBackground({
   posterImage,
 }: HeroVideoBackgroundProps) {
   const [isLoaded, setIsLoaded] = React.useState(false);
+  const [shouldRenderIframe, setShouldRenderIframe] = React.useState(false);
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
+
+  React.useEffect(() => {
+    // Mount iframe after initial critical paint to prevent YouTube script blocking LCP
+    const timer = setTimeout(() => {
+      setShouldRenderIframe(true);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
 
   // YouTube embed URL with autoplay, muted, no controls, continuous loop, and 1m 40s start
   const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videoId}&start=${startTimeSeconds}&playsinline=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1`;
@@ -53,17 +62,20 @@ export function HeroVideoBackground({
 
       {/* 16:9 YouTube Container scaled to cover entire viewport */}
       <div className="absolute inset-0 w-full h-full overflow-hidden">
-        <iframe
-          ref={iframeRef}
-          src={embedUrl}
-          title="Jhuggi Taleemi Project Background Video"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          onLoad={handleIframeLoad}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[177.78vh] min-w-full h-[56.25vw] min-h-full object-cover pointer-events-none scale-105"
-          style={{ border: 0 }}
-          tabIndex={-1}
-          aria-hidden="true"
-        />
+        {shouldRenderIframe && (
+          <iframe
+            ref={iframeRef}
+            src={embedUrl}
+            title="Jhuggi Taleemi Project Background Video"
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            onLoad={handleIframeLoad}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[177.78vh] min-w-full h-[56.25vw] min-h-full object-cover pointer-events-none scale-105"
+            style={{ border: 0 }}
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+        )}
       </div>
 
       {/* Upper Black & Cinematic Gradient Overlays for High Legibility & Vibrant Colors */}

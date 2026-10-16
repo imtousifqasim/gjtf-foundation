@@ -52,18 +52,74 @@ export async function syncBackupToSupabase(actionName: string, fn: (supabase: an
 }
 
 // -------------------------------------------------------------
+// High-Performance In-Memory Cache (Sub-millisecond reads)
+// -------------------------------------------------------------
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __dbMemoryCache: Map<string, CacheEntry<any>> | undefined;
+}
+
+if (!global.__dbMemoryCache) {
+  global.__dbMemoryCache = new Map<string, CacheEntry<any>>();
+}
+
+export function getCached<T>(key: string): T | null {
+  const cache = global.__dbMemoryCache!;
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.data as T;
+}
+
+export function setCached<T>(key: string, data: T, ttlSeconds: number = 60): void {
+  const cache = global.__dbMemoryCache!;
+  cache.set(key, {
+    data,
+    expiresAt: Date.now() + ttlSeconds * 1000,
+  });
+}
+
+export function invalidateDbCache(prefix?: string): void {
+  const cache = global.__dbMemoryCache;
+  if (!cache) return;
+  if (!prefix) {
+    cache.clear();
+    return;
+  }
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) {
+      cache.delete(key);
+    }
+  }
+}
+
+// -------------------------------------------------------------
 // 1. Schools
 // -------------------------------------------------------------
 export async function getSchoolsDb(): Promise<any[]> {
+  const cached = getCached<any[]>("schools:all");
+  if (cached) return cached;
+
   const rows = await query<RowDataPacket[]>(
     "SELECT * FROM schools ORDER BY created_at DESC"
   );
-  return rows.map((s) => ({
+  const result = rows.map((s) => ({
     ...s,
     facilities: typeof s.facilities === "string" ? JSON.parse(s.facilities) : (s.facilities || []),
     gallery_images: typeof s.gallery_images === "string" ? JSON.parse(s.gallery_images) : (s.gallery_images || []),
     featured: Boolean(s.featured),
   }));
+
+  setCached("schools:all", result, 60);
+  return result;
 }
 
 export async function saveSchoolDb(data: any): Promise<void> {
@@ -148,14 +204,17 @@ export async function saveSchoolDb(data: any): Promise<void> {
         ? data.galleryImages
         : Array.isArray(data.gallery_images)
         ? data.gallery_images
-        : [],
       featured: Boolean(data.featured),
     })
   );
+  invalidateDbCache("schools");
+  invalidateDbCache("stats");
 }
 
 export async function deleteSchoolDb(id: string): Promise<void> {
   await query("DELETE FROM schools WHERE id = ?", [id]);
+  invalidateDbCache("schools");
+  invalidateDbCache("stats");
   syncBackupToSupabase("deleteSchool", (sb) => sb.from("schools").delete().eq("id", id));
 }
 
@@ -163,9 +222,13 @@ export async function deleteSchoolDb(id: string): Promise<void> {
 // 2. Stories
 // -------------------------------------------------------------
 export async function getStoriesDb(): Promise<any[]> {
+  const cached = getCached<any[]>("stories:all");
+  if (cached) return cached;
+
   const rows = await query<RowDataPacket[]>(
     "SELECT * FROM stories ORDER BY published_at DESC"
   );
+  setCached("stories:all", rows, 60);
   return rows;
 }
 
@@ -218,10 +281,12 @@ export async function saveStoryDb(data: any): Promise<void> {
       author_role: data.author?.role || data.author_role || "Communications",
     })
   );
+  invalidateDbCache("stories");
 }
 
 export async function deleteStoryDb(id: string): Promise<void> {
   await query("DELETE FROM stories WHERE id = ?", [id]);
+  invalidateDbCache("stories");
   syncBackupToSupabase("deleteStory", (sb) => sb.from("stories").delete().eq("id", id));
 }
 
@@ -667,10 +732,15 @@ export async function addSubscriberDb(email: string): Promise<void> {
 // 7. Site Settings
 // -------------------------------------------------------------
 export async function getSiteSettingsDb(): Promise<any> {
+  const cached = getCached<any>("site_settings:default");
+  if (cached) return cached;
+
   const rows = await query<RowDataPacket[]>(
     "SELECT * FROM site_settings WHERE id = 'default' LIMIT 1"
   );
-  return rows[0] || null;
+  const data = rows[0] || null;
+  setCached("site_settings:default", data, 60);
+  return data;
 }
 
 export async function saveSiteSettingsDb(settings: any): Promise<void> {
@@ -715,6 +785,7 @@ export async function saveSiteSettingsDb(settings: any): Promise<void> {
   ];
 
   await query(sql, params);
+  invalidateDbCache("site_settings");
 
   syncBackupToSupabase("saveSiteSettings", (sb) =>
     sb.from("site_settings").upsert({
@@ -906,6 +977,10 @@ function makeSafeContentId(pagePath: string, elementKey: string): string {
 }
 
 export async function getPageContentsDb(pagePath?: string): Promise<Record<string, { text?: string; url?: string }>> {
+  const cacheKey = `page_contents:${pagePath || "all"}`;
+  const cached = getCached<Record<string, { text?: string; url?: string }>>(cacheKey);
+  if (cached) return cached;
+
   const map: Record<string, { text?: string; url?: string }> = {};
 
   // 1. Load from hardcoded JSON file as base if available
@@ -954,6 +1029,7 @@ export async function getPageContentsDb(pagePath?: string): Promise<Record<strin
     console.error("Error fetching page_contents from Hostinger MySQL:", err.message);
   }
 
+  setCached(cacheKey, map, 60);
   return map;
 }
 
@@ -962,6 +1038,7 @@ export async function savePageContentsDb(
 ): Promise<{ success: boolean; count: number }> {
   if (!items || items.length === 0) return { success: true, count: 0 };
 
+  invalidateDbCache("page_contents");
   const normPath = (items[0]?.page_path || "/").replace(/\/$/, "") || "/";
 
   // 1. Save to Hostinger MySQL (Primary Live Store for Vercel)
@@ -1033,6 +1110,9 @@ export async function getLiveStatsDb(): Promise<{
   yearsOfService: number;
   nomadsTargetMillion: number;
 }> {
+  const cached = getCached<any>("stats:live");
+  if (cached) return cached;
+
   try {
     const [schoolsRes] = await Promise.all([
       query<RowDataPacket[]>(
@@ -1050,28 +1130,34 @@ export async function getLiveStatsDb(): Promise<{
     if (count === 0 && students === 0) {
       try {
         const { schools: staticSchools } = await import("@/data/schools");
-        return {
+        const fallbackStats = {
           totalSchools: staticSchools.length,
           totalStudents: staticSchools.reduce((acc, s) => acc + (s.currentStudents || 0), 0),
           yearsOfService: years,
           nomadsTargetMillion: 20,
         };
+        setCached("stats:live", fallbackStats, 60);
+        return fallbackStats;
       } catch {
-        return {
+        const fallbackStats = {
           totalSchools: 7,
           totalStudents: 1081,
           yearsOfService: years,
           nomadsTargetMillion: 20,
         };
+        setCached("stats:live", fallbackStats, 60);
+        return fallbackStats;
       }
     }
 
-    return {
+    const liveStats = {
       totalSchools: count,
       totalStudents: students,
       yearsOfService: years,
       nomadsTargetMillion: 20,
     };
+    setCached("stats:live", liveStats, 60);
+    return liveStats;
   } catch (err: any) {
     console.error("Error calculating live stats from DB:", err.message);
     try {

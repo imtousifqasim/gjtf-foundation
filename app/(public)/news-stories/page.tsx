@@ -14,7 +14,7 @@ export default function NewsStoriesPage() {
   React.useEffect(() => {
     async function loadLiveStories() {
       try {
-        const res = await fetch("/api/data/stories", { cache: "no-store" });
+        const res = await fetch("/api/data/stories");
         if (res.ok) {
           const json = await res.json();
           const data = json.data;

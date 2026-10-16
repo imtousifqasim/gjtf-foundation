@@ -31,7 +31,7 @@ export default function OurSchoolPage() {
   React.useEffect(() => {
     async function fetchLiveSchools() {
       try {
-        const res = await fetch("/api/data/schools", { cache: "no-store" });
+        const res = await fetch("/api/data/schools");
         if (res.ok) {
           const json = await res.json();
           const data = json.data;

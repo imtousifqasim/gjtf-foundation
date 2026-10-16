@@ -129,8 +129,7 @@ export function StatsCounter({
   });
 
   React.useEffect(() => {
-    if (stats) {
-      setCurrentStats(stats);
+    if (stats || initialStats) {
       return;
     }
     let isMounted = true;
@@ -138,10 +137,7 @@ export function StatsCounter({
     // Fetch live statistics from Hostinger MySQL
     async function fetchLiveStats() {
       try {
-        const res = await fetch("/api/data/stats", {
-          cache: "no-store",
-          headers: { Pragma: "no-cache", "Cache-Control": "no-cache" },
-        });
+        const res = await fetch("/api/data/stats");
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data && isMounted) {
@@ -273,13 +269,13 @@ export function HeroStatsPills({
   });
 
   React.useEffect(() => {
+    if (initialStats && initialStats.totalStudents) {
+      return;
+    }
     let isMounted = true;
     async function fetchStats() {
       try {
-        const res = await fetch("/api/data/stats", {
-          cache: "no-store",
-          headers: { Pragma: "no-cache", "Cache-Control": "no-cache" },
-        });
+        const res = await fetch("/api/data/stats");
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data && isMounted) {
@@ -295,14 +291,10 @@ export function HeroStatsPills({
       }
     }
     fetchStats();
-
-    const onFocus = () => fetchStats();
-    window.addEventListener("focus", onFocus);
     return () => {
       isMounted = false;
-      window.removeEventListener("focus", onFocus);
     };
-  }, []);
+  }, [initialStats]);
 
   return (
     <div data-dynamic-stat="true" className="pt-6 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs sm:text-sm text-white">

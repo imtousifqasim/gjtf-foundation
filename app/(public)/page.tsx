@@ -33,7 +33,7 @@ import { StoryVideoCard } from "@/components/shared/StoryVideoCard";
 import { EditableText, EditableButton } from "@/components/editor/LiveEditorProvider";
 import { getLiveStatsDb, getSchoolsDb } from "@/lib/db/mysql";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function HomePage() {
   let stats = {
