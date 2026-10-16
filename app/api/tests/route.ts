@@ -46,18 +46,18 @@ export async function GET(req: NextRequest) {
   // --- Suite 1: P0 Web Crypto Edge JWT ---
   await runTest("P0: Edge JWT", "signs and verifies valid JWT payload", async () => {
     const payload = { sub: "admin_test", email: "admin@gjtfoundation.com", role: "super_admin" };
-    const token = await signJwt(payload, testSecret, 3600);
+    const token = await signJwt(payload, 3600, testSecret);
     if (!token || token.split(".").length !== 3) throw new Error("Invalid token format");
 
     const decoded = await verifyJwt<{ sub: string; email: string }>(token, testSecret);
     if (!decoded || decoded.sub !== "admin_test" || decoded.email !== "admin@gjtfoundation.com") {
-      throw new Error("Decoded payload mismatch");
+      throw new Error(`Decoded payload mismatch: ${JSON.stringify(decoded)}`);
     }
   });
 
   await runTest("P0: Edge JWT", "rejects tampered JWT signature", async () => {
     const payload = { sub: "admin_test", email: "admin@gjtfoundation.com" };
-    const token = await signJwt(payload, testSecret, 3600);
+    const token = await signJwt(payload, 3600, testSecret);
     const parts = token.split(".");
     // Tamper payload with fake admin ID
     const tamperedPayload = Buffer.from(JSON.stringify({ sub: "hacker" })).toString("base64url");
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 
   await runTest("P0: Edge JWT", "rejects expired JWT token", async () => {
     const payload = { sub: "admin_test" };
-    const expiredToken = await signJwt(payload, testSecret, -60); // 1 minute in the past
+    const expiredToken = await signJwt(payload, -60, testSecret); // 1 minute in the past
     const decoded = await verifyJwt(expiredToken, testSecret);
     if (decoded !== null) throw new Error("Expired JWT was unexpectedly accepted!");
   });

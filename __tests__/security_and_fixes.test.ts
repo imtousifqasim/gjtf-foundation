@@ -17,7 +17,7 @@ describe("P0: Edge Web Crypto JWT Security", () => {
 
   test("signs and verifies valid JWT payload", async () => {
     const payload = { sub: "admin_123", email: "admin@gjtfoundation.com", role: "super_admin" };
-    const token = await signJwt(payload, secret, 3600);
+    const token = await signJwt(payload, 3600, secret);
     expect(typeof token).toBe("string");
     expect(token.split(".").length).toBe(3);
 
@@ -30,7 +30,7 @@ describe("P0: Edge Web Crypto JWT Security", () => {
 
   test("rejects tampered JWT signature", async () => {
     const payload = { sub: "admin_123", email: "admin@gjtfoundation.com", role: "super_admin" };
-    const token = await signJwt(payload, secret, 3600);
+    const token = await signJwt(payload, 3600, secret);
     const parts = token.split(".");
     // Tamper payload
     const tamperedPayload = Buffer.from(JSON.stringify({ sub: "hacker", role: "super_admin" })).toString("base64url");
@@ -42,7 +42,7 @@ describe("P0: Edge Web Crypto JWT Security", () => {
 
   test("rejects JWT signed with different secret", async () => {
     const payload = { sub: "admin_123", email: "admin@gjtfoundation.com" };
-    const token = await signJwt(payload, "wrong-secret-random-key-99999", 3600);
+    const token = await signJwt(payload, 3600, "wrong-secret-random-key-99999");
     const decoded = await verifyJwt(token, secret);
     expect(decoded).toBeNull();
   });
@@ -50,7 +50,7 @@ describe("P0: Edge Web Crypto JWT Security", () => {
   test("rejects expired JWT token", async () => {
     const payload = { sub: "admin_123", email: "admin@gjtfoundation.com" };
     // -10 seconds expired
-    const token = await signJwt(payload, secret, -10);
+    const token = await signJwt(payload, -10, secret);
     const decoded = await verifyJwt(token, secret);
     expect(decoded).toBeNull();
   });

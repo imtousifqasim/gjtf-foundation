@@ -47,9 +47,24 @@ function base64UrlDecode(str: string): string {
  */
 export async function signJwt(
   payload: Record<string, any>,
-  expiresInSeconds: number,
-  customSecret?: string
+  expiresOrSecret: number | string = 86400,
+  secretOrExpires?: string | number
 ): Promise<string> {
+  let expiresInSeconds = 86400;
+  let customSecret: string | undefined = undefined;
+
+  if (typeof expiresOrSecret === "number") {
+    expiresInSeconds = expiresOrSecret;
+    if (typeof secretOrExpires === "string") {
+      customSecret = secretOrExpires;
+    }
+  } else if (typeof expiresOrSecret === "string") {
+    customSecret = expiresOrSecret;
+    if (typeof secretOrExpires === "number") {
+      expiresInSeconds = secretOrExpires;
+    }
+  }
+
   const secret = customSecret || getSecretKey();
   const header = { alg: "HS256", typ: "JWT" };
   const now = Math.floor(Date.now() / 1000);

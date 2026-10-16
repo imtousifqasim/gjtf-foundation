@@ -78,6 +78,14 @@ const DISPOSABLE_DOMAINS = new Set([
 ]);
 
 /**
+ * Normalizes email: trim whitespace and lowercase
+ */
+export function normalizeEmail(email?: string | null): string {
+  if (!email || typeof email !== "string") return "";
+  return email.trim().toLowerCase();
+}
+
+/**
  * Strict Email Validator
  */
 export function validateEmail(emailInput?: string | null): {
