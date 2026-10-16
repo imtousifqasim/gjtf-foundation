@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
         SET
           bank_name = 'Bank Islami',
           branch_name = 'Allama Iqbal Town, Lahore',
-          account_title = 'Ghais Jhuggi Taleem Foundation',
+          bank_title = 'Ghais Jhuggi Taleem Foundation',
           account_number = '203756213050001',
           iban = 'PK19BKIP0203756213050001',
           swift_code = '',
@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
           jazzcash_number = ?,
           updated_at = NOW()
         WHERE id = 'default'
+
       `, [
         siteConfig.phone1.number,
         siteConfig.phone2.number,
