@@ -4,7 +4,7 @@ import { getTwoFactorQRAction } from "@/app/actions/security";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const email = searchParams.get("email") || "tousifdev@outlook.com";
+    const email = searchParams.get("email") || "admin@gjtfoundation.com";
     const secret = searchParams.get("secret") || "GJTF2025SECUREAUTH7890";
 
     const res = await getTwoFactorQRAction(email, secret);

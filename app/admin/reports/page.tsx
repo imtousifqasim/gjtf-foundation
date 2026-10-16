@@ -575,7 +575,7 @@ export default function AdminReportsPage() {
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-slate-900 mb-1">Record Offline / Doorstep Pledge</h3>
             <p className="text-xs text-slate-500 mb-6">
-              Log bank transfers, direct cheques, or doorstep cash collections collected by toll-free team.
+              Log bank transfers, direct cheques, or doorstep cash collections collected by support team.
             </p>
 
             {manualSuccessMsg && (

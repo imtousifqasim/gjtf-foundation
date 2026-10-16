@@ -24,6 +24,8 @@ export const siteConfig = {
   address: "Office # 46-47, First Floor, New Liberty Tower, Model Town Link Road, Lahore",
   city: "Lahore",
   country: "Pakistan",
+  chairman: "Mubashir Hussain Chand",
+  chairmanTitle: "Chairman, Ghais Jhuggi Taleem Foundation",
 
   // Contact Phones
   phone1: {

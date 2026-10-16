@@ -84,7 +84,7 @@ export default function AdminPaymentSettingsPage() {
           Payment Accounts &amp; Gateway Settings
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Configure official bank accounts, mobile wallets, doorstep toll-free numbers, and future gateway readiness.
+          Configure official bank accounts, mobile wallets, doorstep collection numbers, and future gateway readiness.
         </p>
       </div>
 
@@ -206,7 +206,7 @@ export default function AdminPaymentSettingsPage() {
                 Doorstep Collection &amp; Mobile Wallets
               </h2>
               <p className="text-xs text-slate-500">
-                Toll-free rider collection helpline and mobile wallet account numbers.
+                Doorstep rider collection helpline and mobile wallet account numbers.
               </p>
             </div>
           </div>
@@ -214,7 +214,7 @@ export default function AdminPaymentSettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-                Nationwide Toll-Free Helpline
+                Doorstep Collection Helpline
               </label>
               <Input
                 value={settings.doorstep_phone}

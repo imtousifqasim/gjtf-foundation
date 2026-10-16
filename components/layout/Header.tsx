@@ -69,9 +69,6 @@ export function Header({ donorLoggedIn = false }: HeaderProps) {
               <Mail className="w-3.5 h-3.5 text-blue-400" />
               <span>{settings.email}</span>
             </span>
-            <span className="bg-white/10 text-white font-medium px-2.5 py-0.5 rounded-full text-[11px] border border-white/15">
-              Toll-Free: {settings.toll_free}
-            </span>
           </div>
 
           <div className="flex items-center gap-4">
@@ -420,7 +417,6 @@ export function Header({ donorLoggedIn = false }: HeaderProps) {
                 <div className="p-3 bg-slate-50 border border-slate-200/60 rounded-xl text-xs text-slate-500 space-y-1">
                   <p className="font-semibold text-slate-800">GJTF Head Office - Lahore</p>
                   <p>Ph: {CONTACT_INFO.headOffice.telephone} | Mob: {CONTACT_INFO.headOffice.mobile}</p>
-                  <p className="text-primary-700 font-medium">Toll-Free: {CONTACT_INFO.headOffice.tollFree}</p>
                 </div>
               </div>
             </div>

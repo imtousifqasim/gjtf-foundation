@@ -877,7 +877,7 @@ export async function saveAdminSecurityDb(security: any): Promise<void> {
       updated_at = NOW();
   `;
   await query(sql, [
-    security.admin_email || "tousifdev@outlook.com",
+    security.admin_email || "admin@gjtfoundation.com",
     security.two_factor_enabled ? 1 : 0,
     security.two_factor_secret || "",
     codesJson,

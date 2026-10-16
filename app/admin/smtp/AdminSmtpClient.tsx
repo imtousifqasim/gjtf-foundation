@@ -45,7 +45,7 @@ export default function AdminSmtpClient({
 
   // Testing SMTP state
   const [testRecipient, setTestRecipient] = React.useState(
-    initialConfig?.user_name || "tousifdev@outlook.com"
+    initialConfig?.user_name || "admin@gjtfoundation.com"
   );
   const [testing, setTesting] = React.useState(false);
   const [testResult, setTestResult] = React.useState<{

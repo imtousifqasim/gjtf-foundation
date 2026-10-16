@@ -338,7 +338,7 @@ export async function GET(req: NextRequest) {
   switch (type) {
     case "welcome":
       emailPayload = createWelcomeSetPasswordEmail({
-        donorName: "Tousif Qasim",
+        donorName: "Tariq Mahmood",
         donorEmail: searchParams.get("to") || siteConfig.email.address,
         actionUrl: `${siteConfig.baseUrl}/donor/set-password?token=sample-token-12345`,
         expiresInText: "24 hours",
@@ -386,7 +386,7 @@ export async function GET(req: NextRequest) {
 
     case "otp":
       emailPayload = createMagicLinkEmail({
-        donorName: "Tousif Qasim",
+        donorName: "Tariq Mahmood",
         donorEmail: searchParams.get("to") || siteConfig.email.address,
         actionUrl: `${siteConfig.baseUrl}/donor/verify?otp=839201`,
         expiresInText: "15 minutes",
@@ -398,7 +398,7 @@ export async function GET(req: NextRequest) {
     default:
       emailPayload = createDonationReceivedEmail({
         pledgeId: "PLG-2026-90412",
-        donorName: "Tousif Qasim",
+        donorName: "Tariq Mahmood",
         donorEmail: searchParams.get("to") || siteConfig.email.address,
         donorPhone: siteConfig.phone2.display,
         amount: 10000,

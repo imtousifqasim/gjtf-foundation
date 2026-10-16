@@ -68,7 +68,7 @@ export async function getAdminSecuritySettingsAction(): Promise<SecuritySettings
     const data = await getAdminSecurityDb();
     if (data) {
       return {
-        admin_email: data.admin_email || "tousifdev@outlook.com",
+        admin_email: data.admin_email || "admin@gjtfoundation.com",
         two_factor_enabled: Boolean(data.two_factor_enabled),
         two_factor_secret: data.two_factor_secret || "GJTF2025SECUREAUTH7890",
         recovery_codes: data.recovery_codes || ["GJTF-7821-9941", "GJTF-5390-1284", "GJTF-8842-6619", "GJTF-3105-7792"],
@@ -79,7 +79,7 @@ export async function getAdminSecuritySettingsAction(): Promise<SecuritySettings
   }
 
   return {
-    admin_email: "tousifdev@outlook.com",
+    admin_email: "admin@gjtfoundation.com",
     two_factor_enabled: false,
     two_factor_secret: "GJTF2025SECUREAUTH7890",
     recovery_codes: ["GJTF-7821-9941", "GJTF-5390-1284", "GJTF-8842-6619", "GJTF-3105-7792"],
@@ -113,7 +113,7 @@ export async function updateAdminCredentialsAction(formData: {
     if (formData.password && formData.password.trim().length >= 6) {
       const { data: usersData } = await supabase.auth.admin.listUsers();
       const adminUser = usersData?.users?.find(
-        (u) => u.email === formData.email || u.email === "tousifdev@outlook.com"
+        (u) => u.email === formData.email || u.email === "admin@gjtfoundation.com"
       );
 
       if (adminUser) {

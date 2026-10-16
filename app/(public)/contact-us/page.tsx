@@ -165,12 +165,6 @@ export default function ContactUsPage() {
                     <span>WhatsApp: {settings.whatsapp}</span>
                   </div>
                 )}
-                {settings.toll_free && (
-                  <div className="flex items-center gap-2.5 font-semibold text-primary-700">
-                    <Phone className="w-4 h-4 shrink-0" />
-                    <span>Toll-Free Helpline: {settings.toll_free}</span>
-                  </div>
-                )}
                 <div className="flex items-center gap-2.5">
                   <Mail className="w-4 h-4 text-primary-600 shrink-0" />
                   <a href={`mailto:${settings.email}`} className="hover:underline">
@@ -206,12 +200,6 @@ export default function ContactUsPage() {
                     <div className="flex items-center gap-2">
                       <Phone className="w-4 h-4 text-charcoal-light shrink-0" />
                       <span>Phone: {office.phone}</span>
-                    </div>
-                  )}
-                  {office.tollFree && (
-                    <div className="flex items-center gap-2 text-primary-700 font-semibold">
-                      <Phone className="w-4 h-4 shrink-0" />
-                      <span>Toll-free: {office.tollFree}</span>
                     </div>
                   )}
                   <div className="flex items-center gap-2">

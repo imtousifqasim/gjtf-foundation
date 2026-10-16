@@ -148,7 +148,7 @@ export default function AdminSettingsClient({
 
   // Security / Admin Credentials state
   const [adminEmail, setAdminEmail] = React.useState(
-    initialSecuritySettings?.admin_email || "tousifdev@outlook.com"
+    initialSecuritySettings?.admin_email || "admin@gjtfoundation.com"
   );
   const [adminPassword, setAdminPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");

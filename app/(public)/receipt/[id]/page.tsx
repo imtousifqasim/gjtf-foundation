@@ -171,10 +171,10 @@ export default async function DonationReceiptPage({
               </div>
               <div className="text-center sm:text-right">
                 <div className="inline-block border-b-2 border-slate-800 pb-1 px-6 font-serif italic text-slate-900 font-bold text-sm">
-                  Tousif Qasim
+                  {siteConfig.chairman}
                 </div>
                 <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-1">
-                  Authorized Signatory
+                  Chairman / Authorized Signatory
                 </div>
               </div>
             </div>
