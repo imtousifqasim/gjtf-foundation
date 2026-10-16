@@ -204,6 +204,7 @@ export async function saveSchoolDb(data: any): Promise<void> {
         ? data.galleryImages
         : Array.isArray(data.gallery_images)
         ? data.gallery_images
+        : [],
       featured: Boolean(data.featured),
     })
   );
