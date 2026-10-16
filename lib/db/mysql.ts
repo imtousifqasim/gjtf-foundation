@@ -1,5 +1,6 @@
 import mysql, { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import { createAdminClient } from "@/lib/supabase/server";
+import { ensureCoreTablesDb } from "./coreSchema";
 
 // Global pool caching for Next.js hot reloading
 declare global {
