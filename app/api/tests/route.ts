@@ -172,6 +172,14 @@ export async function GET(req: NextRequest) {
     }
   });
 
+  await runTest("Data: Contact Messages", "executes getContactMessagesDb without error", async () => {
+    const { getContactMessagesDb } = await import("@/lib/db/mysql");
+    const msgs = await getContactMessagesDb(10);
+    if (!Array.isArray(msgs)) {
+      throw new Error("getContactMessagesDb did not return an array");
+    }
+  });
+
   const passedCount = results.filter((r) => r.passed).length;
   const failedCount = results.filter((r) => !r.passed).length;
 

@@ -5,6 +5,7 @@ import {
   updateDonationStatusDb,
   deleteDonationDb,
   updateContactStatusDb,
+  getContactMessagesDb,
   deleteContactMessageDb,
   deleteContactMessagesBulkDb,
   getContactMessageRepliesDb,
@@ -169,6 +170,17 @@ export async function deleteDonation(donationId: string) {
     return { success: true };
   } catch (err: any) {
     console.error("deleteDonation error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function getContactMessagesAction(limit = 100) {
+  try {
+    await requireAdmin();
+    const data = await getContactMessagesDb(limit);
+    return { success: true, data };
+  } catch (err: any) {
+    console.error("getContactMessagesAction error:", err);
     return { success: false, error: err.message };
   }
 }

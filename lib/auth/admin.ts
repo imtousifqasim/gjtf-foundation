@@ -67,7 +67,10 @@ export async function createAdminSession(
 export async function getAdminSession(): Promise<AdminSession | null> {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
+    const token =
+      cookieStore.get(ADMIN_SESSION_COOKIE)?.value ||
+      cookieStore.get("admin_session")?.value ||
+      cookieStore.get("admin-session")?.value;
     if (!token) return null;
 
     const payload = await verifyJwt<any>(token);
@@ -185,5 +188,7 @@ export async function clearAdminSession(): Promise<void> {
       }
     }
     cookieStore.delete(ADMIN_SESSION_COOKIE);
+    cookieStore.delete("admin_session");
+    cookieStore.delete("admin-session");
   } catch {}
 }

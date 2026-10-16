@@ -23,6 +23,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import {
+  getContactMessagesAction,
   updateContactStatus,
   deleteContactMessage,
   deleteContactMessagesBulk,
@@ -135,15 +136,27 @@ export default function AdminContactMessagesPage() {
   const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/data/contact-messages", { cache: "no-store" });
+      // 1. Try Server Action first (guaranteed admin authentication)
+      const actionRes = await getContactMessagesAction(100);
+      if (actionRes.success && Array.isArray(actionRes.data)) {
+        setMessages(actionRes.data);
+        return;
+      }
+
+      // 2. Fallback to API route with explicit credentials
+      const res = await fetch("/api/data/contact-messages", {
+        cache: "no-store",
+        credentials: "include",
+      });
       if (res.ok) {
         const json = await res.json();
         if (Array.isArray(json.data)) {
           setMessages(json.data);
+          return;
         }
-      } else {
-        showToast("Failed to load contact messages. Please verify credentials.", "error");
       }
+
+      showToast(actionRes.error || "Failed to load contact messages. Please verify admin session.", "error");
     } catch (err: any) {
       console.error("Load contact submissions error:", err);
       showToast(err.message || "Failed to query Hostinger MySQL", "error");

@@ -32,7 +32,10 @@ export async function middleware(request: NextRequest) {
   // 1. ADMIN SECTION (/admin/:path*)
   // -------------------------------------------------------------
   if (pathname.startsWith("/admin")) {
-    const adminToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+    const adminToken =
+      request.cookies.get(ADMIN_SESSION_COOKIE)?.value ||
+      request.cookies.get("admin_session")?.value ||
+      request.cookies.get("admin-session")?.value;
     let validAdmin = false;
 
     if (adminToken) {
@@ -130,7 +133,10 @@ export async function middleware(request: NextRequest) {
   // 3. ADMIN API ENDPOINTS (/api/admin/:path*)
   // -------------------------------------------------------------
   if (pathname.startsWith("/api/admin")) {
-    const adminToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+    const adminToken =
+      request.cookies.get(ADMIN_SESSION_COOKIE)?.value ||
+      request.cookies.get("admin_session")?.value ||
+      request.cookies.get("admin-session")?.value;
     let validAdmin = false;
 
     if (adminToken) {

@@ -88,7 +88,10 @@ export default function AdminDonationsPage() {
   const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/data/donations", { cache: "no-store" });
+      const res = await fetch("/api/data/donations", {
+        cache: "no-store",
+        credentials: "include",
+      });
       if (res.ok) {
         const json = await res.json();
         if (Array.isArray(json.data)) {
