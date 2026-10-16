@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPageContentsDb, savePageContentsDb } from "@/lib/db/mysql";
+import { verifyAdminApi } from "@/lib/auth/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,12 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  // P0 Security: Strict Admin Check for content modification
+  const authCheck = await verifyAdminApi(req);
+  if (!authCheck.authorized) {
+    return authCheck.response;
+  }
+
   try {
     const body = await req.json();
     const items = Array.isArray(body) ? body : body.items;

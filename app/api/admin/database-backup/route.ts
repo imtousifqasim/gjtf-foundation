@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import { exportFullDatabaseSql } from "@/lib/db/mysql";
+import { verifyAdminApi } from "@/lib/auth/admin";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  // P0 Security: Strict Admin Authentication Check
+  const authCheck = await verifyAdminApi(req);
+  if (!authCheck.authorized) {
+    return authCheck.response;
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const format = searchParams.get("format") || "sql";
@@ -17,7 +24,8 @@ export async function GET(req: Request) {
       headers: {
         "Content-Type": "application/sql; charset=utf-8",
         "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "no-store, max-age=0",
+        "Cache-Control": "no-store, private, max-age=0",
+        "X-Robots-Tag": "noindex, nofollow",
       },
     });
   } catch (err: any) {

@@ -13,8 +13,10 @@ import {
   getDonationReminderByPledgeDb,
   cancelDonationReminderDb,
   markReminderSentDb,
+  updateVolunteerStatusDb,
   query,
 } from "@/lib/db/mysql";
+import { requireAdmin } from "@/lib/auth/admin";
 import { sendTransactionalEmail, retryEmailLog } from "@/lib/email/sender";
 import { createVolunteerReplyEmail } from "@/lib/email/templates/volunteerTemplates";
 import { createDonationReminderEmail } from "@/lib/email/templates/donationTemplates";
@@ -122,19 +124,26 @@ export async function saveEmailSettingsAction(settings: {
 // -------------------------------------------------------------
 
 export async function sendVolunteerReplyAction({
+  signupId,
   recipientName,
   recipientEmail,
   subject,
   message,
 }: {
+  signupId?: string;
   recipientName: string;
   recipientEmail: string;
   subject: string;
   message: string;
 }) {
   try {
+    const admin = await requireAdmin();
+    if (!admin) {
+      return { success: false, message: "Unauthorized: Admin session required to send replies." };
+    }
+
     if (!recipientEmail || !message.trim()) {
-      return { success: false, message: "Email and message are required." };
+      return { success: false, message: "Recipient email and message content are required." };
     }
 
     const emailRes = validateEmail(recipientEmail);
@@ -159,21 +168,49 @@ export async function sendVolunteerReplyAction({
       subject: emailSubject,
       html,
       text,
-      metadata: { sentByAdmin: true, replyContext: "volunteer_signup" },
+      metadata: {
+        sentByAdmin: true,
+        adminId: admin.id,
+        adminEmail: admin.email,
+        replyContext: "volunteer_signup",
+        signupId: signupId || null,
+      },
     });
+
+    if (!res.success) {
+      let friendlyError = res.error || "Email provider rejected the message.";
+      if (friendlyError.includes("EAUTH") || friendlyError.includes("Invalid login") || friendlyError.includes("Username and Password not accepted")) {
+        friendlyError = "SMTP Authentication failed. Please verify email credentials in /admin/smtp.";
+      } else if (friendlyError.includes("ECONNREFUSED") || friendlyError.includes("ENOTFOUND")) {
+        friendlyError = "Could not connect to SMTP server host. Please check network/host configuration.";
+      } else if (friendlyError.includes("EENVELOPE") || friendlyError.includes("550") || friendlyError.includes("553")) {
+        friendlyError = `Email delivery rejected by mail server for recipient ${recipientEmail}.`;
+      }
+      return {
+        success: false,
+        message: friendlyError,
+      };
+    }
+
+    // Update volunteer record status to "contacted" if signupId was passed
+    if (signupId) {
+      try {
+        await updateVolunteerStatusDb(signupId, "contacted");
+      } catch (dbErr: any) {
+        console.warn("Could not update volunteer record status after reply:", dbErr.message);
+      }
+    }
 
     revalidatePath("/admin/email-logs");
     revalidatePath("/admin/volunteer-signups");
 
     return {
       success: true,
-      message: res.success
-        ? `Reply email dispatched successfully to ${recipientEmail}!`
-        : `Reply recorded in email logs (Status: ${res.error || "delivery queued"}).`,
+      message: `Reply email dispatched successfully to ${recipientEmail}!`,
     };
   } catch (err: any) {
     console.error("sendVolunteerReplyAction error:", err);
-    return { success: false, message: err.message || "Failed to send reply." };
+    return { success: false, message: err.message || "Failed to send email reply." };
   }
 }
 

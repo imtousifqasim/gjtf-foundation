@@ -378,13 +378,15 @@ export async function deleteDonationDb(id: string): Promise<void> {
 // 4. Contact Submissions
 // -------------------------------------------------------------
 export async function getContactMessagesDb(limit = 100): Promise<any[]> {
+  await ensureCoreTablesDb();
   return await query<RowDataPacket[]>(
-    "SELECT * FROM contact_submissions ORDER BY created_at DESC LIMIT ?",
+    "SELECT * FROM contact_submissions WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ?",
     [limit]
   );
 }
 
 export async function createContactMessageDb(data: any): Promise<string> {
+  await ensureCoreTablesDb();
   const id = "msg_" + Math.random().toString(36).substring(2, 11);
   const sql = `
     INSERT INTO contact_submissions (id, name, email, subject, message, status)
@@ -407,17 +409,178 @@ export async function createContactMessageDb(data: any): Promise<string> {
 }
 
 export async function updateContactStatusDb(id: string, status: string): Promise<void> {
-  await query("UPDATE contact_submissions SET status = ? WHERE id = ?", [status, id]);
+  await ensureCoreTablesDb();
+  await query("UPDATE contact_submissions SET status = ? WHERE id = ? AND deleted_at IS NULL", [status, id]);
   syncBackupToSupabase("updateContactStatus", (sb) =>
     sb.from("contact_submissions").update({ status }).eq("id", id)
   );
 }
 
-export async function deleteContactMessageDb(id: string): Promise<void> {
-  await query("DELETE FROM contact_submissions WHERE id = ?", [id]);
-  syncBackupToSupabase("deleteContactMessage", (sb) =>
-    sb.from("contact_submissions").delete().eq("id", id)
+export async function deleteContactMessageDb(id: string): Promise<boolean> {
+  await ensureCoreTablesDb();
+  const res: any = await query(
+    "UPDATE contact_submissions SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL",
+    [id]
   );
+  const affected = (res?.affectedRows || 0) > 0;
+  if (affected) {
+    syncBackupToSupabase("deleteContactMessage", (sb) =>
+      sb.from("contact_submissions").update({ deleted_at: new Date().toISOString() }).eq("id", id)
+    );
+  }
+  return affected;
+}
+
+export async function deleteContactMessagesBulkDb(ids: string[]): Promise<number> {
+  await ensureCoreTablesDb();
+  if (!ids || ids.length === 0) return 0;
+  const placeholders = ids.map(() => "?").join(",");
+  const res: any = await query(
+    `UPDATE contact_submissions SET deleted_at = NOW() WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+    ids
+  );
+  return res?.affectedRows || 0;
+}
+
+export async function getContactMessageRepliesDb(messageId: string): Promise<any[]> {
+  await ensureCoreTablesDb();
+  return await query<RowDataPacket[]>(
+    "SELECT * FROM contact_message_replies WHERE message_id = ? ORDER BY created_at ASC",
+    [messageId]
+  );
+}
+
+export async function createContactMessageReplyDb(data: {
+  id?: string;
+  messageId: string;
+  adminId: string;
+  subject: string;
+  body: string;
+  status?: "sent" | "failed";
+  error?: string | null;
+  providerMessageId?: string | null;
+}): Promise<string> {
+  await ensureCoreTablesDb();
+  const id = data.id || "c_rep_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now().toString(36);
+  await query(
+    `INSERT INTO contact_message_replies (id, message_id, admin_id, subject, body, status, error, provider_message_id, created_at, sent_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    [
+      id,
+      data.messageId,
+      data.adminId,
+      data.subject,
+      data.body,
+      data.status || "sent",
+      data.error || null,
+      data.providerMessageId || null,
+    ]
+  );
+
+  // Update parent submission status to replied
+  await query(
+    `UPDATE contact_submissions SET status = 'replied', replied_at = NOW(), replied_by = ? WHERE id = ? AND deleted_at IS NULL`,
+    [data.adminId, data.messageId]
+  );
+
+  return id;
+}
+
+export async function getContactMessagesSettingsDb(): Promise<{
+  auto_delete_enabled: boolean;
+  retention_days: number;
+  delete_only_replied: boolean;
+  last_cleanup_at: string | null;
+  last_cleanup_count: number;
+}> {
+  await ensureCoreTablesDb();
+  const rows: any = await query("SELECT * FROM contact_messages_settings WHERE id = 'default' LIMIT 1");
+  if (!rows || rows.length === 0) {
+    return {
+      auto_delete_enabled: false,
+      retention_days: 30,
+      delete_only_replied: false,
+      last_cleanup_at: null,
+      last_cleanup_count: 0,
+    };
+  }
+  const r = rows[0];
+  return {
+    auto_delete_enabled: Boolean(r.auto_delete_enabled),
+    retention_days: Number(r.retention_days) || 30,
+    delete_only_replied: Boolean(r.delete_only_replied),
+    last_cleanup_at: r.last_cleanup_at,
+    last_cleanup_count: Number(r.last_cleanup_count) || 0,
+  };
+}
+
+export async function saveContactMessagesSettingsDb(settings: {
+  auto_delete_enabled?: boolean;
+  retention_days?: number;
+  delete_only_replied?: boolean;
+}): Promise<void> {
+  await ensureCoreTablesDb();
+  await query(
+    `INSERT INTO contact_messages_settings (id, auto_delete_enabled, retention_days, delete_only_replied)
+     VALUES ('default', ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       auto_delete_enabled = COALESCE(?, auto_delete_enabled),
+       retention_days = COALESCE(?, retention_days),
+       delete_only_replied = COALESCE(?, delete_only_replied),
+       updated_at = NOW()`,
+    [
+      settings.auto_delete_enabled ? 1 : 0,
+      settings.retention_days || 30,
+      settings.delete_only_replied ? 1 : 0,
+      settings.auto_delete_enabled != null ? (settings.auto_delete_enabled ? 1 : 0) : null,
+      settings.retention_days != null ? settings.retention_days : null,
+      settings.delete_only_replied != null ? (settings.delete_only_replied ? 1 : 0) : null,
+    ]
+  );
+}
+
+export async function cleanupOldContactMessagesDb(retentionDays = 30, onlyReplied = false): Promise<number> {
+  await ensureCoreTablesDb();
+  let totalDeleted = 0;
+  const batchSize = 500;
+  let hasMore = true;
+
+  while (hasMore) {
+    let whereSql = "deleted_at IS NULL AND created_at < DATE_SUB(NOW(), INTERVAL ? DAY)";
+    if (onlyReplied) {
+      whereSql += " AND status = 'replied'";
+    }
+
+    const res: any = await query(
+      `UPDATE contact_submissions SET deleted_at = NOW() WHERE ${whereSql} LIMIT ?`,
+      [retentionDays, batchSize]
+    );
+
+    const affected = res?.affectedRows || 0;
+    totalDeleted += affected;
+    if (affected < batchSize) {
+      hasMore = false;
+    }
+  }
+
+  // Update cleanup metadata
+  await query(
+    "UPDATE contact_messages_settings SET last_cleanup_at = NOW(), last_cleanup_count = ? WHERE id = 'default'",
+    [totalDeleted]
+  );
+
+  return totalDeleted;
+}
+
+export async function clearAllContactMessagesDb(confirmationWord: string): Promise<number> {
+  if (confirmationWord !== "DELETE") {
+    throw new Error("Confirmation word must be 'DELETE' to clear all messages.");
+  }
+  await ensureCoreTablesDb();
+  const res: any = await query(
+    "UPDATE contact_submissions SET deleted_at = NOW() WHERE deleted_at IS NULL"
+  );
+  return res?.affectedRows || 0;
 }
 
 // -------------------------------------------------------------
@@ -685,7 +848,7 @@ export async function getDatabaseMetricsDb(): Promise<any> {
     subscribers,
   ] = await Promise.all([
     query<RowDataPacket[]>("SELECT count(*) as cnt FROM donations"),
-    query<RowDataPacket[]>("SELECT count(*) as cnt FROM contact_submissions"),
+    query<RowDataPacket[]>("SELECT count(*) as cnt FROM contact_submissions WHERE deleted_at IS NULL"),
     query<RowDataPacket[]>("SELECT count(*) as cnt FROM volunteer_signups"),
     query<RowDataPacket[]>("SELECT count(*) as cnt FROM schools"),
     query<RowDataPacket[]>("SELECT count(*) as cnt FROM stories"),

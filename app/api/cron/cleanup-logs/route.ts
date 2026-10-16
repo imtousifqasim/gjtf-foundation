@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEmailSettingsDb, cleanupOldEmailLogsDb } from "@/lib/db/mysql";
+import {
+  getEmailSettingsDb,
+  cleanupOldEmailLogsDb,
+  getContactMessagesSettingsDb,
+  cleanupOldContactMessagesDb,
+} from "@/lib/db/mysql";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +91,32 @@ export async function GET(req: NextRequest) {
     }
   } catch (remErr: any) {
     results.donationReminders = { error: remErr.message };
+  }
+
+  // 4. Contact Messages Retention Auto-Cleanup
+  try {
+    const contactSettings = await getContactMessagesSettingsDb();
+    if (contactSettings.auto_delete_enabled) {
+      const deletedContactCount = await cleanupOldContactMessagesDb(
+        contactSettings.retention_days,
+        contactSettings.delete_only_replied
+      );
+      results.contactCleanup = {
+        success: true,
+        retentionDays: contactSettings.retention_days,
+        onlyReplied: contactSettings.delete_only_replied,
+        deletedMessagesCount: deletedContactCount,
+      };
+    } else {
+      results.contactCleanup = {
+        success: true,
+        message: "Auto-cleanup disabled in contact messages settings.",
+        deleted: 0,
+      };
+    }
+  } catch (contactErr: any) {
+    console.error("Cleanup contact messages cron error:", contactErr);
+    results.contactCleanup = { success: false, error: contactErr.message };
   }
 
   return NextResponse.json({

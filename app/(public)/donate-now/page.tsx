@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   Heart,
   Building,
@@ -55,6 +56,7 @@ const CAUSES = [
 const PRESET_CHILDREN = [1, 2, 5, 10, 30, 50];
 
 export default function DonateNowPage() {
+  const router = useRouter();
   const [cause, setCause] = React.useState<DonationInput["cause"]>("Educate a Child");
   const [frequency, setFrequency] = React.useState<"monthly" | "once">("monthly");
   const [currency, setCurrency] = React.useState<"PKR" | "AED">("PKR");
@@ -239,6 +241,10 @@ export default function DonateNowPage() {
 
     setSubmitting(false);
     if (res.success) {
+      if (res.donorLoggedIn) {
+        router.push("/donor/dashboard?pledge_success=" + encodeURIComponent(res.referenceNo));
+        return;
+      }
       setSubmittedData({
         referenceNo: res.referenceNo,
         amount,
@@ -249,6 +255,7 @@ export default function DonateNowPage() {
         impact: res.impact || impact,
         fxLockNotice: res.fxLockNotice,
         bankAccount: res.bankAccount || siteConfig.bankAccount,
+        isGuest: true,
       });
     } else {
       setErrorMsg(res.message || "An error occurred while submitting your pledge.");
@@ -395,10 +402,18 @@ export default function DonateNowPage() {
               </div>
             </div>
 
+            {/* Guest instructions per Issue 2 requirement */}
+            <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl text-emerald-950 text-xs sm:text-sm font-medium max-w-lg mx-auto space-y-1">
+              <p className="font-bold">✉️ Check your email to set your password and view your dashboard</p>
+              <p className="text-[11px] text-emerald-800">
+                We have sent an activation link to your inbox. Once verified, all your pledges will appear in your private donor space.
+              </p>
+            </div>
+
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <a href="/donor/login">
                 <Button className="font-bold bg-primary-700 hover:bg-primary-600 text-white rounded-xl px-6">
-                  Access My Donor Portal &rarr;
+                  Donor Login &rarr;
                 </Button>
               </a>
               <Button

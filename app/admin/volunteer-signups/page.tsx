@@ -16,6 +16,8 @@ import {
   XCircle,
   FileText,
   UserCheck,
+  AlertCircle,
+  RotateCcw,
 } from "lucide-react";
 import { updateVolunteerStatus, deleteVolunteerSignup } from "@/app/actions/admin";
 import { sendVolunteerReplyAction } from "@/app/actions/emails";
@@ -24,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   Table,
   TableHeader,
@@ -47,6 +50,7 @@ interface VolunteerRecord {
 }
 
 export default function AdminVolunteerSignupsPage() {
+  const { toast } = useToast();
   const [signups, setSignups] = React.useState<VolunteerRecord[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
@@ -57,6 +61,7 @@ export default function AdminVolunteerSignupsPage() {
   const [replyVolunteer, setReplyVolunteer] = React.useState<VolunteerRecord | null>(null);
   const [replySubject, setReplySubject] = React.useState("");
   const [replyMessage, setReplyMessage] = React.useState("");
+  const [replyError, setReplyError] = React.useState<string | null>(null);
   const [sendingReply, setSendingReply] = React.useState(false);
 
   // Status notes modal (optional note on accept/reject)
@@ -68,13 +73,6 @@ export default function AdminVolunteerSignupsPage() {
 
   // Delete modal state
   const [volunteerToDelete, setVolunteerToDelete] = React.useState<string | null>(null);
-
-  // Toast
-  const [toast, setToast] = React.useState<{ text: string; type: "success" | "error" } | null>(null);
-  const showToast = (text: string, type: "success" | "error" = "success") => {
-    setToast({ text, type });
-    setTimeout(() => setToast(null), 5000);
-  };
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
@@ -107,15 +105,15 @@ export default function AdminVolunteerSignupsPage() {
         );
         setSelectedVolunteer((prev) => (prev ? { ...prev, status: newStatus } : null));
         if (newStatus === "contacted") {
-          showToast(`Application accepted! Welcome email sent to ${selectedVolunteer.email}.`, "success");
+          toast.success(`Application accepted! Welcome email sent to ${selectedVolunteer.email}.`);
         } else if (newStatus === "archived") {
-          showToast(`Application archived. Rejection notification sent to ${selectedVolunteer.email}.`, "success");
+          toast.info(`Application archived. Rejection notification sent to ${selectedVolunteer.email}.`);
         } else {
-          showToast("Status updated.", "success");
+          toast.success("Status updated.");
         }
       }
     } catch (err: any) {
-      showToast(err.message || "Status update failed", "error");
+      toast.error(err.message || "Status update failed");
     } finally {
       setStatusAction(null);
       setStatusNote("");
@@ -130,9 +128,9 @@ export default function AdminVolunteerSignupsPage() {
       if (selectedVolunteer?.id === volunteerToDelete) {
         setSelectedVolunteer(null);
       }
-      showToast("Volunteer application deleted and notification email sent.", "success");
+      toast.success("Volunteer application deleted and notification email sent.");
     } catch (err: any) {
-      showToast(err.message || "Failed to delete application", "error");
+      toast.error(err.message || "Failed to delete application");
     } finally {
       setVolunteerToDelete(null);
     }
@@ -145,14 +143,17 @@ export default function AdminVolunteerSignupsPage() {
     setReplyMessage(
       `Dear ${vol.full_name},\n\nThank you for reaching out regarding your volunteer application with Ghais Jhuggi Taleem Foundation.\n\n`
     );
+    setReplyError(null);
   };
 
   // Send Reply
   const handleSendReply = async () => {
     if (!replyVolunteer || !replyMessage.trim()) return;
     setSendingReply(true);
+    setReplyError(null);
     try {
       const res = await sendVolunteerReplyAction({
+        signupId: replyVolunteer.id,
         recipientName: replyVolunteer.full_name,
         recipientEmail: replyVolunteer.email,
         subject: replySubject,
@@ -160,13 +161,15 @@ export default function AdminVolunteerSignupsPage() {
       });
 
       if (res.success) {
-        showToast(res.message, "success");
+        toast.success(res.message);
         setReplyVolunteer(null);
+        setReplyError(null);
+        loadData();
       } else {
-        showToast(res.message, "error");
+        setReplyError(res.message);
       }
     } catch (err: any) {
-      showToast(err.message || "Failed to dispatch email reply", "error");
+      setReplyError(err.message || "Failed to dispatch email reply");
     } finally {
       setSendingReply(false);
     }
@@ -184,19 +187,6 @@ export default function AdminVolunteerSignupsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast Alert */}
-      {toast && (
-        <div
-          className={`fixed top-5 right-5 z-50 p-4 rounded-2xl shadow-xl border text-sm font-semibold flex items-center gap-3 transition-all ${
-            toast.type === "success"
-              ? "bg-emerald-600 text-white border-emerald-500"
-              : "bg-red-600 text-white border-red-500"
-          }`}
-        >
-          {toast.type === "success" ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-          {toast.text}
-        </div>
-      )}
 
       {/* Header */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -518,11 +508,39 @@ export default function AdminVolunteerSignupsPage() {
               </div>
             </div>
 
+            {/* Inline Error Alert inside modal - directly above action buttons */}
+            {replyError && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="p-3.5 sm:p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm animate-in fade-in"
+              >
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block font-bold text-rose-950">Email Dispatch Failed</strong>
+                    <span className="text-rose-800 text-xs sm:text-sm leading-relaxed">{replyError}</span>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSendReply}
+                  disabled={sendingReply}
+                  className="rounded-xl border-rose-300 text-rose-700 bg-white hover:bg-rose-100 text-xs font-bold shrink-0 self-end sm:self-auto gap-1.5 h-8 px-3"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Retry
+                </Button>
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setReplyVolunteer(null)}
+                disabled={sendingReply}
                 className="rounded-xl text-xs font-semibold"
               >
                 Cancel

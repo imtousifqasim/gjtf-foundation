@@ -21,9 +21,15 @@ import {
 import { MAIN_NAV, SOCIAL_LINKS, CONTACT_INFO } from "@/data/navigation";
 import { useSiteSettings } from "@/lib/hooks/useSiteSettings";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { logoutDonorAction } from "@/app/actions/donorAuth";
+import { useRouter } from "next/navigation";
 
-export function Header() {
+interface HeaderProps {
+  donorLoggedIn?: boolean;
+}
+
+export function Header({ donorLoggedIn = false }: HeaderProps) {
+  const router = useRouter();
   const pathname = usePathname();
   const { settings } = useSiteSettings();
   const [isScrolled, setIsScrolled] = React.useState(false);
@@ -234,16 +240,42 @@ export function Header() {
 
           {/* Right Action: Donor Portal & Donate Button */}
           <div className="hidden sm:flex items-center gap-2.5">
-            <Link href="/donor/login" className="inline-block">
-              <Button
-                variant="outline"
-                size="md"
-                className="gap-1.5 px-3.5 py-2 text-xs font-bold border-warm-300 text-charcoal hover:bg-warm-100"
-              >
-                <UserCheck className="w-3.5 h-3.5 text-primary-700" />
-                Donor Portal
-              </Button>
-            </Link>
+            {donorLoggedIn ? (
+              <div className="flex items-center gap-1.5">
+                <Link href="/donor/dashboard" className="inline-block">
+                  <Button
+                    variant="outline"
+                    size="md"
+                    className="gap-1.5 px-3.5 py-2 text-xs font-bold border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
+                    My Dashboard
+                  </Button>
+                </Link>
+                <button
+                  onClick={async () => {
+                    await logoutDonorAction();
+                    router.push("/donor/login");
+                    router.refresh();
+                  }}
+                  className="px-2.5 py-2 text-xs font-semibold text-slate-500 hover:text-rose-600 transition-colors"
+                  title="Logout"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <Link href="/donor/login" className="inline-block">
+                <Button
+                  variant="outline"
+                  size="md"
+                  className="gap-1.5 px-3.5 py-2 text-xs font-bold border-warm-300 text-charcoal hover:bg-warm-100"
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-primary-700" />
+                  Donor Portal
+                </Button>
+              </Link>
+            )}
             <Link href="/donate-now" className="inline-block">
               <Button
                 variant="primary"
@@ -346,12 +378,34 @@ export function Header() {
               })}
 
               <div className="pt-3 border-t border-slate-200/70 space-y-2">
-                <Link href="/donor/login" className="w-full block" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" size="md" className="w-full font-bold rounded-xl flex items-center justify-center gap-2 border-warm-300 text-charcoal">
-                    <UserCheck className="w-4 h-4 text-primary-700" />
-                    Donor Portal Login
-                  </Button>
-                </Link>
+                {donorLoggedIn ? (
+                  <>
+                    <Link href="/donor/dashboard" className="w-full block" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="outline" size="md" className="w-full font-bold rounded-xl flex items-center justify-center gap-2 border-emerald-300 bg-emerald-50 text-emerald-800">
+                        <UserCheck className="w-4 h-4 text-emerald-700" />
+                        My Dashboard
+                      </Button>
+                    </Link>
+                    <button
+                      onClick={async () => {
+                        setMobileMenuOpen(false);
+                        await logoutDonorAction();
+                        router.push("/donor/login");
+                        router.refresh();
+                      }}
+                      className="w-full py-2 text-center text-xs font-semibold text-rose-600 hover:underline"
+                    >
+                      Logout of Supporter Space
+                    </button>
+                  </>
+                ) : (
+                  <Link href="/donor/login" className="w-full block" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="outline" size="md" className="w-full font-bold rounded-xl flex items-center justify-center gap-2 border-warm-300 text-charcoal">
+                      <UserCheck className="w-4 h-4 text-primary-700" />
+                      Donor Portal Login
+                    </Button>
+                  </Link>
+                )}
                 <Link href="/donate-now" className="w-full block" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="primary" size="lg" className="w-full font-bold shadow-soft hover:shadow-glow rounded-xl flex items-center justify-center gap-2">
                     <Heart className="w-4 h-4 fill-white" />

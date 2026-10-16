@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import {
   getDonorBySessionTokenDb,
   getDonorByEmailDb,
@@ -21,8 +22,10 @@ import {
   verifyPassword,
   validatePasswordStrength,
 } from "./tokens";
+import { signJwt, verifyJwt, getSafeRedirectUrl } from "./security";
 
 export const DONOR_SESSION_COOKIE = "gjtf_donor_session";
+const DONOR_SESSION_EXPIRY_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 /**
  * Derives the currently logged-in donor strictly from the verified server-side session cookie.
@@ -31,12 +34,23 @@ export const DONOR_SESSION_COOKIE = "gjtf_donor_session";
 export async function getAuthenticatedDonor(): Promise<DonorRecord | null> {
   try {
     const cookieStore = await cookies();
-    const sessionTokenRaw = cookieStore.get(DONOR_SESSION_COOKIE)?.value;
-    if (!sessionTokenRaw || sessionTokenRaw.length < 32) {
+    const cookieValue = cookieStore.get(DONOR_SESSION_COOKIE)?.value;
+    if (!cookieValue || cookieValue.length < 16) {
       return null;
     }
 
-    const tokenHash = hashToken(sessionTokenRaw);
+    let rawToken = cookieValue;
+
+    // Check if token is signed JWT
+    if (cookieValue.includes(".")) {
+      const payload = await verifyJwt<any>(cookieValue);
+      if (!payload || payload.role !== "donor" || !payload.jti) {
+        return null;
+      }
+      rawToken = payload.jti;
+    }
+
+    const tokenHash = hashToken(rawToken);
     const donor = await getDonorBySessionTokenDb(tokenHash);
     return donor;
   } catch (err: any) {
@@ -46,9 +60,10 @@ export async function getAuthenticatedDonor(): Promise<DonorRecord | null> {
 }
 
 /**
- * Throws or returns an error if not authenticated
+ * Guard for Server Components and Server Actions.
+ * Redirects or throws if not authenticated.
  */
-export async function requireAuthenticatedDonor(): Promise<DonorRecord> {
+export async function requireAuthenticatedDonor(currentPath = "/donor/dashboard"): Promise<DonorRecord> {
   const donor = await getAuthenticatedDonor();
   if (!donor) {
     throw new Error("UNAUTHORIZED");
@@ -57,9 +72,25 @@ export async function requireAuthenticatedDonor(): Promise<DonorRecord> {
 }
 
 /**
- * Creates and attaches an httpOnly session cookie
+ * Page guard: redirects to login if donor is not authenticated
  */
-export async function setDonorSessionCookie(donorId: string, ip?: string, userAgent?: string): Promise<string> {
+export async function requireDonor(currentPath = "/donor/dashboard"): Promise<DonorRecord> {
+  const donor = await getAuthenticatedDonor();
+  if (!donor) {
+    const safeNext = getSafeRedirectUrl(currentPath, "/donor/dashboard");
+    redirect(`/donor/login?next=${encodeURIComponent(safeNext)}`);
+  }
+  return donor;
+}
+
+/**
+ * Creates and attaches an httpOnly session cookie with a signed JWT
+ */
+export async function setDonorSessionCookie(
+  donorId: string,
+  ip?: string,
+  userAgent?: string
+): Promise<string> {
   const rawToken = generateSecureToken();
   const tokenHash = hashToken(rawToken);
 
@@ -71,13 +102,23 @@ export async function setDonorSessionCookie(donorId: string, ip?: string, userAg
     userAgent,
   });
 
+  // Sign JWT with donor identity and session token reference
+  const signedToken = await signJwt(
+    {
+      sub: donorId,
+      role: "donor",
+      jti: rawToken,
+    },
+    DONOR_SESSION_EXPIRY_SECONDS
+  );
+
   const cookieStore = await cookies();
-  cookieStore.set(DONOR_SESSION_COOKIE, rawToken, {
+  cookieStore.set(DONOR_SESSION_COOKIE, signedToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: DONOR_SESSION_EXPIRY_SECONDS,
   });
 
   // Update donor last login
@@ -87,7 +128,7 @@ export async function setDonorSessionCookie(donorId: string, ip?: string, userAg
     locked_until: null,
   });
 
-  return rawToken;
+  return signedToken;
 }
 
 /**
@@ -96,8 +137,15 @@ export async function setDonorSessionCookie(donorId: string, ip?: string, userAg
 export async function clearDonorSessionCookie(): Promise<void> {
   try {
     const cookieStore = await cookies();
-    const rawToken = cookieStore.get(DONOR_SESSION_COOKIE)?.value;
-    if (rawToken) {
+    const cookieValue = cookieStore.get(DONOR_SESSION_COOKIE)?.value;
+    if (cookieValue) {
+      let rawToken = cookieValue;
+      if (cookieValue.includes(".")) {
+        const payload = await verifyJwt<any>(cookieValue);
+        if (payload?.jti) {
+          rawToken = payload.jti;
+        }
+      }
       await revokeDonorSessionDb(hashToken(rawToken));
     }
     cookieStore.delete(DONOR_SESSION_COOKIE);

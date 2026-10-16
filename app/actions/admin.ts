@@ -6,6 +6,13 @@ import {
   deleteDonationDb,
   updateContactStatusDb,
   deleteContactMessageDb,
+  deleteContactMessagesBulkDb,
+  getContactMessageRepliesDb,
+  createContactMessageReplyDb,
+  getContactMessagesSettingsDb,
+  saveContactMessagesSettingsDb,
+  clearAllContactMessagesDb,
+  createAuditLogDb,
   updateVolunteerStatusDb,
   deleteVolunteerSignupDb,
   saveSchoolDb,
@@ -15,6 +22,8 @@ import {
   cancelDonationReminderDb,
   query,
 } from "@/lib/db/mysql";
+import { requireAdmin } from "@/lib/auth/admin";
+import { createContactReplyEmail } from "@/lib/email/templates/contactTemplates";
 import { sendTransactionalEmail } from "@/lib/email/sender";
 import {
   createDonationCompletedEmail,
@@ -164,8 +173,9 @@ export async function deleteDonation(donationId: string) {
   }
 }
 
-export async function updateContactStatus(messageId: string, status: "new" | "read" | "archived") {
+export async function updateContactStatus(messageId: string, status: "new" | "read" | "archived" | "replied") {
   try {
+    await requireAdmin();
     await updateContactStatusDb(messageId, status);
     revalidatePath("/admin/contact-messages");
     revalidatePath("/admin");
@@ -178,12 +188,237 @@ export async function updateContactStatus(messageId: string, status: "new" | "re
 
 export async function deleteContactMessage(messageId: string) {
   try {
-    await deleteContactMessageDb(messageId);
+    const admin = await requireAdmin();
+    const ok = await deleteContactMessageDb(messageId);
+    if (!ok) {
+      return { success: false, error: "Contact submission not found or already deleted." };
+    }
+
+    try {
+      await createAuditLogDb({
+        actor_type: "admin",
+        actor_id: admin.email,
+        action: "contact_messages.deleted",
+        target_type: "contact_submissions",
+        target_id: messageId,
+      });
+    } catch {}
+
     revalidatePath("/admin/contact-messages");
     revalidatePath("/admin");
     return { success: true };
   } catch (err: any) {
     console.error("deleteContactMessage error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function deleteContactMessagesBulk(messageIds: string[]) {
+  try {
+    const admin = await requireAdmin();
+    const count = await deleteContactMessagesBulkDb(messageIds);
+    if (count === 0) {
+      return { success: false, error: "No contact submissions were deleted. They may have already been removed." };
+    }
+
+    try {
+      await createAuditLogDb({
+        actor_type: "admin",
+        actor_id: admin.email,
+        action: "contact_messages.bulk_deleted",
+        target_type: "contact_submissions",
+        metadata: { count, messageIds },
+      });
+    } catch {}
+
+    revalidatePath("/admin/contact-messages");
+    revalidatePath("/admin");
+    return { success: true, count };
+  } catch (err: any) {
+    console.error("deleteContactMessagesBulk error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function sendContactMessageReplyAction(formData: {
+  messageId: string;
+  subject: string;
+  message: string;
+}) {
+  try {
+    const admin = await requireAdmin();
+
+    const subject = (formData.subject || "").trim();
+    const replyBody = (formData.message || "").trim();
+
+    if (!formData.messageId) {
+      return { success: false, error: "Target contact message ID is required." };
+    }
+    if (!subject || subject.length < 3) {
+      return { success: false, error: "Please provide a valid email subject line (min 3 characters)." };
+    }
+    if (!replyBody || replyBody.length < 5) {
+      return { success: false, error: "Please enter your reply message content (min 5 characters)." };
+    }
+
+    // 1. Fetch original contact inquiry
+    const msgRows: any = await query(
+      "SELECT * FROM contact_submissions WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+      [formData.messageId]
+    );
+
+    if (!msgRows || msgRows.length === 0) {
+      return { success: false, error: "The inquiry you are replying to no longer exists or was deleted." };
+    }
+
+    const originalMsg = msgRows[0];
+
+    // 2. Build branded transactional email payload
+    const emailPayload = createContactReplyEmail({
+      recipientName: originalMsg.name || "Inquirer",
+      recipientEmail: originalMsg.email,
+      subject,
+      replyBody,
+      originalMessage: {
+        senderName: originalMsg.name,
+        subject: originalMsg.subject,
+        message: originalMsg.message,
+        createdAt: originalMsg.created_at,
+      },
+    });
+
+    // 3. Dispatch via transactional email system
+    const sendResult = await sendTransactionalEmail({
+      to: originalMsg.email,
+      recipientName: originalMsg.name,
+      emailType: "contact_reply",
+      subject: emailPayload.subject,
+      html: emailPayload.html,
+      text: emailPayload.text,
+      metadata: {
+        messageId: originalMsg.id,
+        repliedBy: admin.email,
+        originalSubject: originalMsg.subject,
+      },
+    });
+
+    // 4. Record reply in database
+    await createContactMessageReplyDb({
+      messageId: originalMsg.id,
+      adminId: admin.email,
+      subject,
+      body: replyBody,
+      status: sendResult.success ? "sent" : "failed",
+      error: sendResult.error || null,
+      providerMessageId: sendResult.logId || null,
+    });
+
+    if (!sendResult.success) {
+      return {
+        success: false,
+        error: `Email provider error: ${sendResult.error || "Failed to dispatch reply."}`,
+      };
+    }
+
+    // 5. Audit log & revalidation
+    try {
+      await createAuditLogDb({
+        actor_type: "admin",
+        actor_id: admin.email,
+        action: "contact_messages.replied",
+        target_type: "contact_submissions",
+        target_id: originalMsg.id,
+        metadata: {
+          recipientEmail: originalMsg.email,
+          subject,
+          logId: sendResult.logId,
+        },
+      });
+    } catch {}
+
+    revalidatePath("/admin/contact-messages");
+    revalidatePath("/admin");
+    revalidatePath("/admin/email-logs");
+
+    return {
+      success: true,
+      message: `Reply officially sent to ${originalMsg.email} and recorded in thread.`,
+    };
+  } catch (err: any) {
+    console.error("sendContactMessageReplyAction error:", err);
+    return { success: false, error: err.message || "An unexpected error occurred while dispatching reply." };
+  }
+}
+
+export async function getContactMessageThreadAction(messageId: string) {
+  try {
+    await requireAdmin();
+    const [msgRows, replies]: any = await Promise.all([
+      query("SELECT * FROM contact_submissions WHERE id = ? LIMIT 1", [messageId]),
+      getContactMessageRepliesDb(messageId),
+    ]);
+
+    if (!msgRows || msgRows.length === 0) {
+      return { success: false, error: "Message not found" };
+    }
+
+    return {
+      success: true,
+      message: msgRows[0],
+      replies: replies || [],
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function getContactMessagesSettingsAction() {
+  try {
+    await requireAdmin();
+    const settings = await getContactMessagesSettingsDb();
+    return { success: true, settings };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function saveContactMessagesSettingsAction(settings: {
+  auto_delete_enabled?: boolean;
+  retention_days?: number;
+  delete_only_replied?: boolean;
+}) {
+  try {
+    const admin = await requireAdmin();
+    await saveContactMessagesSettingsDb(settings);
+    await createAuditLogDb({
+      actor_type: "admin",
+      actor_id: admin.email,
+      action: "contact_messages.settings_updated",
+      target_type: "contact_messages_settings",
+      metadata: settings,
+    });
+    revalidatePath("/admin/contact-messages");
+    return { success: true, message: "Contact message retention settings updated." };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function clearAllContactMessagesAction(confirmation: string) {
+  try {
+    const admin = await requireAdmin();
+    const count = await clearAllContactMessagesDb(confirmation);
+    await createAuditLogDb({
+      actor_type: "admin",
+      actor_id: admin.email,
+      action: "contact_messages.clear_all",
+      target_type: "contact_submissions",
+      metadata: { clearedCount: count },
+    });
+    revalidatePath("/admin/contact-messages");
+    revalidatePath("/admin");
+    return { success: true, count, message: `Successfully cleared ${count} contact messages.` };
+  } catch (err: any) {
     return { success: false, error: err.message };
   }
 }

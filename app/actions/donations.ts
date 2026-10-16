@@ -167,13 +167,19 @@ export async function submitDonation(input: DonationInput) {
     const currentYear = new Date().getFullYear();
     const referenceNo = `GJTF-${currentYear}-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // 5. Check or Create Donor Record
+    // 5. Check or Create Donor Record (Session-First Ownership & Zero-Trust)
     const loggedInDonor = await getAuthenticatedDonor();
     let donorId: string | null = loggedInDonor ? loggedInDonor.id : null;
     let isNewDonor = false;
     let setPasswordTokenRaw: string | null = null;
 
-    if (!donorId && cleanedEmail) {
+    if (loggedInDonor) {
+      // Session-first: Donation strictly belongs to the logged-in donor
+      donorId = loggedInDonor.id;
+      // Auto-link any previous unlinked pledges matching donor's email
+      await linkDonationsToDonorDb(donorId, loggedInDonor.email);
+    } else if (cleanedEmail) {
+      // Guest Donor: Find or create donor row with normalized lowercase email
       const existingDonor = await getDonorByEmailDb(cleanedEmail);
       if (existingDonor) {
         donorId = existingDonor.id;
@@ -197,6 +203,8 @@ export async function submitDonation(input: DonationInput) {
           expiresInMinutes: 48 * 60,
         });
       }
+      // Link any prior orphan donations for this guest email
+      await linkDonationsToDonorDb(donorId, cleanedEmail);
     }
 
     // 6. Handle Monthly Recurring Plan (if frequency === 'monthly')
@@ -345,7 +353,10 @@ export async function submitDonation(input: DonationInput) {
     }
 
     revalidatePath("/admin");
+    revalidatePath("/admin/donations");
     revalidatePath("/donor/dashboard");
+    revalidatePath("/donor/donations");
+    revalidatePath("/donor/plans");
 
     return {
       success: true,
@@ -358,6 +369,8 @@ export async function submitDonation(input: DonationInput) {
       impact,
       fxLockNotice: parsed.data.currency === "AED" ? lockedFx.lockNotice : null,
       bankAccount: primaryBank,
+      donorLoggedIn: Boolean(loggedInDonor),
+      isGuest: !Boolean(loggedInDonor),
       message: `Pledge #${referenceNo} registered successfully!`,
     };
   } catch (err: any) {

@@ -8,9 +8,12 @@ import {
   getSubscribersDb,
   getSiteSettingsDb,
 } from "@/lib/db/mysql";
+import { verifyAdminApi } from "@/lib/auth/admin";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+const PUBLIC_TABLES = new Set(["schools", "stories"]);
 
 export async function GET(
   request: NextRequest,
@@ -21,17 +24,27 @@ export async function GET(
 
     const noCacheHeaders = {
       "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      "Vary": "Cookie",
     };
 
+    // Public marketing content tables
+    if (table === "schools") {
+      const data = await getSchoolsDb();
+      return NextResponse.json({ success: true, data }, { headers: noCacheHeaders });
+    }
+
+    if (table === "stories") {
+      const data = await getStoriesDb();
+      return NextResponse.json({ success: true, data }, { headers: noCacheHeaders });
+    }
+
+    // P0 Security: All other data tables contain sensitive personal/financial data and require admin auth!
+    const authCheck = await verifyAdminApi(request);
+    if (!authCheck.authorized) {
+      return authCheck.response;
+    }
+
     switch (table) {
-      case "schools": {
-        const data = await getSchoolsDb();
-        return NextResponse.json({ success: true, data }, { headers: noCacheHeaders });
-      }
-      case "stories": {
-        const data = await getStoriesDb();
-        return NextResponse.json({ success: true, data }, { headers: noCacheHeaders });
-      }
       case "donations": {
         const data = await getDonationsDb(100);
         return NextResponse.json({ success: true, data }, { headers: noCacheHeaders });
