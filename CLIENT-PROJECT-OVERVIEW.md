@@ -87,9 +87,8 @@ Designed to convert visitors into recurring donors:
 * **Frequency Modes**: *One-Time* or *Monthly Recurring*.
 * **Dual Currency Support**: PKR (Pakistani Rupee) and AED (UAE Dirham).
 * **Donation Classification**: *General Donation*, *Zakat*, or *Sadqah*.
-* **Smart Impact Calculator**: Shows the tangible real-world outcome of the selected donation amount.
-* **Bank Transfer Direct Verification**: Displays verified Pakistani bank accounts (Meezan Bank, Account Title, IBAN, SWIFT) with one-click copy buttons.
-* **Instant Submission Tracking**: Generates a donation record in the database marked as `pending` or `completed` with full donor details.
+* **Bank Transfer Direct Verification**: Displays verified Pakistani bank accounts (Bank Islami, Account Title, IBAN) with one-click copy buttons.
+
 
 ### 7. Contact Us & Regional Offices (`/contact-us`)
 * Direct Lahore Head Office details (New Liberty Tower, Model Town Link Road, Lahore).

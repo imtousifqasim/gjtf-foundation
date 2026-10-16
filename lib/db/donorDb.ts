@@ -354,6 +354,10 @@ export async function createDonationPlanDb(data: {
   billing_day: number;
   start_date: string;
   payment_method?: string;
+  children_count?: number;
+  pledge_basis?: "pkr_fixed" | "aed_fixed";
+  total_cycles?: number | null;
+  end_date?: string | null;
 }): Promise<string> {
   await ensureCoreTablesDb();
   const id = "pln_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now().toString(36);
@@ -364,9 +368,10 @@ export async function createDonationPlanDb(data: {
 
   const sql = `
     INSERT INTO donation_plans (
-      id, donor_id, cause, currency, amount_minor, amount, donation_type,
-      billing_day, start_date, next_due_date, status, payment_method
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+      id, donor_id, cause, currency, amount_minor, amount, children_count,
+      pledge_basis, donation_type, billing_day, start_date, next_due_date,
+      total_cycles, end_date, status, payment_method
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
   `;
 
   await query(sql, [
@@ -376,10 +381,14 @@ export async function createDonationPlanDb(data: {
     data.currency.toUpperCase(),
     amountMinor,
     data.amount,
+    data.children_count || 1.0,
+    data.pledge_basis || "pkr_fixed",
     data.donation_type,
     data.billing_day,
     data.start_date,
     nextDueDate,
+    data.total_cycles || null,
+    data.end_date || null,
     data.payment_method || "bank_transfer",
   ]);
 
@@ -705,12 +714,12 @@ export async function getPaymentSettingsDb(): Promise<PaymentSettingsRecord> {
   if (!rows || rows.length === 0) {
     return {
       id: "default",
-      bank_title: "Ghais Jhuggi Taleem Foundation",
-      bank_name: "Meezan Bank Limited",
-      account_number: "02010103847291",
-      iban: "PK72MEZN0002010103847291",
-      branch_name: "Model Town Link Road Branch Lahore",
-      swift_code: "MEZNPKKA",
+      bank_title: siteConfig.bankAccount.accountTitle,
+      bank_name: siteConfig.bankAccount.bankName,
+      account_number: siteConfig.bankAccount.accountNumber,
+      iban: siteConfig.bankAccount.iban,
+      branch_name: siteConfig.bankAccount.branch,
+      swift_code: siteConfig.bankAccount.swift || "",
       doorstep_enabled: true,
       doorstep_phone: "04235236622",
       cheque_enabled: true,
@@ -756,12 +765,12 @@ export async function savePaymentSettingsDb(settings: Partial<PaymentSettingsRec
   `;
 
   await query(sql, [
-    settings.bank_title || "Ghais Jhuggi Taleem Foundation",
-    settings.bank_name || "Meezan Bank Limited",
-    settings.account_number || "02010103847291",
-    settings.iban || "PK72MEZN0002010103847291",
-    settings.branch_name || "Model Town Link Road Branch Lahore",
-    settings.swift_code || "MEZNPKKA",
+    settings.bank_title || siteConfig.bankAccount.accountTitle,
+    settings.bank_name || siteConfig.bankAccount.bankName,
+    settings.account_number || siteConfig.bankAccount.accountNumber,
+    settings.iban || siteConfig.bankAccount.iban,
+    settings.branch_name || siteConfig.bankAccount.branch,
+    settings.swift_code || siteConfig.bankAccount.swift || "",
     settings.doorstep_enabled ? 1 : 0,
     settings.doorstep_phone || "04235236622",
     settings.cheque_enabled ? 1 : 0,

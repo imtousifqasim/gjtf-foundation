@@ -66,7 +66,8 @@ To give the GJTF leadership/client complete confidence in their new digital plat
 > *"Many NGO websites lose donations because their forms are confusing or outdated. Our donation widget provides a frictionless 3-step experience: selecting the cause, calculating student impact, and providing verified bank transfer details in PKR and AED."*
 
 > **Talking Point (Roman Urdu):**
-> *"Aksar NGO websites par donation process mushkil hota hai. Hamne yahan smart donation widget banaya hai. Donor 'Educate a Child' ya 'Zakat/Sadqah' choose karta hai, PKR ya AED select karta hai, aur system live batata hai ke us raqam se kitne bachon ki taleem sponsor hogi. Meezan Bank ke verified accounts aur IBAN ek click par copy ho jatay hain."*
+> *"Aksar NGO websites par donation process mushkil hota hai. Hamne yahan smart donation widget banaya hai. Donor 'Educate a Child' ya 'Zakat/Sadqah' choose karta hai, PKR ya AED select karta hai, aur system live batata hai ke us raqam se kitne bachon ki taleem sponsor hogi. Bank Islami ke verified accounts aur IBAN ek click par copy ho jatay hain."*
+
 
 #### What to Show On Screen:
 1. Navigate to `/donate-now`.

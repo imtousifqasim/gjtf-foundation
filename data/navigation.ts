@@ -97,11 +97,11 @@ export const CONTACT_INFO = {
     },
   ],
   bankDetails: {
-    bankName: "Meezan Bank Limited",
-    accountTitle: "Ghais Jhuggi Taleem Foundation",
-    accountNumber: "02010103847291",
-    iban: "PK72MEZN0002010103847291",
-    branch: "Model Town Link Road Branch, Lahore",
-    swiftCode: "MEZNPKKA",
+    bankName: siteConfig.bankAccount.bankName,
+    accountTitle: siteConfig.bankAccount.accountTitle,
+    accountNumber: siteConfig.bankAccount.accountNumber,
+    iban: siteConfig.bankAccount.iban,
+    branch: siteConfig.bankAccount.branch,
+    swiftCode: siteConfig.bankAccount.swift,
   },
 };

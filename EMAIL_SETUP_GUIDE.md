@@ -154,9 +154,10 @@ VALUES ('default', 0, 30);
 ### 2. Donor Workflows
 - **`donation_received`**: Dispatched immediately when a donor submits a pledge on `/donate-now`. Contains Reference ID, cause, amount, frequency, and bank transfer instructions.
 - **`donation_completed`**: Dispatched when an admin verifies payment and marks status as `completed`. Sends an official receipt and a direct button linking to the printable online receipt (`/receipt/[id]`).
-- **`donation_pending`**: Dispatched when status is marked `pending`. Re-shares official Meezan Bank, JazzCash, and EasyPaisa account details.
+- **`donation_pending`**: Dispatched when status is marked `pending`. Re-shares official Bank Islami, JazzCash, and EasyPaisa account details.
 - **`donation_failed`**: Dispatched when status is marked `failed`. Explains the issue sympathetically with a direct "Try Donating Again" button.
 - **`donation_reminder`**: Dispatched by Vercel Cron or on-demand via the admin **"Send Reminder Now"** button. Includes pledge details, optional admin note, and a signed one-click opt-out link.
+
 
 ---
 

@@ -100,7 +100,7 @@ const PAGES: PageItem[] = [
     title: "Donate Now",
     path: "/donate-now",
     category: "Core",
-    description: "Zakat & Sadqah contributions, Meezan Bank account details, donor tax compliance, and online giving.",
+    description: "Zakat & Sadqah contributions, Bank Islami account details, donor tax compliance, and doorstep collection.",
     icon: Sparkles,
   },
 ];

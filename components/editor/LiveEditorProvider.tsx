@@ -95,7 +95,7 @@ export const ALL_SITE_PAGES: SitePageMeta[] = [
   {
     path: "/donate-now",
     title: "Donate Now",
-    description: "Zakat & Sadqah contributions, Meezan Bank account details, and online giving",
+    description: "Zakat & Sadqah contributions, Bank Islami account details, and doorstep collection",
     category: "Core",
   },
 ];

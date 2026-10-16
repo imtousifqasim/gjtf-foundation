@@ -19,6 +19,7 @@ import {
   adminGetPaymentSettingsAction,
   adminSavePaymentSettingsAction,
 } from "@/app/actions/adminDonors";
+import { siteConfig } from "@/lib/siteConfig";
 
 export default function AdminPaymentSettingsPage() {
   const [loading, setLoading] = React.useState(true);
@@ -26,12 +27,12 @@ export default function AdminPaymentSettingsPage() {
   const [feedback, setFeedback] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [settings, setSettings] = React.useState<any>({
-    bank_title: "Ghais Jhuggi Taleem Foundation",
-    bank_name: "Meezan Bank Limited",
-    account_number: "02010103847291",
-    iban: "PK72MEZN0002010103847291",
-    branch_name: "Model Town Link Road Branch Lahore",
-    swift_code: "MEZNPKKA",
+    bank_title: siteConfig.bankAccount.accountTitle,
+    bank_name: siteConfig.bankAccount.bankName,
+    account_number: siteConfig.bankAccount.accountNumber,
+    iban: siteConfig.bankAccount.iban,
+    branch_name: siteConfig.bankAccount.branch,
+    swift_code: siteConfig.bankAccount.swift || "",
     doorstep_enabled: true,
     doorstep_phone: "04235236622",
     cheque_enabled: true,

@@ -19,8 +19,10 @@ import { sendTransactionalEmail } from "@/lib/email/sender";
 import { createPasswordResetEmail } from "@/lib/email/templates/donorTemplates";
 import { createDonationCompletedEmail } from "@/lib/email/templates/donationTemplates";
 import { RowDataPacket } from "mysql2/promise";
+import { getActivePricingSettingsDb } from "@/lib/db/pricingDb";
 
 const APP_URL = process.env.APP_URL || "https://gjtfoundation.com";
+
 
 // -------------------------------------------------------------
 // 1. Donors Listing & Audit Logged Detail View
@@ -180,6 +182,11 @@ export async function adminGetFinancialReportsAction() {
     monthlyTrends,
     planHealth,
     topSupporters,
+    pricing,
+    enrolledRow,
+    monthlyCommitmentsRow,
+    completedOneTimeRow,
+    childMonthsMonthly,
   ] = await Promise.all([
     // Totals by currency for COMPLETED donations
     query<RowDataPacket[]>(`
@@ -255,7 +262,84 @@ export async function adminGetFinancialReportsAction() {
       ORDER BY total_given DESC
       LIMIT 10
     `),
+
+    // Active pricing settings (cost per child month)
+    getActivePricingSettingsDb().catch(() => ({ costPerChildMonthPkr: 5000 })),
+
+    // Enrolled children setting from app_settings
+    query<RowDataPacket[]>(`
+      SELECT setting_value FROM app_settings WHERE setting_key = 'enrolled_children' LIMIT 1
+    `).catch(() => []),
+
+    // Active monthly commitments in PKR
+    query<RowDataPacket[]>(`
+      SELECT 
+        COALESCE(SUM(amount), 0) as monthly_pkr,
+        COUNT(*) as active_plans
+      FROM donation_plans
+      WHERE status = 'active'
+    `).catch(() => [{ monthly_pkr: 0, active_plans: 0 }]),
+
+    // Completed one-time donations in current calendar month in PKR
+    query<RowDataPacket[]>(`
+      SELECT 
+        COALESCE(SUM(
+          CASE 
+            WHEN amount_pkr_minor IS NOT NULL AND amount_pkr_minor > 0 THEN amount_pkr_minor / 100
+            WHEN UPPER(TRIM(currency)) = 'PKR' THEN amount
+            ELSE amount * 76.5
+          END
+        ), 0) as completed_pkr,
+        COUNT(*) as count
+      FROM donations
+      WHERE status = 'completed'
+        AND (frequency = 'once' OR frequency IS NULL)
+        AND YEAR(created_at) = YEAR(NOW())
+        AND MONTH(created_at) = MONTH(NOW())
+    `).catch(() => [{ completed_pkr: 0, count: 0 }]),
+
+    // Child-months funded per month (last 12 months)
+    query<RowDataPacket[]>(`
+      SELECT 
+        DATE_FORMAT(created_at, '%Y-%m') as month,
+        COUNT(*) as donation_count,
+        COALESCE(SUM(
+          CASE 
+            WHEN children_equivalent IS NOT NULL AND children_equivalent > 0 THEN children_equivalent
+            WHEN amount_pkr_minor IS NOT NULL AND amount_pkr_minor > 0 THEN (amount_pkr_minor / 100) / 5000.0
+            WHEN UPPER(TRIM(currency)) = 'PKR' THEN amount / 5000.0
+            ELSE (amount * 76.5) / 5000.0
+          END
+        ), 0) as child_months_funded,
+        COALESCE(SUM(
+          CASE 
+            WHEN amount_pkr_minor IS NOT NULL AND amount_pkr_minor > 0 THEN amount_pkr_minor / 100
+            WHEN UPPER(TRIM(currency)) = 'PKR' THEN amount
+            ELSE amount * 76.5
+          END
+        ), 0) as total_pkr
+      FROM donations
+      WHERE status = 'completed'
+        AND created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+      ORDER BY month DESC
+    `).catch(() => []),
   ]);
+
+  const costPerChild = (pricing as any)?.costPerChildMonthPkr || 5000;
+  const enrolledChildren = enrolledRow?.[0]?.setting_value ? parseInt(enrolledRow[0].setting_value, 10) : 1000;
+
+  const monthlyPkr = Number(monthlyCommitmentsRow?.[0]?.monthly_pkr || 0);
+  const activePlansCount = Number(monthlyCommitmentsRow?.[0]?.active_plans || 0);
+
+  const completedOneTimePkr = Number(completedOneTimeRow?.[0]?.completed_pkr || 0);
+  const completedOneTimeCount = Number(completedOneTimeRow?.[0]?.count || 0);
+
+  const totalAvailableThisMonthPkr = monthlyPkr + completedOneTimePkr;
+  const childrenCoveredThisMonth = Math.round((totalAvailableThisMonthPkr / costPerChild) * 10) / 10;
+  const fundingGapChildren = Math.max(0, enrolledChildren - Math.floor(childrenCoveredThisMonth));
+  const fundingGapPkr = Math.max(0, (enrolledChildren * costPerChild) - totalAvailableThisMonthPkr);
+  const coveragePercentage = Math.min(100, Math.round((totalAvailableThisMonthPkr / (enrolledChildren * costPerChild)) * 100));
 
   return {
     currencyTotals: currencyTotals || [],
@@ -264,8 +348,55 @@ export async function adminGetFinancialReportsAction() {
     monthlyTrends: monthlyTrends || [],
     planHealth: planHealth || [],
     topSupporters: topSupporters || [],
+    childMonthsMonthly: (childMonthsMonthly || []).map((r: any) => ({
+      month: r.month,
+      donationCount: Number(r.donation_count),
+      childMonthsFunded: Math.round(Number(r.child_months_funded) * 10) / 10,
+      totalPkr: Math.round(Number(r.total_pkr)),
+    })),
+    fundingStatus: {
+      costPerChildMonth: costPerChild,
+      enrolledChildren,
+      monthlyCommitmentsPkr: monthlyPkr,
+      activePlansCount,
+      completedOneTimeThisMonthPkr: completedOneTimePkr,
+      completedOneTimeCount,
+      totalAvailableThisMonthPkr,
+      childrenCoveredThisMonth,
+      fundingGapChildren,
+      fundingGapPkr,
+      coveragePercentage,
+    },
   };
 }
+
+/**
+ * Updates the admin-set number of enrolled children for Funding Status calculations.
+ */
+export async function adminUpdateEnrolledChildrenAction(count: number, adminEmail: string = "admin@gjtfoundation.com") {
+  if (!count || count < 1) {
+    throw new Error("Enrolled children count must be at least 1.");
+  }
+
+  await query(`
+    INSERT INTO app_settings (setting_key, setting_value)
+    VALUES ('enrolled_children', ?)
+    ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()
+  `, [count.toString()]);
+
+  await createAuditLogDb({
+    actor_type: "admin",
+    actor_id: adminEmail,
+    action: "admin.enrolled_children_updated",
+    target_type: "settings",
+    target_id: "enrolled_children",
+    metadata: { count },
+  });
+
+  revalidatePath("/admin/reports");
+  return { success: true, message: `Enrolled students capacity updated to ${count.toLocaleString()}.` };
+}
+
 
 // -------------------------------------------------------------
 // 5. Manual Donation Entry (Doorstep Cash / Direct Cheques)

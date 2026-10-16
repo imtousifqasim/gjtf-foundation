@@ -4,51 +4,72 @@ import * as React from "react";
 import Image from "next/image";
 import {
   Heart,
-  CreditCard,
   Building,
   Phone,
   CheckCircle2,
   Sparkles,
-  ArrowRight,
   ShieldCheck,
-  Globe,
   Loader2,
-  ChevronDown,
+  Copy,
+  Check,
+  Plus,
+  Minus,
+  Info,
 } from "lucide-react";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/data/countries";
-import { CONTACT_INFO } from "@/data/navigation";
 import { media } from "@/data/media";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { submitDonation, DonationInput } from "@/app/actions/donations";
-import { formatCurrency } from "@/lib/utils";
 import { validateEmail, validatePhoneNumber } from "@/lib/validation";
 import { ValidationFeedback } from "@/components/shared/ValidationFeedback";
+import { calculateImpact, DEFAULT_PRICING } from "@/lib/pricing/impact";
+import { convertPkrToAed, convertAedToPkr, DEFAULT_MANUAL_PKR_PER_AED, DEFAULT_FX_BUFFER_PCT } from "@/lib/pricing/fx";
+import siteConfig from "@/lib/siteConfig";
 
 const CAUSES = [
-  { id: "General Education", label: "General Education", desc: "Support foundational schooling & literacy" },
-  { id: "Educate a Child", label: "Educate a Child", desc: "Full tuition, books, uniform & meals" },
-  { id: "Support a Classroom", label: "Support a Classroom", desc: "Sponsor a full 30-student learning unit" },
-  { id: "Support a Child: KG to Matric", label: "Support a Child: KG to Matric", desc: "Comprehensive 10-year academic sponsorship" },
+  {
+    id: "General Education",
+    label: "General Education",
+    desc: "Custom pooled amount supporting literacy across all nomadic communities",
+  },
+  {
+    id: "Educate a Child",
+    label: "Educate a Child",
+    desc: "PKR 5,000/child/month — covers tuition, books, uniform & warm meals",
+  },
+  {
+    id: "Support a Classroom",
+    label: "Support a Classroom",
+    desc: "30 students learning unit — PKR 150,000/month",
+  },
+  {
+    id: "Support a Child: KG to Matric",
+    label: "Support a Child: KG to Matric",
+    desc: "Long-term 10-year sponsorship (120 months) — pause or cancel anytime",
+  },
 ] as const;
 
-const PRESET_AMOUNTS: Record<"PKR" | "AED", number[]> = {
-  PKR: [2000, 5000, 10000, 15000, 20000],
-  AED: [50, 150, 300, 500, 1000],
-};
+// Business rule: 1 child = PKR 5,000
+const PRESET_CHILDREN = [1, 2, 5, 10, 30, 50];
 
 export default function DonateNowPage() {
   const [cause, setCause] = React.useState<DonationInput["cause"]>("Educate a Child");
-  const [frequency, setFrequency] = React.useState<"once" | "monthly">("once");
+  const [frequency, setFrequency] = React.useState<"monthly" | "once">("monthly");
   const [currency, setCurrency] = React.useState<"PKR" | "AED">("PKR");
-  const [selectedAmount, setSelectedAmount] = React.useState<number>(5000);
-  const [customAmount, setCustomAmount] = React.useState<string>("");
-  const [isCustom, setIsCustom] = React.useState(false);
+
+  // Child-months & amount state (stay in sync)
+  const [childrenCount, setChildrenCount] = React.useState<number>(1);
+  const [amount, setAmount] = React.useState<number>(5000);
+  const [isCustomAmount, setIsCustomAmount] = React.useState<boolean>(false);
+  const [customInputStr, setCustomInputStr] = React.useState<string>("5000");
+
   const [donationType, setDonationType] = React.useState<"General" | "Zakat" | "Sadqah">("General");
   const [country, setCountry] = React.useState<string>(DEFAULT_COUNTRY);
+  const [paymentMethod, setPaymentMethod] = React.useState<"bank_transfer" | "doorstep">("bank_transfer");
 
-  // Donor Details
+  // Donor Contact Info
   const [donorName, setDonorName] = React.useState("");
   const [donorEmail, setDonorEmail] = React.useState("");
   const [donorPhone, setDonorPhone] = React.useState("");
@@ -59,8 +80,82 @@ export default function DonateNowPage() {
   const [phoneError, setPhoneError] = React.useState<string | null>(null);
 
   const [submitting, setSubmitting] = React.useState(false);
-  const [submittedId, setSubmittedId] = React.useState<string | null>(null);
+  const [submittedData, setSubmittedData] = React.useState<any | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  // Copy buttons state
+  const [copiedField, setCopiedField] = React.useState<string | null>(null);
+
+  // Idempotency key for preventing double clicks
+  const [idempotencyKey] = React.useState(() => "idemp_" + Math.random().toString(36).substring(2, 12) + "_" + Date.now().toString(36));
+
+  // Sync effect when cause changes
+  React.useEffect(() => {
+    if (cause === "Support a Classroom") {
+      setChildrenCount(30);
+      updateAmountFromChildren(30, currency);
+    } else if (cause === "Support a Child: KG to Matric") {
+      setChildrenCount(1);
+      updateAmountFromChildren(1, currency);
+    }
+  }, [cause, currency]);
+
+  // Sync helpers
+  function updateAmountFromChildren(numChildren: number, curr: "PKR" | "AED") {
+    const pkr = Math.round(numChildren * DEFAULT_PRICING.costPerChildMonthPkr);
+    if (curr === "AED") {
+      const aed = convertPkrToAed(pkr).aedAmount;
+      setAmount(aed);
+      setCustomInputStr(String(aed));
+    } else {
+      setAmount(pkr);
+      setCustomInputStr(String(pkr));
+    }
+    setIsCustomAmount(false);
+  }
+
+  function handleSelectPreset(numChildren: number) {
+    setChildrenCount(numChildren);
+    updateAmountFromChildren(numChildren, currency);
+  }
+
+  function handleAmountInputChange(val: string) {
+    setCustomInputStr(val);
+    const num = Number(val) || 0;
+    setAmount(num);
+    setIsCustomAmount(true);
+
+    // Sync children count
+    if (currency === "AED") {
+      const pkrEq = convertAedToPkr(num).pkrAmount;
+      const calcChildren = Math.round((pkrEq / DEFAULT_PRICING.costPerChildMonthPkr) * 10) / 10;
+      setChildrenCount(Math.max(0.1, calcChildren));
+    } else {
+      const calcChildren = Math.round((num / DEFAULT_PRICING.costPerChildMonthPkr) * 10) / 10;
+      setChildrenCount(Math.max(0.1, calcChildren));
+    }
+  }
+
+  function handleChildrenInputChange(val: string) {
+    const count = Math.max(0.1, Number(val) || 0.1);
+    setChildrenCount(count);
+    updateAmountFromChildren(count, currency);
+  }
+
+  function handleCurrencySwitch(newCurr: "PKR" | "AED") {
+    setCurrency(newCurr);
+    updateAmountFromChildren(childrenCount, newCurr);
+  }
+
+  // Calculate live impact
+  const currentPkrEquivalent = currency === "AED" ? convertAedToPkr(amount).pkrAmount : amount;
+  const impact = calculateImpact(currentPkrEquivalent, frequency);
+
+  const handleCopy = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2500);
+  };
 
   const handleEmailChange = (val: string) => {
     setDonorEmail(val);
@@ -93,38 +188,15 @@ export default function DonateNowPage() {
     }
   };
 
-  // Calculate actual numeric amount
-  const finalAmount = isCustom ? Number(customAmount) || 0 : selectedAmount;
-
-  // Dynamic duration label
-  const durationLabel = React.useMemo(() => {
-    if (currency === "PKR") {
-      if (finalAmount <= 2000) return "1 month";
-      if (finalAmount <= 5000) return "2.5 months";
-      if (finalAmount <= 10000) return "5 months";
-      if (finalAmount <= 15000) return "8 months";
-      if (finalAmount <= 20000) return "1 academic year";
-      return "extended schooling duration";
-    } else {
-      if (finalAmount <= 50) return "1 month";
-      if (finalAmount <= 150) return "3 months";
-      return "1 academic year";
-    }
-  }, [finalAmount, currency]);
-
-  // Dynamic student impact count (formula from prompt pattern: "Your donation will impact the life of X students per year")
-  const studentsImpacted = React.useMemo(() => {
-    if (currency === "PKR") {
-      return Math.max(1, Math.round((finalAmount / 2000) * (frequency === "monthly" ? 12 : 1)));
-    } else {
-      return Math.max(1, Math.round((finalAmount / 50) * (frequency === "monthly" ? 12 : 1)));
-    }
-  }, [finalAmount, currency, frequency]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (finalAmount < 100) {
-      setErrorMsg("Please enter a donation amount of at least 100.");
+
+    if (currency === "PKR" && amount < 500) {
+      setErrorMsg("Please enter a donation amount of at least PKR 500.");
+      return;
+    }
+    if (currency === "AED" && amount < 7) {
+      setErrorMsg("Please enter a donation amount of at least AED 7.");
       return;
     }
 
@@ -152,18 +224,32 @@ export default function DonateNowPage() {
       cause,
       frequency,
       currency,
-      amount: finalAmount,
+      amount,
+      children_count: childrenCount,
+      pledge_basis: currency === "AED" && isCustomAmount ? "aed_fixed" : "pkr_fixed",
+      payment_method: paymentMethod,
       donation_type: donationType,
       country,
       donor_name: donorName,
       donor_email: donorEmail,
       donor_phone: donorPhone,
       message: donorMessage,
+      idempotency_key: idempotencyKey,
     });
 
     setSubmitting(false);
     if (res.success) {
-      setSubmittedId(res.referenceNo || res.donationId || "dn_verified");
+      setSubmittedData({
+        referenceNo: res.referenceNo,
+        amount,
+        currency,
+        cause,
+        frequency,
+        donationType,
+        impact: res.impact || impact,
+        fxLockNotice: res.fxLockNotice,
+        bankAccount: res.bankAccount || siteConfig.bankAccount,
+      });
     } else {
       setErrorMsg(res.message || "An error occurred while submitting your pledge.");
     }
@@ -192,74 +278,140 @@ export default function DonateNowPage() {
           </div>
 
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold font-heading tracking-tight leading-tight">
-            Donate to educate less-privileged children in Pakistan
+            Educate a Nomadic Child in Pakistan
           </h1>
 
           <p className="text-xs sm:text-sm md:text-base text-primary-100/90 leading-relaxed max-w-2xl mx-auto">
-            The largest educational and skill development movement for over 20 million nomadic communities. Today, through the Jhuggi Taleemi Project, the foundation is educating thousands of children and paving the way for a brighter future.
+            Educating <strong>one child for one month costs PKR 5,000</strong> (including tuition, books, uniform, daily nutrition, and teacher pay). Every rupee directly lights a lamp of hope.
           </p>
         </div>
       </section>
 
       {/* Main Donation Container */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {submittedId ? (
+        {submittedData ? (
           <div className="bg-white rounded-3xl p-8 sm:p-12 border border-warm-200 shadow-xl text-center space-y-6 animate-in fade-in">
             <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle2 className="w-12 h-12" />
             </div>
 
-            <h2 className="text-3xl font-extrabold font-heading text-charcoal-deep">
-              JazakAllah Khair! Your Donation Pledge is Registered
+            <h2 className="text-2xl sm:text-3xl font-extrabold font-heading text-charcoal-deep">
+              JazakAllah Khair! Your Donation Pledge is Recorded
             </h2>
 
-            <p className="text-base text-charcoal-muted max-w-xl mx-auto leading-relaxed">
-              Thank you for standing with nomadic children. Your reference code is{" "}
-              <span className="font-mono font-bold text-primary-700 bg-primary-50 px-2 py-1 rounded-md">
-                {submittedId}
-              </span>
-              . An electronic pledge receipt has been logged.
+            <p className="text-sm sm:text-base text-charcoal-muted max-w-xl mx-auto leading-relaxed">
+              Thank you for standing with nomadic children. Your official reference number is:
             </p>
 
-            <div className="p-6 rounded-2xl bg-warm-50 border border-warm-200 max-w-md mx-auto text-left text-sm space-y-2">
-              <div className="flex justify-between">
-                <span className="text-charcoal-muted">Selected Cause:</span>
-                <span className="font-bold text-charcoal-deep">{cause}</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-50 border border-primary-200 rounded-2xl">
+              <span className="font-mono text-xl sm:text-2xl font-extrabold text-primary-800">
+                {submittedData.referenceNo}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleCopy(submittedData.referenceNo, "ref")}
+                className="text-primary-700 hover:text-primary-900 p-1"
+                title="Copy Reference"
+              >
+                {copiedField === "ref" ? <Check className="w-5 h-5 text-emerald-600" /> : <Copy className="w-5 h-5" />}
+              </button>
+            </div>
+
+            {/* Impact Banner */}
+            <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 max-w-lg mx-auto text-sm space-y-1">
+              <div className="font-bold text-base flex items-center justify-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                {submittedData.impact.headline}
               </div>
-              <div className="flex justify-between">
-                <span className="text-charcoal-muted">Amount:</span>
-                <span className="font-bold text-primary-700">
-                  {currency} {finalAmount.toLocaleString()} ({frequency})
+              <p className="text-xs text-emerald-800 leading-relaxed">
+                {submittedData.impact.summary}
+              </p>
+              {submittedData.fxLockNotice && (
+                <div className="text-[11px] text-emerald-900/80 pt-2 border-t border-emerald-200/60 font-medium">
+                  {submittedData.fxLockNotice}
+                </div>
+              )}
+            </div>
+
+            {/* Bank Islami Transfer Box */}
+            <div className="p-6 rounded-2xl bg-slate-900 text-white max-w-lg mx-auto text-left space-y-4 shadow-lg border border-slate-800">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="font-bold text-sm text-emerald-400 flex items-center gap-2">
+                  <Building className="w-4 h-4" />
+                  Official Bank Transfer Account
+                </div>
+                <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
+                  Bank Islami
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-charcoal-muted">Category:</span>
-                <span className="font-bold text-charcoal-deep">{donationType}</span>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Account Title:</span>
+                  <span className="font-bold text-slate-100">{submittedData.bankAccount.account_title || siteConfig.bankAccount.accountTitle}</span>
+                </div>
+
+                <div className="flex items-center justify-between bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Account Number:</span>
+                    <span className="font-mono font-bold text-sm text-white">
+                      {submittedData.bankAccount.account_number || siteConfig.bankAccount.accountNumber}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
+                    onClick={() => handleCopy(submittedData.bankAccount.account_number || siteConfig.bankAccount.accountNumber, "acc")}
+                  >
+                    {copiedField === "acc" ? <Check className="w-3.5 h-3.5 mr-1 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                    Copy
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">IBAN:</span>
+                    <span className="font-mono font-bold text-xs text-white">
+                      {submittedData.bankAccount.iban || siteConfig.bankAccount.iban}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
+                    onClick={() => handleCopy(submittedData.bankAccount.iban || siteConfig.bankAccount.iban, "iban")}
+                  >
+                    {copiedField === "iban" ? <Check className="w-3.5 h-3.5 mr-1 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                    Copy
+                  </Button>
+                </div>
+
+                <div className="pt-2 text-[11px] text-amber-300 leading-relaxed bg-amber-950/40 p-2.5 rounded-xl border border-amber-900/40">
+                  ⚠️ <strong>Important:</strong> Please write reference <strong>#{submittedData.referenceNo}</strong> in your transfer remarks so your pledge is automatically verified.
+                </div>
               </div>
             </div>
 
-            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a href="#bank-details">
-                <Button variant="accent" size="lg" className="font-bold">
-                  View Direct Bank Transfer Details
-                </Button>
-              </a>
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <a href="/donor/login">
-                <Button variant="primary" size="lg" className="font-bold bg-primary-700 hover:bg-primary-600">
+                <Button className="font-bold bg-primary-700 hover:bg-primary-600 text-white rounded-xl px-6">
                   Access My Donor Portal &rarr;
                 </Button>
               </a>
               <Button
                 variant="outline"
-                size="lg"
+                className="rounded-xl"
                 onClick={() => {
-                  setSubmittedId(null);
+                  setSubmittedData(null);
                   setDonorName("");
                   setDonorEmail("");
                   setDonorPhone("");
                 }}
               >
-                Make Another Donation
+                Make Another Pledge
               </Button>
             </div>
           </div>
@@ -274,11 +426,17 @@ export default function DonateNowPage() {
               </div>
             )}
 
-            {/* STEP 1: Please select an option (exact 4 causes) */}
+            {/* STEP 1: What to support */}
             <div className="space-y-3">
-              <label className="block text-sm font-bold uppercase tracking-wider text-charcoal-deep">
-                Step 1: Please select an option *
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-bold uppercase tracking-wider text-charcoal-deep">
+                  Step 1: What to support *
+                </label>
+                <span className="text-xs text-primary-700 font-semibold">
+                  Unit: PKR 5,000 / child-month
+                </span>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {CAUSES.map((c) => (
                   <button
@@ -293,30 +451,25 @@ export default function DonateNowPage() {
                     <div className="font-bold font-heading text-charcoal-deep text-base">
                       {c.label}
                     </div>
-                    <div className="text-xs text-charcoal-muted mt-0.5">{c.desc}</div>
+                    <div className="text-xs text-charcoal-muted mt-1 leading-relaxed">{c.desc}</div>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* STEP 2 & 3: Frequency and Currency Toggles */}
+            {/* STEP 2 & 3: Frequency and Currency */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
-              {/* Frequency Toggle */}
+              {/* Frequency Toggle (Monthly recommended) */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-muted">
-                  Step 2: Frequency *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-muted">
+                    Step 2: Frequency *
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 rounded-full">
+                    Recommended
+                  </span>
+                </div>
                 <div className="grid grid-cols-2 gap-2 bg-warm-100 p-1.5 rounded-2xl border border-warm-200">
-                  <button
-                    type="button"
-                    onClick={() => setFrequency("once")}
-                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${frequency === "once"
-                        ? "bg-white text-primary-800 shadow-sm"
-                        : "text-charcoal-muted hover:text-charcoal"
-                      }`}
-                  >
-                    GIVE ONCE
-                  </button>
                   <button
                     type="button"
                     onClick={() => setFrequency("monthly")}
@@ -327,22 +480,34 @@ export default function DonateNowPage() {
                   >
                     MONTHLY
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setFrequency("once")}
+                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${frequency === "once"
+                        ? "bg-white text-primary-800 shadow-sm"
+                        : "text-charcoal-muted hover:text-charcoal"
+                      }`}
+                  >
+                    GIVE ONCE
+                  </button>
                 </div>
               </div>
 
-              {/* Currency Toggle */}
+              {/* Currency Toggle (PKR / AED with Live rate badge) */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-muted">
-                  Step 3: Currency *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-muted">
+                    Step 3: Currency *
+                  </label>
+                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                    <Info className="w-3 h-3 text-slate-400" />
+                    1 AED ≈ {DEFAULT_MANUAL_PKR_PER_AED} PKR (+1% buffer)
+                  </span>
+                </div>
                 <div className="grid grid-cols-2 gap-2 bg-warm-100 p-1.5 rounded-2xl border border-warm-200">
                   <button
                     type="button"
-                    onClick={() => {
-                      setCurrency("PKR");
-                      setSelectedAmount(5000);
-                      setIsCustom(false);
-                    }}
+                    onClick={() => handleCurrencySwitch("PKR")}
                     className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${currency === "PKR"
                         ? "bg-white text-primary-800 shadow-sm"
                         : "text-charcoal-muted hover:text-charcoal"
@@ -352,97 +517,140 @@ export default function DonateNowPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setCurrency("AED");
-                      setSelectedAmount(150);
-                      setIsCustom(false);
-                    }}
+                    onClick={() => handleCurrencySwitch("AED")}
                     className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${currency === "AED"
                         ? "bg-white text-primary-800 shadow-sm"
                         : "text-charcoal-muted hover:text-charcoal"
                       }`}
                   >
-                    AED (Dirham)
+                    AED (UAE Dirham)
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* STEP 4: Amount Chips */}
-            <div className="space-y-3 pt-2">
-              <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-muted">
-                Step 4: Amount *
-              </label>
+            {/* STEP 4: Amount & Synced Number of Children */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-muted">
+                  Step 4: Number of Children & Amount *
+                </label>
+                <span className="text-xs text-charcoal-muted">
+                  {currency === "PKR" ? "PKR 5,000" : "AED 67"} / child / month
+                </span>
+              </div>
 
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
-                {PRESET_AMOUNTS[currency].map((amt) => {
-                  const isSelected = !isCustom && selectedAmount === amt;
-                  const label = currency === "PKR" ? `RS${amt.toLocaleString()}` : `AED ${amt}`;
+              {/* Preset Buttons for Children */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                {PRESET_CHILDREN.map((cnt) => {
+                  const pkrCost = cnt * DEFAULT_PRICING.costPerChildMonthPkr;
+                  const displayCost = currency === "AED" ? convertPkrToAed(pkrCost).aedAmount : pkrCost;
+                  const isSelected = !isCustomAmount && childrenCount === cnt;
+
                   return (
                     <button
-                      key={amt}
+                      key={cnt}
                       type="button"
-                      onClick={() => {
-                        setSelectedAmount(amt);
-                        setIsCustom(false);
-                      }}
-                      className={`py-3 px-2 rounded-2xl text-xs sm:text-sm font-bold transition-all text-center border ${isSelected
+                      onClick={() => handleSelectPreset(cnt)}
+                      className={`p-3 rounded-2xl text-center border transition-all ${isSelected
                           ? "bg-accent-600 text-white border-accent-600 shadow-soft ring-2 ring-accent-400"
                           : "bg-white text-charcoal border-warm-300 hover:border-accent-400"
                         }`}
                     >
-                      {label}
+                      <div className="font-bold text-sm">
+                        {cnt === 30 ? "Classroom (30)" : `${cnt} Child${cnt > 1 ? "ren" : ""}`}
+                      </div>
+                      <div className={`text-[11px] mt-0.5 ${isSelected ? "text-white/90" : "text-charcoal-muted"}`}>
+                        {currency} {displayCost.toLocaleString()}
+                      </div>
                     </button>
                   );
                 })}
-
-                {/* OTHER chip */}
-                <button
-                  type="button"
-                  onClick={() => setIsCustom(true)}
-                  className={`py-3 px-2 rounded-2xl text-xs sm:text-sm font-bold transition-all text-center border ${isCustom
-                      ? "bg-accent-600 text-white border-accent-600 shadow-soft ring-2 ring-accent-400"
-                      : "bg-white text-charcoal border-warm-300 hover:border-accent-400"
-                    }`}
-                >
-                  OTHER
-                </button>
               </div>
 
-              {/* Custom Amount Input when "OTHER" selected */}
-              {isCustom && (
-                <div className="mt-3 max-w-xs">
+              {/* Synced Inputs Row: Children Stepper & Amount Input */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                {/* Number of Children Stepper */}
+                <div className="space-y-1.5">
+                  <span className="block text-xs font-semibold text-charcoal">
+                    Sponsor Number of Children:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-12 w-12 rounded-xl shrink-0"
+                      onClick={() => {
+                        const next = Math.max(0.5, childrenCount - 1);
+                        setChildrenCount(next);
+                        updateAmountFromChildren(next, currency);
+                      }}
+                    >
+                      <Minus className="w-4 h-4" />
+                    </Button>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      value={childrenCount}
+                      onChange={(e) => handleChildrenInputChange(e.target.value)}
+                      className="h-12 text-center font-bold text-lg rounded-xl"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-12 w-12 rounded-xl shrink-0"
+                      onClick={() => {
+                        const next = childrenCount + 1;
+                        setChildrenCount(next);
+                        updateAmountFromChildren(next, currency);
+                      }}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Amount Input */}
+                <div className="space-y-1.5">
+                  <span className="block text-xs font-semibold text-charcoal">
+                    Total Amount ({currency}):
+                  </span>
                   <div className="relative">
                     <span className="absolute left-4 top-3 text-sm font-bold text-charcoal-muted">
                       {currency}
                     </span>
                     <Input
                       type="number"
-                      min="100"
-                      placeholder="Enter custom amount"
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(e.target.value)}
-                      className="pl-14 h-12 font-bold text-lg"
+                      min={currency === "PKR" ? "500" : "7"}
+                      value={customInputStr}
+                      onChange={(e) => handleAmountInputChange(e.target.value)}
+                      className="pl-16 h-12 font-bold text-lg rounded-xl"
                     />
                   </div>
                 </div>
-              )}
-
-              {/* Line label under amount (exact verbatim requirement) */}
-              <div className="text-xs font-semibold text-primary-800 pt-1">
-                Child's education for {durationLabel}
               </div>
 
-              {/* Dynamic impact text (exact verbatim pattern) */}
-              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm font-medium flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>
-                  Your donation will impact the life of <strong>{studentsImpacted} students</strong> per year.
-                </span>
+              {/* Live Truthful Impact Display */}
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-sm space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-base">
+                  <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{impact.headline}</span>
+                </div>
+                <p className="text-xs text-emerald-800 leading-relaxed">
+                  {impact.summary}
+                </p>
+                {currency === "AED" && (
+                  <div className="text-[11px] text-emerald-900/80 pt-1 font-medium">
+                    Rate Locked: AED {amount} ≈ PKR {currentPkrEquivalent.toLocaleString()} (Includes 1% buffer; locked for 48 hours).
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* STEP 5: Donation Type Radio */}
+            {/* STEP 5: Donation Type (General, Zakat, Sadqah) */}
             <div className="space-y-2 pt-2">
               <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-muted">
                 Step 5: Donation Type *
@@ -464,36 +672,76 @@ export default function DonateNowPage() {
               </div>
             </div>
 
-            {/* STEP 6: Country Dropdown (Full 200+ list from prompt) */}
+            {/* STEP 6: Country */}
             <div className="space-y-2 pt-2">
               <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-muted">
                 Step 6: Country *
               </label>
-              <div className="relative">
-                <select
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className="w-full h-12 rounded-2xl border border-warm-300 bg-white px-4 text-sm text-charcoal focus:outline-none focus:ring-2 focus:ring-primary-500"
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="w-full h-12 rounded-2xl border border-warm-300 bg-white px-4 text-sm text-charcoal focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* STEP 7: Payment Method */}
+            <div className="space-y-2 pt-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-muted">
+                Step 7: Payment Method *
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("bank_transfer")}
+                  className={`p-4 rounded-2xl border text-left transition-all ${paymentMethod === "bank_transfer"
+                      ? "border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500"
+                      : "border-warm-200 hover:border-warm-300 bg-white"
+                    }`}
                 >
-                  {COUNTRIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  <div className="font-bold text-sm text-charcoal-deep flex items-center gap-2">
+                    <Building className="w-4 h-4 text-emerald-700" />
+                    Direct Bank Transfer (Bank Islami)
+                  </div>
+                  <div className="text-xs text-charcoal-muted mt-1">
+                    Transfer online or at any ATM/branch. IBAN &amp; reference details provided.
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("doorstep")}
+                  className={`p-4 rounded-2xl border text-left transition-all ${paymentMethod === "doorstep"
+                      ? "border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500"
+                      : "border-warm-200 hover:border-warm-300 bg-white"
+                    }`}
+                >
+                  <div className="font-bold text-sm text-charcoal-deep flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-emerald-700" />
+                    Doorstep Cash / Cheque Collection
+                  </div>
+                  <div className="text-xs text-charcoal-muted mt-1">
+                    Call helpline {siteConfig.phone1.display} for official rider pickup at your doorstep.
+                  </div>
+                </button>
               </div>
             </div>
 
-            {/* STEP 7: Donor Details & Order Summary */}
+            {/* STEP 8: Donor Contact & Order Summary */}
             <div className="space-y-4 pt-4 border-t border-warm-200">
               <h3 className="text-lg font-bold font-heading text-charcoal-deep">
-                Donor Contact & Order Summary
+                Step 8: Contact &amp; Final Summary
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-charcoal mb-1">
-                    Your Name (Optional for anonymous pledges)
+                    Your Full Name (Optional for anonymous pledges)
                   </label>
                   <Input
                     placeholder="e.g. Asad Ullah"
@@ -526,10 +774,10 @@ export default function DonateNowPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-charcoal mb-1">
-                  Phone / WhatsApp Number (For doorstep collection or confirmation)
+                  Phone / WhatsApp Number (For doorstep pickup &amp; confirmations)
                 </label>
                 <Input
-                  placeholder="0300-1234567 or +923001234567"
+                  placeholder="03033934771 or +923033934771"
                   value={donorPhone}
                   onChange={(e) => handlePhoneChange(e.target.value)}
                   className={phoneError ? "border-red-400 focus-visible:ring-red-400" : ""}
@@ -538,15 +786,17 @@ export default function DonateNowPage() {
               </div>
 
               {/* Order Summary Pill */}
-              <div className="p-4 rounded-2xl bg-warm-100 border border-warm-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
-                <div>
-                  <span className="text-charcoal-muted">Donation Summary: </span>
-                  <span className="font-bold text-charcoal-deep">
-                    {currency} {finalAmount.toLocaleString()} ({frequency}) for {cause} [{donationType}]
+              <div className="p-4 rounded-2xl bg-warm-100 border border-warm-200 space-y-1.5 text-xs sm:text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 font-bold text-charcoal-deep">
+                  <span>
+                    You give {currency} {amount.toLocaleString()} {frequency === "monthly" ? "every month" : "once"}:
+                  </span>
+                  <span className="text-primary-700">
+                    {impact.headline}
                   </span>
                 </div>
-                <div className="text-xs text-primary-800 font-semibold">
-                  Donor Country: {country}
+                <div className="text-xs text-charcoal-muted">
+                  Cause: <strong>{cause}</strong> &bull; Type: <strong>{donationType}</strong> &bull; Country: <strong>{country}</strong>
                 </div>
               </div>
 
@@ -562,12 +812,12 @@ export default function DonateNowPage() {
                   {submitting ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Recording Donation Pledge...
+                      Registering Your Pledge...
                     </>
                   ) : (
                     <>
                       <Heart className="w-5 h-5 fill-white mr-2" />
-                      Complete Your Donation — {currency} {finalAmount.toLocaleString()}
+                      Complete Your Pledge — {currency} {amount.toLocaleString()}
                     </>
                   )}
                 </Button>
@@ -575,100 +825,132 @@ export default function DonateNowPage() {
 
               <div className="flex items-center justify-center gap-2 text-xs text-charcoal-muted pt-1">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>SSL Encrypted • Tax Exempted • 100% Directed to Nomadic Education</span>
+                <span>Transparent NGO • 100% Directed to Nomadic Education • Tax Exempted</span>
               </div>
             </div>
           </form>
         )}
       </section>
 
-      {/* Other Ways to Donate (3-Card Section verbatim) */}
-      <section id="other-ways" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-24">
-        <div className="mb-10 text-center">
-          <div className="inline-block px-3 py-1 rounded-full bg-primary-100 text-primary-800 text-xs font-bold uppercase tracking-wider mb-2">
-            Alternative Channels
+      {/* Official Bank Account Details (Single Account: Bank Islami) */}
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div id="bank-details" className="bg-white rounded-3xl p-6 sm:p-10 border border-warm-200 shadow-soft space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <Building className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold font-heading text-charcoal-deep">
+                  Official NGO Bank Account Details
+                </h3>
+                <p className="text-xs text-charcoal-muted">
+                  Use for online banking, ATM transfer, or branch deposit
+                </p>
+              </div>
+            </div>
+            <span className="hidden sm:inline-block px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+              Verified Single Account
+            </span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-extrabold font-heading text-charcoal-deep">
-            Other Ways to Donate
+
+          <div className="divide-y divide-warm-100 text-sm">
+            <div className="py-3 flex justify-between items-center">
+              <span className="text-charcoal-muted font-medium">Bank Name</span>
+              <span className="font-bold text-charcoal-deep">{siteConfig.bankAccount.bankName}</span>
+            </div>
+            <div className="py-3 flex justify-between items-center">
+              <span className="text-charcoal-muted font-medium">Account Title</span>
+              <span className="font-bold text-charcoal-deep">{siteConfig.bankAccount.accountTitle}</span>
+            </div>
+            <div className="py-3 flex justify-between items-center">
+              <span className="text-charcoal-muted font-medium">Account Number</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-primary-700">{siteConfig.bankAccount.accountNumber}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => handleCopy(siteConfig.bankAccount.accountNumber, "acc_tbl")}
+                >
+                  {copiedField === "acc_tbl" ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+            </div>
+            <div className="py-3 flex justify-between items-center">
+              <span className="text-charcoal-muted font-medium">IBAN</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-primary-700">{siteConfig.bankAccount.iban}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => handleCopy(siteConfig.bankAccount.iban, "iban_tbl")}
+                >
+                  {copiedField === "iban_tbl" ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+            </div>
+            <div className="py-3 flex justify-between items-center">
+              <span className="text-charcoal-muted font-medium">Branch</span>
+              <span className="font-medium text-charcoal-deep">{siteConfig.bankAccount.branch}</span>
+            </div>
+            {siteConfig.bankAccount.swift && siteConfig.bankAccount.swift.trim() !== "" && (
+              <div className="py-3 flex justify-between items-center">
+                <span className="text-charcoal-muted font-medium">SWIFT / BIC</span>
+                <span className="font-mono font-bold text-charcoal-deep">{siteConfig.bankAccount.swift}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
+            <strong className="block font-semibold">⚠️ Transfer Remarks Instruction:</strong>
+            <p>
+              Please write your <strong>Pledge Reference Number (GJTF-YYYY-NNNNNN)</strong> in the transaction remarks or narration. This enables our finance team to match your transfer instantly and issue your official tax receipt.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Ways to Donate Cards (Bank Transfer & Doorstep - Give Online hidden until gateway is enabled) */}
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-100 text-accent-800 text-xs font-bold tracking-wider uppercase">
+            Ways to Contribute
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold font-heading text-charcoal-deep">
+            How Your Donation Reaches the Children
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* 1. Give Online */}
-          <Card className="p-8 space-y-4 hover:-translate-y-1 transition-transform border-t-4 border-t-primary-600">
-            <div className="w-12 h-12 rounded-2xl bg-primary-100 text-primary-700 flex items-center justify-center">
-              <CreditCard className="w-6 h-6" />
-            </div>
-            <h3 className="text-2xl font-bold font-heading text-charcoal-deep">
-              Give Online
-            </h3>
-            <p className="text-sm text-charcoal-muted leading-relaxed">
-              Make a one-time or recurring online donation using credit/debit card, digital banking, or online wallets.
-            </p>
-          </Card>
-
-          {/* 2. Donate by Cheque */}
-          <Card className="p-8 space-y-4 hover:-translate-y-1 transition-transform border-t-4 border-t-accent-600">
-            <div className="w-12 h-12 rounded-2xl bg-accent-100 text-accent-700 flex items-center justify-center">
-              <Phone className="w-6 h-6" />
-            </div>
-            <h3 className="text-2xl font-bold font-heading text-charcoal-deep">
-              Donate by Cheque
-            </h3>
-            <p className="text-sm text-charcoal-muted leading-relaxed">
-              Call us at <strong className="text-accent-700">{CONTACT_INFO.telephone.display}</strong> or <strong className="text-accent-700">{CONTACT_INFO.whatsapp.display}</strong> to have your cheque or cash collected from your doorstep.
-            </p>
-          </Card>
-
-          {/* 3. Bank Transfer */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {/* 1. Direct Bank Transfer */}
           <Card className="p-8 space-y-4 hover:-translate-y-1 transition-transform border-t-4 border-t-emerald-600">
             <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
               <Building className="w-6 h-6" />
             </div>
-            <h3 className="text-2xl font-bold font-heading text-charcoal-deep">
-              Bank Transfer
+            <h3 className="text-xl font-bold font-heading text-charcoal-deep">
+              Bank Transfer (Bank Islami)
             </h3>
             <p className="text-sm text-charcoal-muted leading-relaxed">
-              Transfer your Zakat and Sadqah in our selected banks.
+              Transfer your Zakat and Sadqah directly to our official Bank Islami account via your mobile banking app, ATM, or counter deposit.
             </p>
           </Card>
-        </div>
 
-        {/* Bank Details Table / Accordion */}
-        <div id="bank-details" className="mt-12 bg-white rounded-3xl p-8 sm:p-10 border border-warm-200 shadow-soft max-w-3xl mx-auto space-y-6">
-          <div className="flex items-center gap-3">
-            <Building className="w-6 h-6 text-primary-700" />
+          {/* 2. Doorstep Collection */}
+          <Card className="p-8 space-y-4 hover:-translate-y-1 transition-transform border-t-4 border-t-accent-600">
+            <div className="w-12 h-12 rounded-2xl bg-accent-100 text-accent-700 flex items-center justify-center">
+              <Phone className="w-6 h-6" />
+            </div>
             <h3 className="text-xl font-bold font-heading text-charcoal-deep">
-              Official GJTF Bank Account Details
+              Doorstep Cash &amp; Cheque Pickup
             </h3>
-          </div>
-
-          <div className="divide-y divide-warm-100 text-sm">
-            <div className="py-3 flex justify-between">
-              <span className="text-charcoal-muted font-medium">Bank Name</span>
-              <span className="font-bold text-charcoal-deep">{CONTACT_INFO.bankDetails.bankName}</span>
-            </div>
-            <div className="py-3 flex justify-between">
-              <span className="text-charcoal-muted font-medium">Account Title</span>
-              <span className="font-bold text-charcoal-deep">{CONTACT_INFO.bankDetails.accountTitle}</span>
-            </div>
-            <div className="py-3 flex justify-between">
-              <span className="text-charcoal-muted font-medium">Account Number</span>
-              <span className="font-mono font-bold text-primary-700">{CONTACT_INFO.bankDetails.accountNumber}</span>
-            </div>
-            <div className="py-3 flex justify-between">
-              <span className="text-charcoal-muted font-medium">IBAN</span>
-              <span className="font-mono font-bold text-primary-700">{CONTACT_INFO.bankDetails.iban}</span>
-            </div>
-            <div className="py-3 flex justify-between">
-              <span className="text-charcoal-muted font-medium">Branch</span>
-              <span className="font-medium text-charcoal-deep">{CONTACT_INFO.bankDetails.branch}</span>
-            </div>
-            <div className="py-3 flex justify-between">
-              <span className="text-charcoal-muted font-medium">Swift Code</span>
-              <span className="font-mono font-bold text-charcoal-deep">{CONTACT_INFO.bankDetails.swiftCode}</span>
-            </div>
-          </div>
+            <p className="text-sm text-charcoal-muted leading-relaxed">
+              Call our official hotline at <strong className="text-accent-700">{siteConfig.phone1.display}</strong> or WhatsApp <strong className="text-accent-700">{siteConfig.phone2.display}</strong> to have our authorized rider collect your cash or crossed cheque with a stamped receipt.
+            </p>
+          </Card>
         </div>
       </section>
     </div>

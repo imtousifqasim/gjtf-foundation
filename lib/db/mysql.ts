@@ -269,19 +269,43 @@ export async function getDonationStatsDb(): Promise<{
   }
 }
 
+export async function getDonationByIdempotencyKeyDb(key: string): Promise<any | null> {
+  if (!key || key.trim() === "") return null;
+  await ensureCoreTablesDb();
+  const rows = await query<RowDataPacket[]>(
+    "SELECT * FROM donations WHERE idempotency_key = ? LIMIT 1",
+    [key.trim()]
+  );
+  return rows[0] || null;
+}
+
 export async function createDonationDb(data: any): Promise<string> {
   await ensureCoreTablesDb();
+
+  // Idempotency check: prevent duplicate pledges on double clicks
+  if (data.idempotency_key) {
+    const existing = await getDonationByIdempotencyKeyDb(data.idempotency_key);
+    if (existing) {
+      return existing.id;
+    }
+  }
+
   const id = data.id || "dn_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now().toString(36);
   const currentYear = new Date().getFullYear();
   const referenceNo = data.reference_no || `GJTF-${currentYear}-${Math.floor(100000 + Math.random() * 900000)}`;
   const amountMinor = data.amount_minor || Math.round((Number(data.amount) || 0) * 100);
+  const amountPkrMinor = data.amount_pkr_minor || amountMinor;
+  const displayAmountMinor = data.display_amount_minor || amountMinor;
 
   const sql = `
     INSERT INTO donations (
       id, reference_no, donor_id, plan_id, cause, frequency, currency,
-      amount_minor, amount, donation_type, country, donor_name, donor_email,
-      donor_phone, status, payment_method, payment_reference, is_anonymous, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW());
+      amount_minor, amount, children_equivalent, pricing_version, amount_pkr_minor,
+      display_currency, display_amount_minor, fx_rate, fx_buffer_pct, fx_locked_at,
+      fx_valid_until, bank_account_id, idempotency_key, donation_type, country,
+      donor_name, donor_email, donor_phone, status, payment_method, payment_reference,
+      is_anonymous, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW());
   `;
   const params = [
     id,
@@ -293,6 +317,17 @@ export async function createDonationDb(data: any): Promise<string> {
     (data.currency || "PKR").toUpperCase(),
     amountMinor,
     data.amount,
+    data.children_equivalent || 1.0,
+    data.pricing_version || 1,
+    amountPkrMinor,
+    (data.display_currency || data.currency || "PKR").toUpperCase(),
+    displayAmountMinor,
+    data.fx_rate || null,
+    data.fx_buffer_pct || 1.0,
+    data.fx_locked_at || null,
+    data.fx_valid_until || null,
+    data.bank_account_id || "bank-islami-primary",
+    data.idempotency_key || null,
     data.donation_type || "General",
     data.country || "Pakistan",
     data.donor_name || null,
@@ -300,7 +335,7 @@ export async function createDonationDb(data: any): Promise<string> {
     data.donor_phone || null,
     data.status || "pending",
     data.payment_method || "bank_transfer",
-    data.payment_reference || null,
+    data.payment_reference || referenceNo,
     data.is_anonymous ? 1 : 0,
   ];
 

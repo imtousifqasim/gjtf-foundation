@@ -57,6 +57,18 @@ export const siteConfig = {
     facebook: "https://www.facebook.com/jhuggitaleemiproject",
   },
 
+  // Official Bank Account (Single Account - Bank Islami)
+  bankAccount: {
+    bankName: "Bank Islami",
+    branch: "Allama Iqbal Town, Lahore",
+    accountTitle: "Ghais Jhuggi Taleem Foundation",
+    accountNumber: "203756213050001",
+    iban: "PK19BKIP0203756213050001",
+    swift: "", // Leave empty until confirmed with branch, show only when filled
+    currency: "PKR",
+    instructions: "Please include your Reference Number (GJTF-YYYY-NNNNNN) in the transfer description/remarks so your pledge can be verified immediately.",
+  },
+
   // Dynamic Asset URL Generator
   getEmailAssets(customBaseUrl?: string) {
     const base = (customBaseUrl || getSiteBaseUrl()).replace(/\/+$/, "");

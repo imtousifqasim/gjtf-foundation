@@ -29,47 +29,43 @@ export function getBankDetailsHtml(settings?: {
   branch_name?: string;
   swift_code?: string;
   doorstep_phone?: string;
-  jazzcash_number?: string;
-  easypaisa_number?: string;
 }): string {
-  const title = settings?.bank_title || "Ghais Jhuggi Taleem Foundation";
-  const bank = settings?.bank_name || "Meezan Bank Limited";
-  const acc = settings?.account_number || "02010103847291";
-  const iban = settings?.iban || "PK72MEZN0002010103847291";
-  const branch = settings?.branch_name || "Model Town Link Road Branch Lahore";
-  const swift = settings?.swift_code || "MEZNPKKA";
+  const title = settings?.bank_title || siteConfig.bankAccount.accountTitle;
+  const bank = settings?.bank_name || siteConfig.bankAccount.bankName;
+  const acc = settings?.account_number || siteConfig.bankAccount.accountNumber;
+  const iban = settings?.iban || siteConfig.bankAccount.iban;
+  const branch = settings?.branch_name || siteConfig.bankAccount.branch;
+  const swift = settings?.swift_code || siteConfig.bankAccount.swift;
   const doorstep = settings?.doorstep_phone || siteConfig.phone1.display;
-  const jazz = settings?.jazzcash_number || siteConfig.phone2.display;
-  const easy = settings?.easypaisa_number || "0328-6477314";
+
+  const swiftLine = swift && swift.trim() !== "" ? `<br/>SWIFT / BIC: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${swift}</code>` : "";
 
   return `
   <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; margin: 18px 0; overflow: hidden;">
     <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1;">
       <td colspan="2" style="padding: 12px 18px; font-weight: 700; color: #0b1536; font-size: 13px;">
-        Official Bank &amp; Payment Accounts (Pakistan)
+        Official Bank Account (Pakistan &amp; International Transfers)
       </td>
     </tr>
     <tr>
       <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #334155;">
-        <strong style="color: #0b1536; display: block; margin-bottom: 2px;">Bank Transfer (${bank}):</strong>
+        <strong style="color: #0b1536; display: block; margin-bottom: 4px;">Bank Transfer (${bank}):</strong>
         Account Title: <strong>${title}</strong><br/>
         Account Number: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${acc}</code><br/>
         IBAN: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${iban}</code><br/>
-        Branch: ${branch} (Swift: ${swift})
+        Branch: ${branch}${swiftLine}
       </td>
     </tr>
     <tr>
       <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #334155;">
-        <strong style="color: #0b1536; display: block; margin-bottom: 2px;">Doorstep Cash Collection:</strong>
-        Call our helpline: <strong style="color: #0a5c36;">${doorstep}</strong> (${siteConfig.supportHours})
+        <strong style="color: #0a5c36; display: block; margin-bottom: 2px;">⚠️ Important Transfer Remarks:</strong>
+        Please write your <strong>Pledge Reference Number (e.g. GJTF-YYYY-NNNNNN)</strong> in the transaction remarks/notes so your payment is automatically verified.
       </td>
     </tr>
     <tr>
       <td style="padding: 14px 18px; font-size: 13px; color: #334155;">
-        <strong style="color: #0b1536; display: block; margin-bottom: 2px;">Mobile Wallets (JazzCash &amp; EasyPaisa):</strong>
-        Account Title: <strong>Tousif Qasim (Chairman GJTF)</strong><br/>
-        JazzCash: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${jazz}</code> | 
-        EasyPaisa: <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: bold;">${easy}</code>
+        <strong style="color: #0b1536; display: block; margin-bottom: 2px;">Doorstep Cash / Cheque Collection:</strong>
+        Call our official hotline: <strong style="color: #0a5c36;">${doorstep}</strong> (${siteConfig.supportHours})
       </td>
     </tr>
   </table>
@@ -80,14 +76,14 @@ const BANK_DETAILS_HTML = getBankDetailsHtml();
 
 const BANK_DETAILS_TEXT = `
 Official Bank Details:
-Meezan Bank Limited
-Account Title: Ghais Jhuggi Taleem Foundation
-Account No: 02010103847291
-IBAN: PK72MEZN0002010103847291
-Branch: Model Town Link Road Branch Lahore (Swift: MEZNPKKA)
-
-Doorstep Cash / Cheque Collection Helpline: ${siteConfig.phone1.display} (${siteConfig.supportHours})
-Mobile Wallets: ${siteConfig.phone2.display} / 0328-6477314
+${siteConfig.bankAccount.bankName}
+Account Title: ${siteConfig.bankAccount.accountTitle}
+Account No: ${siteConfig.bankAccount.accountNumber}
+IBAN: ${siteConfig.bankAccount.iban}
+Branch: ${siteConfig.bankAccount.branch}
+${siteConfig.bankAccount.swift ? `SWIFT: ${siteConfig.bankAccount.swift}\n` : ""}
+Transfer Remarks: Please write your Reference Number in remarks.
+Doorstep Hotline: ${siteConfig.phone1.display} (${siteConfig.supportHours})
 `;
 
 // -------------------------------------------------------------

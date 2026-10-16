@@ -72,6 +72,20 @@ export async function ensureCoreTablesDb(): Promise<void> {
         "ALTER TABLE donations ADD COLUMN donor_id VARCHAR(64) NULL AFTER reference_no",
         "ALTER TABLE donations ADD COLUMN plan_id VARCHAR(64) NULL AFTER donor_id",
         "ALTER TABLE donations ADD COLUMN amount_minor BIGINT NULL AFTER amount",
+        "ALTER TABLE donations ADD COLUMN children_equivalent DECIMAL(8, 2) NOT NULL DEFAULT 1.00 AFTER amount_minor",
+        "ALTER TABLE donations ADD COLUMN pricing_version INT NOT NULL DEFAULT 1 AFTER children_equivalent",
+        "ALTER TABLE donations ADD COLUMN amount_pkr_minor BIGINT NULL AFTER pricing_version",
+        "ALTER TABLE donations ADD COLUMN display_currency VARCHAR(10) NOT NULL DEFAULT 'PKR' AFTER amount_pkr_minor",
+        "ALTER TABLE donations ADD COLUMN display_amount_minor BIGINT NULL AFTER display_currency",
+        "ALTER TABLE donations ADD COLUMN fx_rate DECIMAL(16, 6) NULL AFTER display_amount_minor",
+        "ALTER TABLE donations ADD COLUMN fx_buffer_pct DECIMAL(5, 2) NULL DEFAULT 1.00 AFTER fx_rate",
+        "ALTER TABLE donations ADD COLUMN fx_locked_at TIMESTAMP NULL AFTER fx_buffer_pct",
+        "ALTER TABLE donations ADD COLUMN fx_valid_until TIMESTAMP NULL AFTER fx_locked_at",
+        "ALTER TABLE donations ADD COLUMN bank_account_id VARCHAR(64) NULL AFTER fx_valid_until",
+        "ALTER TABLE donations ADD COLUMN received_amount_minor BIGINT NULL AFTER bank_account_id",
+        "ALTER TABLE donations ADD COLUMN received_currency VARCHAR(10) NULL AFTER received_amount_minor",
+        "ALTER TABLE donations ADD COLUMN received_pkr_minor BIGINT NULL AFTER received_currency",
+        "ALTER TABLE donations ADD COLUMN idempotency_key VARCHAR(128) NULL UNIQUE AFTER received_pkr_minor",
         "ALTER TABLE donations ADD COLUMN payment_method VARCHAR(64) DEFAULT 'bank_transfer' AFTER status",
         "ALTER TABLE donations ADD COLUMN gateway_provider VARCHAR(64) NULL AFTER payment_method",
         "ALTER TABLE donations ADD COLUMN gateway_transaction_id VARCHAR(128) NULL AFTER gateway_provider",
@@ -81,6 +95,11 @@ export async function ensureCoreTablesDb(): Promise<void> {
         "ALTER TABLE donations ADD COLUMN failed_reason TEXT NULL AFTER paid_at",
         "ALTER TABLE donations ADD COLUMN admin_note TEXT NULL AFTER failed_reason",
         "ALTER TABLE donations ADD COLUMN is_anonymous TINYINT(1) DEFAULT 0 AFTER admin_note",
+        // donation_plans new columns
+        "ALTER TABLE donation_plans ADD COLUMN children_count DECIMAL(8, 2) NOT NULL DEFAULT 1.00 AFTER amount",
+        "ALTER TABLE donation_plans ADD COLUMN pledge_basis VARCHAR(16) NOT NULL DEFAULT 'pkr_fixed' AFTER children_count",
+        "ALTER TABLE donation_plans ADD COLUMN end_date DATE NULL AFTER next_due_date",
+        "ALTER TABLE donation_plans ADD COLUMN total_cycles INT NULL AFTER cycles_completed",
       ];
 
       for (const alterSql of alterQueries) {
@@ -176,11 +195,11 @@ export async function ensureCoreTablesDb(): Promise<void> {
         CREATE TABLE IF NOT EXISTS payment_settings (
           id VARCHAR(32) PRIMARY KEY DEFAULT 'default',
           bank_title VARCHAR(255) DEFAULT 'Ghais Jhuggi Taleem Foundation',
-          bank_name VARCHAR(255) DEFAULT 'Meezan Bank Limited',
-          account_number VARCHAR(64) DEFAULT '02010103847291',
-          iban VARCHAR(64) DEFAULT 'PK72MEZN0002010103847291',
-          branch_name VARCHAR(255) DEFAULT 'Model Town Link Road Branch Lahore',
-          swift_code VARCHAR(32) DEFAULT 'MEZNPKKA',
+          bank_name VARCHAR(255) DEFAULT 'Bank Islami',
+          account_number VARCHAR(64) DEFAULT '203756213050001',
+          iban VARCHAR(64) DEFAULT 'PK19BKIP0203756213050001',
+          branch_name VARCHAR(255) DEFAULT 'Allama Iqbal Town, Lahore',
+          swift_code VARCHAR(32) DEFAULT '',
           doorstep_enabled TINYINT(1) DEFAULT 1,
           doorstep_phone VARCHAR(64) DEFAULT '04235236622',
           cheque_enabled TINYINT(1) DEFAULT 1,
@@ -201,12 +220,13 @@ export async function ensureCoreTablesDb(): Promise<void> {
           doorstep_enabled, doorstep_phone, cheque_enabled, bank_transfer_enabled,
           jazzcash_number, easypaisa_number, gateway_provider, gateway_mode
         ) VALUES (
-          'default', 'Ghais Jhuggi Taleem Foundation', 'Meezan Bank Limited',
-          '02010103847291', 'PK72MEZN0002010103847291', 'Model Town Link Road Branch Lahore', 'MEZNPKKA',
+          'default', 'Ghais Jhuggi Taleem Foundation', 'Bank Islami',
+          '203756213050001', 'PK19BKIP0203756213050001', 'Allama Iqbal Town, Lahore', '',
           1, '04235236622', 1, 1,
           '03033934771', '0328-6477314', 'manual', 'test'
         );
       `);
+
 
       // 9. audit_logs (append-only ledger for all security and financial changes)
       await pool.query(`
@@ -227,23 +247,32 @@ export async function ensureCoreTablesDb(): Promise<void> {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
-      // 10. app_settings (impact calculation formulas)
+      // 10. app_settings (impact calculation formulas: PKR 5,000 / child-month)
       await pool.query(`
         CREATE TABLE IF NOT EXISTS app_settings (
           id VARCHAR(32) PRIMARY KEY DEFAULT 'default',
-          pkr_per_child_monthly INT DEFAULT 2000,
-          pkr_per_child_annual INT DEFAULT 24000,
-          aed_per_child_monthly INT DEFAULT 50,
-          aed_per_child_annual INT DEFAULT 600,
+          pkr_per_child_monthly INT DEFAULT 5000,
+          pkr_per_child_annual INT DEFAULT 60000,
+          aed_per_child_monthly INT DEFAULT 67,
+          aed_per_child_annual INT DEFAULT 800,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
       await pool.query(`
-        INSERT IGNORE INTO app_settings (
+        INSERT INTO app_settings (
           id, pkr_per_child_monthly, pkr_per_child_annual, aed_per_child_monthly, aed_per_child_annual
-        ) VALUES ('default', 2000, 24000, 50, 600);
+        ) VALUES ('default', 5000, 60000, 67, 800)
+        ON DUPLICATE KEY UPDATE
+          pkr_per_child_monthly = 5000,
+          pkr_per_child_annual = 60000;
       `);
+
+      // 11. Ensure Section 15 tables (pricing_settings, fx_rates, bank_accounts)
+      const { ensurePricingTablesDb } = await import("./pricingDb");
+      const { ensureBankAccountsTableDb } = await import("./bankAccounts");
+      await ensurePricingTablesDb();
+      await ensureBankAccountsTableDb();
 
       coreTablesInitialized = true;
     } catch (err: any) {

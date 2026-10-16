@@ -17,6 +17,10 @@ import {
   RefreshCw,
   PlusCircle,
   CheckCircle2,
+  GraduationCap,
+  AlertCircle,
+  Edit2,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import {
   adminGetFinancialReportsAction,
   adminRecordManualDonationAction,
+  adminUpdateEnrolledChildrenAction,
 } from "@/app/actions/adminDonors";
 
 export default function AdminReportsPage() {
@@ -32,6 +37,11 @@ export default function AdminReportsPage() {
   const [showManualModal, setShowManualModal] = React.useState(false);
   const [manualSubmitting, setManualSubmitting] = React.useState(false);
   const [manualSuccessMsg, setManualSuccessMsg] = React.useState<string | null>(null);
+
+  // Enrolled capacity edit state
+  const [showEnrolledModal, setShowEnrolledModal] = React.useState(false);
+  const [enrolledInput, setEnrolledInput] = React.useState("1000");
+  const [savingEnrolled, setSavingEnrolled] = React.useState(false);
 
   // Manual entry form state
   const [manualForm, setManualForm] = React.useState({
@@ -53,6 +63,9 @@ export default function AdminReportsPage() {
     try {
       const res = await adminGetFinancialReportsAction();
       setData(res);
+      if (res?.fundingStatus?.enrolledChildren) {
+        setEnrolledInput(String(res.fundingStatus.enrolledChildren));
+      }
     } catch (e) {
       console.error("Failed to load reports", e);
     } finally {
@@ -63,6 +76,26 @@ export default function AdminReportsPage() {
   React.useEffect(() => {
     fetchReports();
   }, []);
+
+  const handleEnrolledSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingEnrolled(true);
+    try {
+      const val = parseInt(enrolledInput, 10);
+      if (isNaN(val) || val <= 0) {
+        alert("Please enter a valid student capacity (at least 1).");
+        return;
+      }
+      await adminUpdateEnrolledChildrenAction(val);
+      setShowEnrolledModal(false);
+      await fetchReports();
+    } catch (err: any) {
+      alert(err.message || "Failed to update enrolled students capacity.");
+    } finally {
+      setSavingEnrolled(false);
+    }
+  };
+
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,8 +205,94 @@ export default function AdminReportsPage() {
         </div>
       ) : (
         <>
+          {/* SECTION 15.8: Educational Funding Status Card */}
+          {data?.fundingStatus && (
+            <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-blue-900/40 relative overflow-hidden">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-400/30">
+                    <GraduationCap className="w-4 h-4 text-blue-400" />
+                    <span>Monthly Child Educational Funding Status</span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                    {data.fundingStatus.childrenCoveredThisMonth.toLocaleString()} of {data.fundingStatus.enrolledChildren.toLocaleString()} Children Covered
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300 max-w-2xl">
+                    Based on standard PKR {data.fundingStatus.costPerChildMonth.toLocaleString()}/child-month unit cost. Combines active monthly commitments (Rs. {data.fundingStatus.monthlyCommitmentsPkr.toLocaleString()}) and completed one-time donations this month (Rs. {data.fundingStatus.completedOneTimeThisMonthPkr.toLocaleString()}).
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowEnrolledModal(true)}
+                    className="rounded-xl text-xs font-bold gap-1.5 bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Edit Enrolled ({data.fundingStatus.enrolledChildren.toLocaleString()})
+                  </Button>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="mt-6 space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-blue-300">{data.fundingStatus.coveragePercentage}% of Monthly Need Funded</span>
+                  <span className={data.fundingStatus.fundingGapChildren > 0 ? "text-amber-300" : "text-emerald-300"}>
+                    {data.fundingStatus.fundingGapChildren > 0
+                      ? `Funding Gap: ${data.fundingStatus.fundingGapChildren.toLocaleString()} children (Rs. ${data.fundingStatus.fundingGapPkr.toLocaleString()})`
+                      : "Fully Funded for Current Month!"}
+                  </span>
+                </div>
+                <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-700">
+                  <div
+                    className="bg-gradient-to-r from-blue-500 via-teal-400 to-emerald-400 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.max(5, data.fundingStatus.coveragePercentage))}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-white/10 text-xs">
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                  <span className="text-slate-400 block">Unit Cost / Child</span>
+                  <span className="text-lg font-extrabold text-white mt-1 block">
+                    Rs. {data.fundingStatus.costPerChildMonth.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] text-slate-400">All-inclusive/mo</span>
+                </div>
+
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                  <span className="text-slate-400 block">Active Monthly Plans</span>
+                  <span className="text-lg font-extrabold text-white mt-1 block">
+                    Rs. {data.fundingStatus.monthlyCommitmentsPkr.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] text-teal-300">{data.fundingStatus.activePlansCount} recurring donors</span>
+                </div>
+
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                  <span className="text-slate-400 block">One-Time Gifts (This Mo)</span>
+                  <span className="text-lg font-extrabold text-white mt-1 block">
+                    Rs. {data.fundingStatus.completedOneTimeThisMonthPkr.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] text-blue-300">{data.fundingStatus.completedOneTimeCount} completed</span>
+                </div>
+
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                  <span className="text-slate-400 block">Monthly Funding Gap</span>
+                  <span className={`text-lg font-extrabold mt-1 block ${data.fundingStatus.fundingGapPkr > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                    Rs. {data.fundingStatus.fundingGapPkr.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] text-slate-400">{data.fundingStatus.fundingGapChildren.toLocaleString()} students unfunded</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Main Financial Totals (Strict Rule: PKR & AED Separate) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
             {/* PKR Card */}
             <div className="bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-900 rounded-3xl p-6 sm:p-7 text-white shadow-lg relative overflow-hidden">
               <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -346,8 +465,48 @@ export default function AdminReportsPage() {
             </div>
           </div>
 
+          {/* Child-Months Funded per Month Report */}
+          {data?.childMonthsMonthly && data.childMonthsMonthly.length > 0 && (
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-6 sm:p-7">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Child-Months Funded per Month</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Historical impact measured in child-month educational units (PKR 5,000/mo)</p>
+                </div>
+                <div className="p-2 bg-blue-50 rounded-xl">
+                  <GraduationCap className="w-5 h-5 text-blue-600" />
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 text-[11px] uppercase font-bold tracking-wider text-slate-500 border-b border-slate-100">
+                      <th className="py-3 px-4">Calendar Month</th>
+                      <th className="py-3 px-4">Completed Pledges</th>
+                      <th className="py-3 px-4">Total Amount (PKR)</th>
+                      <th className="py-3 px-4 text-right">Child-Months Funded</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {data.childMonthsMonthly.map((m: any, i: number) => (
+                      <tr key={i} className="hover:bg-slate-50/50">
+                        <td className="py-3 px-4 font-bold text-slate-900">{m.month}</td>
+                        <td className="py-3 px-4 font-semibold text-slate-700">{m.donationCount}</td>
+                        <td className="py-3 px-4 text-slate-800">Rs. {m.totalPkr.toLocaleString()}</td>
+                        <td className="py-3 px-4 text-right font-extrabold text-blue-600">
+                          {m.childMonthsFunded.toLocaleString()} child-months
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Top Supporters Table */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Top Verified Supporters</h3>
@@ -526,7 +685,7 @@ export default function AdminReportsPage() {
               <div>
                 <Label className="text-xs font-bold text-slate-700">Cheque / Slip Ref / Note</Label>
                 <Input
-                  placeholder="e.g. Meezan Bank slip #9821 or Rider Zahid"
+                  placeholder="e.g. Bank Islami slip #9821 or Rider Zahid"
                   value={manualForm.admin_note}
                   onChange={(e) => setManualForm({ ...manualForm, admin_note: e.target.value })}
                   className="rounded-xl mt-1 h-10 text-xs"
@@ -555,6 +714,56 @@ export default function AdminReportsPage() {
           </div>
         </div>
       )}
+
+      {/* Enrolled Students Capacity Edit Modal (Section 15.8) */}
+      {showEnrolledModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Set Enrolled Students Target</h3>
+            <p className="text-xs text-slate-500 mb-6">
+              Total number of enrolled nomadic children requiring monthly educational funding. Used to calculate live monthly funding gap.
+            </p>
+
+            <form onSubmit={handleEnrolledSubmit} className="space-y-4 text-xs">
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Enrolled Children Capacity</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="100000"
+                  value={enrolledInput}
+                  onChange={(e) => setEnrolledInput(e.target.value)}
+                  className="rounded-xl mt-1 h-11 text-sm font-bold"
+                  required
+                />
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  Monthly funding target = Enrolled × PKR {data?.fundingStatus?.costPerChildMonth?.toLocaleString() || "5,000"}.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowEnrolledModal(false)}
+                  className="rounded-xl text-xs font-bold border-slate-200"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={savingEnrolled}
+                  className="rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                >
+                  {savingEnrolled ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  Save Capacity
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

@@ -24,6 +24,7 @@ import {
   UserCheck,
   BarChart3,
   CreditCard,
+  DollarSign,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ const ADMIN_NAV = [
   { label: "Donations", href: "/admin/donations", icon: Heart },
   { label: "Donors", href: "/admin/donors", icon: UserCheck },
   { label: "Financial Reports", href: "/admin/reports", icon: BarChart3 },
+  { label: "Pricing & AED Rates", href: "/admin/pricing-settings", icon: DollarSign },
   { label: "Payment & Bank Settings", href: "/admin/payment-settings", icon: CreditCard },
   { label: "Email Logs", href: "/admin/email-logs", icon: Send },
   { label: "Contact Messages", href: "/admin/contact-messages", icon: Mail },
@@ -44,6 +46,7 @@ const ADMIN_NAV = [
   { label: "SMTP Configuration", href: "/admin/smtp", icon: Server },
   { label: "Settings & Backup", href: "/admin/settings", icon: Settings },
 ];
+
 
 export default function AdminLayout({
   children,

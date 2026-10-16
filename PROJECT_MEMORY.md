@@ -295,7 +295,8 @@ All server actions run with Next.js path revalidation (`revalidatePath`):
 - `/admin/donors` — Enterprise Donor CRM with search, filters, lifetime value, and status.
 - `/admin/donors/[id]` — Deep donor drill-down view with transaction timeline.
 - `/admin/donations` — Manage transactions, filter by status, export data.
-- `/admin/payment-settings` — Live bank accounts (Meezan Bank, JazzCash, EasyPaisa, Doorstep).
+- `/admin/payment-settings` — Live bank accounts (Bank Islami, JazzCash, EasyPaisa, Doorstep).
+
 - `/admin/email-logs` — Transactional email delivery monitor and retry station.
 - `/admin/reports` — Financial summaries, monthly recurring donor retention, cause breakdown.
 - `/admin/schools` — Add/edit campus units, upload photo URLs, update student capacities.

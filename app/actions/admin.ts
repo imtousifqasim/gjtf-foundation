@@ -28,20 +28,62 @@ import {
 
 export async function updateDonationStatus(
   donationId: string,
-  status: "pending" | "completed" | "failed"
+  status: "pending" | "completed" | "failed",
+  receivedDetails?: {
+    bank_account_id?: string;
+    received_amount?: number;
+    received_currency?: string;
+    received_pkr?: number;
+    admin_note?: string;
+  }
 ) {
   try {
     // 1. Fetch donation details before/during update
     const rows: any = await query("SELECT * FROM donations WHERE id = ? LIMIT 1", [donationId]);
     const donation = rows && rows.length > 0 ? rows[0] : null;
 
-    // 2. Update DB
-    await updateDonationStatusDb(donationId, status);
+    // 2. Update DB with Section 15.6 received details when completed
+    if (status === "completed" && receivedDetails) {
+      const recAmtMinor = receivedDetails.received_amount != null ? BigInt(Math.round(receivedDetails.received_amount * 100)) : null;
+      const recPkrMinor = receivedDetails.received_pkr != null
+        ? BigInt(Math.round(receivedDetails.received_pkr * 100))
+        : (receivedDetails.received_currency === "PKR" && receivedDetails.received_amount != null
+            ? BigInt(Math.round(receivedDetails.received_amount * 100))
+            : null);
+
+      await query(`
+        UPDATE donations
+        SET status = ?,
+            bank_account_id = COALESCE(?, bank_account_id),
+            received_amount_minor = COALESCE(?, received_amount_minor, amount_pkr_minor),
+            received_currency = COALESCE(?, received_currency, currency),
+            received_pkr_minor = COALESCE(?, received_pkr_minor, amount_pkr_minor),
+            admin_note = CASE 
+              WHEN ? IS NOT NULL AND ? != '' THEN CONCAT(COALESCE(admin_note, ''), '\n', ?) 
+              ELSE admin_note 
+            END,
+            paid_at = COALESCE(paid_at, NOW())
+        WHERE id = ?
+      `, [
+        status,
+        receivedDetails.bank_account_id || null,
+        recAmtMinor ? recAmtMinor.toString() : null,
+        receivedDetails.received_currency || null,
+        recPkrMinor ? recPkrMinor.toString() : null,
+        receivedDetails.admin_note || null,
+        receivedDetails.admin_note || null,
+        receivedDetails.admin_note || null,
+        donationId,
+      ]);
+    } else {
+      await updateDonationStatusDb(donationId, status);
+    }
 
     // 3. Auto-stop reminders if completed or failed
     if (status === "completed" || status === "failed") {
       await cancelDonationReminderDb(donationId);
     }
+
 
     // 4. Asynchronously send status-specific email to donor
     if (donation && donation.donor_email && donation.donor_email.trim() !== "") {

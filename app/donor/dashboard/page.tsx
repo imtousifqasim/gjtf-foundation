@@ -292,7 +292,7 @@ export default function DonorDashboardPage() {
           </p>
         </div>
 
-        {/* Educational Impact Card */}
+        {/* Educational Impact Card (Child-Months) */}
         <div className="bg-gradient-to-br from-emerald-900 to-emerald-950 text-white rounded-3xl p-6 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-emerald-300">
             <span className="text-xs font-bold uppercase tracking-wider">
@@ -301,10 +301,12 @@ export default function DonorDashboardPage() {
             <Sparkles className="w-4 h-4 text-emerald-300" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-200">
-            {stats.childrenEducatedYears} Years
+            {stats.childMonthsFunded ?? Math.round(stats.pkr.lifetime / 5000)} Child-Months
           </div>
           <p className="text-xs text-emerald-100/80 pt-1 border-t border-emerald-800">
-            Equivalent school schooling funded for nomadic children
+            {activePlan
+              ? `Supporting ${activePlan.children_count || Math.max(1, Math.round(activePlan.amount / 5000))} child(ren) this month`
+              : "Total child-months funded across nomadic community schools"}
           </p>
         </div>
       </div>
@@ -322,7 +324,7 @@ export default function DonorDashboardPage() {
                 {activePlan.cause}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Billing Day {activePlan.billing_day} of every month &bull; {activePlan.donation_type}
+                Supporting {activePlan.children_count || Math.max(1, Math.round(activePlan.amount / 5000))} child(ren) this month &bull; Billing Day {activePlan.billing_day} of every month &bull; {activePlan.donation_type}
               </p>
             </div>
 
@@ -330,6 +332,11 @@ export default function DonorDashboardPage() {
               <div className="text-2xl font-extrabold text-slate-900 font-mono">
                 {activePlan.currency} {activePlan.amount.toLocaleString()} <span className="text-xs text-slate-500 font-sans font-normal">/ month</span>
               </div>
+              {activePlan.currency === "AED" && (
+                <div className="text-xs text-slate-500 font-medium">
+                  (about PKR {Math.round(activePlan.amount * 76.5).toLocaleString()})
+                </div>
+              )}
               <div className="text-xs font-semibold text-emerald-700 mt-1">
                 Next scheduled: {activePlan.next_due_date}
               </div>
@@ -362,7 +369,7 @@ export default function DonorDashboardPage() {
         </div>
       )}
 
-      {/* Official Bank Transfer Details Card */}
+      {/* Official Bank Transfer Details Card (Bank Islami) */}
       <div id="bank-details-card" className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
@@ -370,31 +377,57 @@ export default function DonorDashboardPage() {
           </div>
           <div>
             <h3 className="text-lg font-bold font-heading text-slate-900">
-              Official Foundation Bank Details for Wire Transfer
+              Official Foundation Bank Details (Bank Islami)
             </h3>
             <p className="text-xs text-slate-500">
-              Use your Reference Code in the transfer description so our automated system matches your receipt.
+              Please include your Reference Number in the transaction remarks for automatic receipt matching.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2">
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
-            <span className="text-slate-500 block font-semibold">Primary Islamic Account</span>
-            <div className="font-bold text-slate-900 text-sm">Meezan Bank Limited</div>
-            <div>Account Title: <strong>Ghais Jhuggi Taleem Foundation</strong></div>
-            <div>Account Number: <code className="bg-white px-2 py-0.5 rounded border border-slate-200 font-bold">02010103847291</code></div>
-            <div>IBAN: <code className="bg-white px-2 py-0.5 rounded border border-slate-200 font-bold">PK72MEZN0002010103847291</code></div>
-            <div>Branch: Model Town Link Road, Lahore (Swift: MEZNPKKA)</div>
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500 font-semibold">Primary Account</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">Single Account</span>
+            </div>
+            <div className="font-bold text-slate-900 text-sm">{siteConfig.bankAccount.bankName}</div>
+            <div>Account Title: <strong>{siteConfig.bankAccount.accountTitle}</strong></div>
+            <div className="flex items-center justify-between">
+              <div>Account Number: <code className="bg-white px-2 py-0.5 rounded border border-slate-200 font-bold">{siteConfig.bankAccount.accountNumber}</code></div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(siteConfig.bankAccount.accountNumber);
+                  alert("Account number copied to clipboard!");
+                }}
+                className="text-xs font-bold text-emerald-700 hover:underline"
+              >
+                Copy
+              </button>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>IBAN: <code className="bg-white px-2 py-0.5 rounded border border-slate-200 font-bold">{siteConfig.bankAccount.iban}</code></div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(siteConfig.bankAccount.iban);
+                  alert("IBAN copied to clipboard!");
+                }}
+                className="text-xs font-bold text-emerald-700 hover:underline"
+              >
+                Copy
+              </button>
+            </div>
+            <div>Branch: {siteConfig.bankAccount.branch}</div>
           </div>
 
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
-            <span className="text-slate-500 block font-semibold">Doorstep Collection & Mobile Accounts</span>
-            <div>Collection Helpline: <strong className="text-emerald-800 font-bold">{siteConfig.phone1.display}</strong> ({siteConfig.supportHours})</div>
+            <span className="text-slate-500 block font-semibold">Doorstep Collection &amp; Verification</span>
+            <div>Collection Hotline: <strong className="text-emerald-800 font-bold">{siteConfig.phone1.display}</strong> ({siteConfig.supportHours})</div>
             <div>WhatsApp Payment Proof: <strong>{siteConfig.phone2.display}</strong></div>
-            <div>JazzCash / EasyPaisa: <strong>Tousif Qasim (Chairman)</strong> &bull; {siteConfig.phone2.display}</div>
             <p className="text-[11px] text-slate-500 mt-2">
-              For doorstep cash and cheque receipts, an official foundation rider delivers the stamped carbon receipt directly to your home or office.
+              For doorstep cash and crossed cheque receipts, an official foundation rider delivers the stamped carbon receipt directly to your home or office.
             </p>
           </div>
         </div>

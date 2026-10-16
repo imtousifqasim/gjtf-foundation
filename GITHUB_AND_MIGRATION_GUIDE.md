@@ -128,16 +128,17 @@ Naye PC par aap ko AI ko shuru se kuch samjhanay ki zaroorat nahi!
 - **URL:** `https://giztmeevfsywsldylgxn.supabase.co`
 - **Anon Key & Service Role:** Saved in `.env.local` and `SECRETS_FOR_NEW_PC.env.local`
 
-### 💳 5. Official NGO Payment Accounts (From `payment_settings`)
-- **Bank Name:** Meezan Bank Limited
+### 💳 5. Official NGO Payment Accounts (From `payment_settings` & `bank_accounts`)
+- **Bank Name:** Bank Islami
 - **Account Title:** Ghais Jhuggi Taleem Foundation
-- **Account Number:** `02010103847291`
-- **IBAN:** `PK72MEZN0002010103847291`
-- **Branch:** Model Town Link Road Branch Lahore
-- **Swift Code:** `MEZNPKKA`
+- **Account Number:** `203756213050001`
+- **IBAN:** `PK19BKIP0203756213050001`
+- **Branch:** Allama Iqbal Town, Lahore
+- **Swift Code:** Left empty until branch confirmation
 - **JazzCash:** `0303-3934771`
 - **EasyPaisa:** `0328-6477314`
 - **Doorstep Hotline:** `04235236622` / `03033934771`
+
  
 ### 📧 6. Official Foundation Contact
 - **Emails:** `jhuggitaleemiproject@gmail.com`, `admin@gjtfoundation.com`

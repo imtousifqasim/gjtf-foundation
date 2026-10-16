@@ -74,10 +74,16 @@ export async function GET(req: NextRequest) {
         siteConfig.socials.tiktok,
       ]);
 
-      // 2. Update payment_settings
+      // 2. Update payment_settings (Bank Islami Details)
       const paymentResult = await mysqlQuery<any>(`
         UPDATE payment_settings
         SET
+          bank_name = 'Bank Islami',
+          branch_name = 'Allama Iqbal Town, Lahore',
+          account_title = 'Ghais Jhuggi Taleem Foundation',
+          account_number = '203756213050001',
+          iban = 'PK19BKIP0203756213050001',
+          swift_code = '',
           doorstep_phone = ?,
           jazzcash_number = ?,
           updated_at = NOW()
@@ -104,7 +110,44 @@ export async function GET(req: NextRequest) {
           updated_at = NOW()
       `);
 
-      // 4. Sync Backup to Supabase
+      // 4. Section 15 Tables: pricing_settings, fx_rates, bank_accounts
+      const { ensurePricingTablesDb } = await import("@/lib/db/pricingDb");
+      const { ensureBankAccountsTableDb } = await import("@/lib/db/bankAccounts");
+      await ensurePricingTablesDb();
+      await ensureBankAccountsTableDb();
+
+      // 5. Section 15 Alterations for donations & donation_plans
+      const alterQueries = [
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS children_equivalent DECIMAL(10, 2) NULL DEFAULT 0.00;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS pricing_version INT NOT NULL DEFAULT 1;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS amount_pkr_minor BIGINT NULL;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS display_currency VARCHAR(10) NOT NULL DEFAULT 'PKR';",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS display_amount_minor BIGINT NULL;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS fx_rate DECIMAL(16, 6) NULL;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS fx_buffer_pct DECIMAL(5, 2) NULL DEFAULT 1.00;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS fx_locked_at TIMESTAMP NULL;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS fx_valid_until TIMESTAMP NULL;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS bank_account_id VARCHAR(64) NULL DEFAULT 'bank-islami-primary';",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS received_amount_minor BIGINT NULL;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS received_currency VARCHAR(10) NULL;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS received_pkr_minor BIGINT NULL;",
+        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(128) NULL;",
+        "ALTER TABLE donation_plans ADD COLUMN IF NOT EXISTS children_count DECIMAL(10, 2) NOT NULL DEFAULT 1.00;",
+        "ALTER TABLE donation_plans ADD COLUMN IF NOT EXISTS pledge_basis ENUM('pkr_fixed', 'aed_fixed') NOT NULL DEFAULT 'pkr_fixed';",
+        "ALTER TABLE donation_plans ADD COLUMN IF NOT EXISTS end_date TIMESTAMP NULL;",
+        "ALTER TABLE donation_plans ADD COLUMN IF NOT EXISTS total_cycles INT NULL;",
+        "INSERT INTO app_settings (setting_key, setting_value) VALUES ('enrolled_children', '1000') ON DUPLICATE KEY UPDATE updated_at = NOW();",
+      ];
+
+      for (const q of alterQueries) {
+        try {
+          await mysqlQuery(q);
+        } catch (e) {
+          // Ignore if exists
+        }
+      }
+
+      // 6. Sync Backup to Supabase
       const { syncBackupToSupabase } = await import("@/lib/db/mysql");
       await syncBackupToSupabase("migrateSiteSettings", (sb) =>
         sb.from("site_settings").upsert({
@@ -140,18 +183,22 @@ export async function GET(req: NextRequest) {
       );
 
       const siteRows = await mysqlQuery<any[]>("SELECT * FROM site_settings WHERE id = 'default'");
-      const payRows = await mysqlQuery<any[]>("SELECT id, doorstep_phone, jazzcash_number FROM payment_settings WHERE id = 'default'");
+      const payRows = await mysqlQuery<any[]>("SELECT id, bank_name, account_number, iban, doorstep_phone, jazzcash_number FROM payment_settings WHERE id = 'default'");
       const smtpRows = await mysqlQuery<any[]>("SELECT id, host, port, secure, user_name, from_name, from_email FROM smtp_settings WHERE id = 'default'");
+      const pricingRows = await mysqlQuery<any[]>("SELECT * FROM pricing_settings WHERE is_active = 1 LIMIT 1");
+      const bankRows = await mysqlQuery<any[]>("SELECT * FROM bank_accounts WHERE is_active = 1 LIMIT 1");
 
       return NextResponse.json({
         success: true,
-        message: "All data successfully migrated on Hostinger MySQL and synced to Supabase.",
+        message: "Section 15 pricing tables, Bank Islami accounts, and schemas successfully migrated on Hostinger MySQL.",
         siteSettingsAffected: siteResult?.affectedRows ?? 0,
         paymentSettingsAffected: paymentResult?.affectedRows ?? 0,
         smtpSettingsAffected: smtpResult?.affectedRows ?? 0,
         currentSiteSettings: siteRows?.[0] || null,
         currentPaymentSettings: payRows?.[0] || null,
         currentSmtpSettings: smtpRows?.[0] || null,
+        activePricingSetting: pricingRows?.[0] || null,
+        activeBankAccount: bankRows?.[0] || null,
       });
     } catch (err: any) {
       return NextResponse.json(
@@ -163,6 +210,113 @@ export async function GET(req: NextRequest) {
         { status: 500 }
       );
     }
+  }
+
+  // Section 15 Test Pricing Runner (?test_pricing=1)
+  if (searchParams.get("test_pricing") === "true" || searchParams.get("test_pricing") === "1") {
+    try {
+      const { calculateImpact, DEFAULT_PRICING } = await import("@/lib/pricing/impact");
+      const { toMinorUnits, toMajorUnits, roundAedCeil } = await import("@/lib/pricing/money");
+      const { convertPkrToAed, convertAedToPkr, lockFxRate } = await import("@/lib/pricing/fx");
+
+      const testResults: { name: string; passed: boolean; details?: any }[] = [];
+
+      // Test 1: Whole child impact
+      const imp1 = calculateImpact(5000, "monthly", DEFAULT_PRICING);
+      testResults.push({
+        name: "15.1: Whole Child Monthly (PKR 5,000 = 1 child)",
+        passed: imp1.childrenCount === 1 && imp1.isTruthfulPooled,
+        details: imp1.summary,
+      });
+
+      // Test 2: Fractional child impact (PKR 7,500 = 1.5 children)
+      const impFrac = calculateImpact(7500, "monthly", DEFAULT_PRICING);
+      testResults.push({
+        name: "15.3: Fractional Child Monthly (PKR 7,500 = 1.5 children)",
+        passed: impFrac.childrenCount === 1.5,
+        details: impFrac.summary,
+      });
+
+      // Test 3: Fractional 40% child (PKR 2,000)
+      const imp2k = calculateImpact(2000, "monthly", DEFAULT_PRICING);
+      testResults.push({
+        name: "15.3: Fractional Child (PKR 2,000 = 40% of 1 child)",
+        passed: imp2k.childrenCount === 0.4,
+        details: imp2k.summary,
+      });
+
+      // Test 4: One-time gift child-months (PKR 60,000 = 12 child-months)
+      const impOnce = calculateImpact(60000, "once", DEFAULT_PRICING);
+      testResults.push({
+        name: "15.3: One-Time Impact (PKR 60,000 = 12 child-months)",
+        passed: impOnce.childMonthsFunded === 12,
+        details: impOnce.summary,
+      });
+
+      // Test 5: Minor unit zero-float arithmetic
+      const minor = toMinorUnits(5000);
+      const major = toMajorUnits(minor);
+      testResults.push({
+        name: "15.4: Minor Units Zero-Float Arithmetic (5000 PKR = 500000 paisa)",
+        passed: minor === 500000n && major === 5000,
+      });
+
+      // Test 6: Round AED ceil
+      const ceil1 = roundAedCeil(64.12);
+      const ceil2 = roundAedCeil(64.0);
+      testResults.push({
+        name: "15.5: AED Rounding UP to Next Whole Dirham (64.12 -> 65, 64.0 -> 64)",
+        passed: ceil1 === 65 && ceil2 === 64,
+      });
+
+      // Test 7: PKR to AED with 1% buffer
+      const fxConv = convertPkrToAed(5000, 1 / 76.5, 1.0);
+      testResults.push({
+        name: "15.5: PKR to AED conversion with 1% buffer",
+        passed: fxConv.aedAmount === 67,
+        details: fxConv,
+      });
+
+      // Test 8: Rate Lock 48h validity
+      const lock = lockFxRate(5000, 1 / 76.5, 1.0);
+      const diffHours = (lock.fxValidUntil.getTime() - lock.fxLockedAt.getTime()) / (1000 * 60 * 60);
+      testResults.push({
+        name: "15.5: Rate Lock 48-Hour Validity",
+        passed: diffHours === 48 && lock.aedAmount === 67,
+        details: lock.lockNotice,
+      });
+
+      // Test 9: Bank Islami credentials check
+      const bankIslamiMatch =
+        siteConfig.bankAccount.bankName === "Bank Islami" &&
+        siteConfig.bankAccount.accountNumber === "203756213050001" &&
+        siteConfig.bankAccount.iban === "PK19BKIP0203756213050001";
+      testResults.push({
+        name: "15.6: Bank Islami Credentials Verification",
+        passed: bankIslamiMatch,
+        details: siteConfig.bankAccount,
+      });
+
+      const allPassed = testResults.every((t) => t.passed);
+
+      return NextResponse.json({
+        success: true,
+        allPassed,
+        totalTests: testResults.length,
+        passedTests: testResults.filter((t) => t.passed).length,
+        tests: testResults,
+      });
+    } catch (err: any) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unit tests failed to execute",
+          details: err?.message || String(err),
+        },
+        { status: 500 }
+      );
+    }
+
   }
 
   // Template Selection

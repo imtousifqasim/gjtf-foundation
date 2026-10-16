@@ -26,7 +26,8 @@ Please immediately read `PROJECT_MEMORY.md` and retain the following critical sy
 3. CORE DATA SCHEMAS (19 TABLES):
    - Donors & CRM: `donors`, `donation_plans` (recurring monthly commitments), `donations` (with `reference_no`, `donor_id`, `plan_id`), `donation_status_history`, `receipts`.
    - Security & Sessions: `auth_tokens` (SHA-256 hashed single-use tokens), `donor_sessions` (database-backed session cookies), `audit_logs` (append-only ledger), `admin_security` (TOTP 2FA secret & recovery codes).
-   - Operations & Content: `payment_settings` (Meezan Bank, JazzCash, EasyPaisa, doorstep), `email_logs`, `app_settings`, `schools`, `stories` (CMS blogs & press), `volunteer_signups`, `contact_submissions`, `newsletter_subscribers`, `site_settings`, `smtp_settings`, `page_contents` (in-line visual live editor).
+   - Operations & Content: `payment_settings` (Bank Islami, JazzCash, EasyPaisa, doorstep), `email_logs`, `app_settings`, `schools`, `stories` (CMS blogs & press), `volunteer_signups`, `contact_submissions`, `newsletter_subscribers`, `site_settings`, `smtp_settings`, `page_contents` (in-line visual live editor).
+
 
 4. AUTHENTICATION & CREDENTIALS REFERENCE:
    - Admin Portal:

@@ -125,6 +125,12 @@ export default async function DonationReceiptPage({
                 <span className="font-semibold text-primary-700 text-base">{donation.cause}</span>
               </div>
               <div>
+                <span className="text-xs text-slate-500 block font-medium">Educational Impact:</span>
+                <span className="font-bold text-emerald-800">
+                  {donation.children_equivalent ? `${donation.children_equivalent} child-month(s) of schooling` : `${Math.max(1, Math.round(Number(donation.amount) / 5000))} child-month(s) of schooling`}
+                </span>
+              </div>
+              <div>
                 <span className="text-xs text-slate-500 block font-medium">Donation Type / Category:</span>
                 <span className="font-medium text-slate-800">{donation.donation_type || "General Education"}</span>
               </div>
@@ -133,12 +139,12 @@ export default async function DonationReceiptPage({
                 <span className="font-medium text-slate-800 capitalize">{donation.frequency || "One-Time"}</span>
               </div>
               <div>
-                <span className="text-xs text-slate-500 block font-medium">Pledge Reference ID:</span>
-                <span className="font-mono font-medium text-slate-800">#{donation.id}</span>
+                <span className="text-xs text-slate-500 block font-medium">Official Reference No:</span>
+                <span className="font-mono font-bold text-slate-900">{donation.reference_no || `#${donation.id}`}</span>
               </div>
               <div>
-                <span className="text-xs text-slate-500 block font-medium">Country / Origin:</span>
-                <span className="font-medium text-slate-800">{donation.country || "Pakistan"}</span>
+                <span className="text-xs text-slate-500 block font-medium">Official Depository Bank:</span>
+                <span className="font-medium text-slate-800">Bank Islami (Allama Iqbal Town, Lahore)</span>
               </div>
             </div>
 
