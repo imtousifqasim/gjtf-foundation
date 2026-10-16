@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
   // Database Migration Action (?migrate=1)
   if (searchParams.get("migrate") === "true" || searchParams.get("migrate") === "1") {
     try {
+      // 1. Update site_settings
       const siteResult = await mysqlQuery<any>(`
         UPDATE site_settings
         SET
@@ -73,6 +74,7 @@ export async function GET(req: NextRequest) {
         siteConfig.socials.tiktok,
       ]);
 
+      // 2. Update payment_settings
       const paymentResult = await mysqlQuery<any>(`
         UPDATE payment_settings
         SET
@@ -85,16 +87,71 @@ export async function GET(req: NextRequest) {
         siteConfig.phone2.number,
       ]);
 
+      // 3. Update smtp_settings (Hostinger SMTP SSL configuration)
+      const smtpResult = await mysqlQuery<any>(`
+        INSERT INTO smtp_settings (
+          id, host, port, secure, user_name, password, from_name, from_email, updated_at
+        ) VALUES (
+          'default', 'smtp.hostinger.com', 465, 1, 'admin@gjtfoundation.com', '4hZN6j9Nr+', 'Ghais Jhuggi Taleem Foundation', 'admin@gjtfoundation.com', NOW()
+        ) ON DUPLICATE KEY UPDATE
+          host = VALUES(host),
+          port = VALUES(port),
+          secure = VALUES(secure),
+          user_name = VALUES(user_name),
+          password = VALUES(password),
+          from_name = VALUES(from_name),
+          from_email = VALUES(from_email),
+          updated_at = NOW()
+      `);
+
+      // 4. Sync Backup to Supabase
+      const { syncBackupToSupabase } = await import("@/lib/db/mysql");
+      await syncBackupToSupabase("migrateSiteSettings", (sb) =>
+        sb.from("site_settings").upsert({
+          id: "default",
+          head_office_address: siteConfig.address,
+          telephone: siteConfig.phone1.number,
+          mobile: siteConfig.phone2.number,
+          whatsapp: siteConfig.phone2.number,
+          email: siteConfig.email.address,
+          secondary_email: siteConfig.email.address,
+          toll_free: "",
+          facebook_url: siteConfig.socials.facebook,
+          instagram_url: siteConfig.socials.instagram,
+          youtube_url: siteConfig.socials.youtube,
+          tiktok_url: siteConfig.socials.tiktok,
+          linkedin_url: "",
+          updated_at: new Date().toISOString(),
+        })
+      );
+
+      await syncBackupToSupabase("migrateSmtpSettings", (sb) =>
+        sb.from("smtp_settings").upsert({
+          id: "default",
+          host: "smtp.hostinger.com",
+          port: 465,
+          secure: true,
+          user_name: "admin@gjtfoundation.com",
+          password: "4hZN6j9Nr+",
+          from_name: "Ghais Jhuggi Taleem Foundation",
+          from_email: "admin@gjtfoundation.com",
+          updated_at: new Date().toISOString(),
+        })
+      );
+
       const siteRows = await mysqlQuery<any[]>("SELECT * FROM site_settings WHERE id = 'default'");
       const payRows = await mysqlQuery<any[]>("SELECT id, doorstep_phone, jazzcash_number FROM payment_settings WHERE id = 'default'");
+      const smtpRows = await mysqlQuery<any[]>("SELECT id, host, port, secure, user_name, from_name, from_email FROM smtp_settings WHERE id = 'default'");
 
       return NextResponse.json({
         success: true,
-        message: "Database migration completed successfully on Hostinger MySQL.",
+        message: "All data successfully migrated on Hostinger MySQL and synced to Supabase.",
         siteSettingsAffected: siteResult?.affectedRows ?? 0,
         paymentSettingsAffected: paymentResult?.affectedRows ?? 0,
+        smtpSettingsAffected: smtpResult?.affectedRows ?? 0,
         currentSiteSettings: siteRows?.[0] || null,
         currentPaymentSettings: payRows?.[0] || null,
+        currentSmtpSettings: smtpRows?.[0] || null,
       });
     } catch (err: any) {
       return NextResponse.json(

@@ -87,6 +87,23 @@ SET
   updated_at = NOW()
 WHERE id = 'default';
 
+-- ------------------------------------------------------------------------------
+-- 3. Forward Migration: Update smtp_settings (Hostinger SMTP SSL)
+-- ------------------------------------------------------------------------------
+INSERT INTO smtp_settings (
+  id, host, port, secure, user_name, password, from_name, from_email, updated_at
+) VALUES (
+  'default', 'smtp.hostinger.com', 465, 1, 'admin@gjtfoundation.com', '4hZN6j9Nr+', 'Ghais Jhuggi Taleem Foundation', 'admin@gjtfoundation.com', NOW()
+) ON DUPLICATE KEY UPDATE
+  host = VALUES(host),
+  port = VALUES(port),
+  secure = VALUES(secure),
+  user_name = VALUES(user_name),
+  password = VALUES(password),
+  from_name = VALUES(from_name),
+  from_email = VALUES(from_email),
+  updated_at = NOW();
+
 -- ==============================================================================
 -- ROLLBACK SCRIPT (In case reversal is required)
 -- ==============================================================================
