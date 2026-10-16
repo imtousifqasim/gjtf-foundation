@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { submitVolunteerSignup } from "@/app/actions/volunteer";
 import { CheckCircle2, Sparkles, Loader2 } from "lucide-react";
+import { validateEmail, validatePhoneNumber } from "@/lib/validation";
+import { ValidationFeedback } from "@/components/shared/ValidationFeedback";
 
 interface VolunteerModalProps {
   open: boolean;
@@ -31,6 +33,10 @@ export function VolunteerModal({
   const [university, setUniversity] = React.useState("");
   const [message, setMessage] = React.useState("");
 
+  const [emailError, setEmailError] = React.useState<string | null>(null);
+  const [emailSuggestion, setEmailSuggestion] = React.useState<string | null>(null);
+  const [phoneError, setPhoneError] = React.useState<string | null>(null);
+
   const [submitting, setSubmitting] = React.useState(false);
   const [success, setSuccess] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
@@ -39,16 +45,62 @@ export function VolunteerModal({
     setType(defaultType);
   }, [defaultType]);
 
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    if (!val.trim()) {
+      setEmailError(null);
+      setEmailSuggestion(null);
+      return;
+    }
+    const res = validateEmail(val);
+    if (!res.valid) {
+      setEmailError(res.error || null);
+      setEmailSuggestion(res.suggestion || null);
+    } else {
+      setEmailError(null);
+      setEmailSuggestion(null);
+    }
+  };
+
+  const handlePhoneChange = (val: string) => {
+    setPhone(val);
+    if (!val.trim()) {
+      setPhoneError(null);
+      return;
+    }
+    const res = validatePhoneNumber(val);
+    if (!res.valid) {
+      setPhoneError(res.error || null);
+    } else {
+      setPhoneError(null);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
     setErrorMsg(null);
+
+    // Strict Client Validation
+    const emailRes = validateEmail(email);
+    if (!emailRes.valid) {
+      setEmailError(emailRes.error || "Please enter a valid email address.");
+      setEmailSuggestion(emailRes.suggestion || null);
+      return;
+    }
+
+    const phoneRes = validatePhoneNumber(phone);
+    if (!phoneRes.valid) {
+      setPhoneError(phoneRes.error || "Please enter a valid phone / WhatsApp number.");
+      return;
+    }
+
+    setSubmitting(true);
 
     const res = await submitVolunteerSignup({
       type,
       full_name: fullName,
-      email,
-      phone,
+      email: emailRes.cleaned,
+      phone: phoneRes.formatted,
       city,
       university: university || undefined,
       message: message || undefined,
@@ -175,8 +227,15 @@ export function VolunteerModal({
                 required
                 placeholder="fatima@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="rounded-xl border-slate-200 focus:border-primary-600"
+                onChange={(e) => handleEmailChange(e.target.value)}
+                className={`rounded-xl border-slate-200 focus:border-primary-600 ${
+                  emailError ? "border-rose-400 focus:border-rose-500 ring-1 ring-rose-200" : ""
+                }`}
+              />
+              <ValidationFeedback
+                error={emailError}
+                suggestion={emailSuggestion}
+                onApplySuggestion={(suggested) => handleEmailChange(suggested)}
               />
             </div>
           </div>
@@ -188,11 +247,14 @@ export function VolunteerModal({
               </label>
               <Input
                 required
-                placeholder="0300-1234567"
+                placeholder="0300-1234567 or +923001234567"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="rounded-xl border-slate-200 focus:border-primary-600"
+                onChange={(e) => handlePhoneChange(e.target.value)}
+                className={`rounded-xl border-slate-200 focus:border-primary-600 ${
+                  phoneError ? "border-rose-400 focus:border-rose-500 ring-1 ring-rose-200" : ""
+                }`}
               />
+              <ValidationFeedback error={phoneError} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">

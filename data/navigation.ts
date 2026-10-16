@@ -46,7 +46,7 @@ export const MAIN_NAV: NavItem[] = [
       {
         label: "Our Schools",
         href: "/our-school",
-        description: "Explore our nationwide network of 2,033 school units",
+        description: "Explore our nationwide network of school units across Pakistan",
       },
     ],
   },

@@ -44,7 +44,7 @@ export default function AdminSchoolsPage() {
         if (res.ok) {
           const json = await res.json();
           const data = json.data;
-          if (data && data.length > 0) {
+          if (Array.isArray(data)) {
             const mapped: School[] = data.map((s: any) => ({
               id: s.id,
               slug: s.slug,
@@ -192,13 +192,64 @@ export default function AdminSchoolsPage() {
         </Button>
       </div>
 
+      {/* Live Campus & Enrollment Metrics Pill Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Campus Units</div>
+            <div className="text-2xl font-extrabold text-slate-900 mt-0.5">{schoolsList.length} Campuses</div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-700 flex items-center justify-center font-bold">
+            <SchoolIcon className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Enrolled Students</div>
+            <div className="text-2xl font-extrabold text-emerald-700 mt-0.5">
+              {schoolsList.reduce((acc, s) => acc + (Number(s.currentStudents) || 0), 0).toLocaleString()}
+            </div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+            <Users className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Student Capacity</div>
+            <div className="text-2xl font-extrabold text-blue-700 mt-0.5">
+              {schoolsList.reduce((acc, s) => acc + (Number(s.studentCapacity) || 0), 0).toLocaleString()}
+            </div>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
+            <BookOpen className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
       {/* Grid of schools */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {schoolsList.map((school) => (
-          <div
-            key={school.id}
-            className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
-          >
+      {schoolsList.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+            <SchoolIcon className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">No School Campuses Recorded</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Add your first nomadic settlement school unit to start tracking student enrollments and facilities.
+          </p>
+          <Button variant="primary" size="sm" onClick={handleOpenNew} className="gap-1.5 font-bold mt-2">
+            <Plus className="w-4 h-4" /> Add Campus Now
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {schoolsList.map((school) => (
+            <div
+              key={school.id}
+              className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
+            >
             <div>
               <div className="relative aspect-[16/9] w-full bg-slate-100">
                 <Image
@@ -298,6 +349,7 @@ export default function AdminSchoolsPage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Edit / Create Dialog */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

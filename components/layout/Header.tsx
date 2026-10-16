@@ -17,6 +17,7 @@ import {
   Twitter,
   Linkedin,
   ExternalLink,
+  UserCheck,
 } from "lucide-react";
 import { MAIN_NAV, SOCIAL_LINKS, CONTACT_INFO } from "@/data/navigation";
 import { useSiteSettings } from "@/lib/hooks/useSiteSettings";
@@ -232,8 +233,18 @@ export function Header() {
             })}
           </nav>
 
-          {/* Right Action: Donate Button */}
-          <div className="hidden sm:flex items-center gap-3">
+          {/* Right Action: Donor Portal & Donate Button */}
+          <div className="hidden sm:flex items-center gap-2.5">
+            <Link href="/donor/login" className="inline-block">
+              <Button
+                variant="outline"
+                size="md"
+                className="gap-1.5 px-3.5 py-2 text-xs font-bold border-warm-300 text-charcoal hover:bg-warm-100"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-primary-700" />
+                Donor Portal
+              </Button>
+            </Link>
             <Link href="/donate-now" className="inline-block">
               <Button
                 variant="primary"
@@ -335,7 +346,13 @@ export function Header() {
                 );
               })}
 
-              <div className="pt-3 border-t border-slate-200/70">
+              <div className="pt-3 border-t border-slate-200/70 space-y-2">
+                <Link href="/donor/login" className="w-full block" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="outline" size="md" className="w-full font-bold rounded-xl flex items-center justify-center gap-2 border-warm-300 text-charcoal">
+                    <UserCheck className="w-4 h-4 text-primary-700" />
+                    Donor Portal Login
+                  </Button>
+                </Link>
                 <Link href="/donate-now" className="w-full block" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="primary" size="lg" className="w-full font-bold shadow-soft hover:shadow-glow rounded-xl flex items-center justify-center gap-2">
                     <Heart className="w-4 h-4 fill-white" />

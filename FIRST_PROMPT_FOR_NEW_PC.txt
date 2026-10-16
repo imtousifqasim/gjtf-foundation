@@ -1,0 +1,63 @@
+================================================================================
+🚀 FIRST PROMPT FOR NEW PC (COPY & PASTE INTO YOUR AI: Cursor / ChatGPT / Claude / Antigravity)
+================================================================================
+
+You are an expert full-stack engineer and solutions architect working on the "GJTF Foundation" (Ghais Jhuggi Taleem Foundation) web application.
+
+I have just transferred/cloned this project to my new computer. All comprehensive architectural details, schemas, and routes are documented in `PROJECT_MEMORY.md`, and all database/environment credentials are saved in `.env.local` (and `SECRETS_FOR_NEW_PC.env.local`).
+
+Please immediately read `PROJECT_MEMORY.md` and retain the following critical system specifications:
+
+1. ARCHITECTURE & TECH STACK:
+   - Framework: Next.js 15 (App Router with Server Components by default), React 19, TypeScript (strict mode).
+   - Styling: Tailwind CSS with custom NGO brand design system (Brand Green `#0d5c3a`, Gold `#f59e0b`, rounded-2xl cards).
+   - Dynamic UI: Framer Motion for scroll effects & stat counters, Lucide React for icons.
+   - Node Engine: Node.js 24.x (or >=20.x).
+
+2. DUAL DATABASE ENGINE (ZERO-BREAK RULE):
+   - Primary Database: Hostinger Cloud MySQL (srv1676.hstgr.io:3306, db: u994156402_gjtff).
+     * Global pooled connection via `mysql2/promise` in `lib/db/mysql.ts`.
+     * All primary CRUD operations MUST run through MySQL first.
+     * Core enterprise schemas auto-initialize via `lib/db/coreSchema.ts`.
+   - Secondary / Backup DB: Supabase Cloud Postgres (https://giztmeevfsywsldylgxn.supabase.co).
+     * Handled asynchronously and non-blockingly via `syncBackupToSupabase`.
+     * If Supabase is offline or unconfigured, the app falls back smoothly to MySQL without throwing errors.
+
+3. CORE DATA SCHEMAS (19 TABLES):
+   - Donors & CRM: `donors`, `donation_plans` (recurring monthly commitments), `donations` (with `reference_no`, `donor_id`, `plan_id`), `donation_status_history`, `receipts`.
+   - Security & Sessions: `auth_tokens` (SHA-256 hashed single-use tokens), `donor_sessions` (database-backed session cookies), `audit_logs` (append-only ledger), `admin_security` (TOTP 2FA secret & recovery codes).
+   - Operations & Content: `payment_settings` (Meezan Bank, JazzCash, EasyPaisa, doorstep), `email_logs`, `app_settings`, `schools`, `stories` (CMS blogs & press), `volunteer_signups`, `contact_submissions`, `newsletter_subscribers`, `site_settings`, `smtp_settings`, `page_contents` (in-line visual live editor).
+
+4. AUTHENTICATION & CREDENTIALS REFERENCE:
+   - Admin Portal:
+     * URL: `/admin/login`
+     * Email: `admin@gjtfoundation.com`
+     * Password: `Admin@GJTF2025!`
+     * Secondary Admin: `tousifdev@outlook.com`
+     * 2FA Emergency Recovery Codes:
+       - `GJTF-7821-9941`
+       - `GJTF-5390-1284`
+       - `GJTF-8842-6619`
+       - `GJTF-3105-7792`
+   - Donor Portal:
+     * URL: `/donor/login`
+     * Zero-trust session verification via `gjtf_donor_session` httpOnly cookie in `lib/auth/donor.ts`.
+     * Passwords hashed with PBKDF2 (100,000 iterations, SHA-512).
+
+5. TRANSACTIONAL EMAILS:
+   - Dual delivery: Resend API (if `RESEND_API_KEY` present) with automatic fallback to MySQL-stored SMTP via Nodemailer.
+   - Branded responsive HTML templates in `lib/email/templates/`.
+   - Delivery tracked in `email_logs` table.
+
+6. ROUTING STRUCTURE:
+   - Public: `/`, `/donate-now`, `/our-school`, `/school/[slug]`, `/news-stories`, `/blogs`, `/about-gjtf-volunteers`, `/city-chapter-leads`, `/university-chapter`, `/general-volunteer`, `/aims-and-objectives`, `/contact-us`, `/receipt/[reference_no]`, `/privacy-policy`, `/unsubscribe-reminder`.
+   - Donor Portal: `/donor/login`, `/donor/dashboard`, `/donor/donations`, `/donor/commitments`, `/donor/receipts`, `/donor/profile`, `/donor/set-password`, `/donor/reset-password`.
+   - Admin Portal: `/admin`, `/admin/donors`, `/admin/donors/[id]`, `/admin/donations`, `/admin/payment-settings`, `/admin/email-logs`, `/admin/reports`, `/admin/schools`, `/admin/stories`, `/admin/volunteer-signups`, `/admin/contact-messages`, `/admin/visual-editor`, `/admin/settings`, `/admin/smtp`.
+   - APIs: `/api/data/[table]`, `/api/data/stats`, `/api/qr`, `/api/admin/database-backup`, `/api/admin/page-content`, `/api/cron/recurring-reminders`.
+
+7. DEVELOPMENT COMMANDS:
+   - Dev Server: `npm run dev` (starts on http://localhost:3000)
+   - Build: `npm run build`
+
+Please acknowledge that you have fully ingested the project architecture from `PROJECT_MEMORY.md` and are ready to assist.
+================================================================================

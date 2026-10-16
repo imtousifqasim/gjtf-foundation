@@ -17,6 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/news-stories",
     "/contact-us",
     "/donate-now",
+    "/privacy-policy",
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),

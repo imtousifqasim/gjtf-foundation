@@ -23,9 +23,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
+# local env files & migration secrets
 .env*.local
 .env
+.env*
+SECRETS_FOR_NEW_PC*
+*.secret*
+*.local.env
 
 # vercel
 .vercel
@@ -37,8 +41,10 @@ next-env.d.ts
 # scratch / temp scripts
 scratch/
 
+# reference files (Yoast SEO Premium reference)
+_reference/
+
 # large video media files (exceeds GitHub 100MB limit & Vercel deployment limits)
 public/videos/*.mp4
 
-.vercel
-.env*
+

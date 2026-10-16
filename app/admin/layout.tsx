@@ -19,20 +19,28 @@ import {
   ShieldCheck,
   Server,
   MailCheck,
+  Send,
   Edit3,
+  UserCheck,
+  BarChart3,
+  CreditCard,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
 const ADMIN_NAV = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { label: "Live Visual Editor", href: "/admin/visual-editor", icon: Edit3 },
   { label: "Donations", href: "/admin/donations", icon: Heart },
+  { label: "Donors", href: "/admin/donors", icon: UserCheck },
+  { label: "Financial Reports", href: "/admin/reports", icon: BarChart3 },
+  { label: "Payment & Bank Settings", href: "/admin/payment-settings", icon: CreditCard },
+  { label: "Email Logs", href: "/admin/email-logs", icon: Send },
   { label: "Contact Messages", href: "/admin/contact-messages", icon: Mail },
   { label: "Volunteer Sign-ups", href: "/admin/volunteer-signups", icon: Users },
   { label: "Subscribers", href: "/admin/subscribers", icon: MailCheck },
   { label: "Schools Directory", href: "/admin/schools", icon: School },
   { label: "Blogs", href: "/admin/stories", icon: BookOpen },
+  { label: "Live Visual Editor", href: "/admin/visual-editor", icon: Edit3 },
   { label: "SMTP Configuration", href: "/admin/smtp", icon: Server },
   { label: "Settings & Backup", href: "/admin/settings", icon: Settings },
 ];

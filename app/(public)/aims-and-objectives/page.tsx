@@ -17,8 +17,25 @@ import {
   Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getLiveStatsDb } from "@/lib/db/mysql";
 
-export default function AimsAndObjectivesPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AimsAndObjectivesPage() {
+  let stats = {
+    totalSchools: 7,
+    totalStudents: 1081,
+    yearsOfService: 11,
+    nomadsTargetMillion: 20,
+  };
+
+  try {
+    const liveStats = await getLiveStatsDb();
+    if (liveStats) stats = liveStats;
+  } catch (err) {
+    // fallback
+  }
+
   return (
     <div className="space-y-16 md:space-y-24 pb-16">
       {/* -------------------------------------------------------------
@@ -76,62 +93,64 @@ export default function AimsAndObjectivesPage() {
       </section>
 
       {/* -------------------------------------------------------------
-          2. IMPACT STATS: BENEFICIARIES & CURRENT POPULATION
+          2. LIVE IMPACT METRICS: 4 CORE FOUNDATION STATS
           ------------------------------------------------------------- */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Beneficiaries */}
-          <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 group">
-            <div className="relative h-64 sm:h-72 w-full">
-              <Image
-                src="/images/aims-beneficiaries.jpg"
-                alt="Nomadic Community Beneficiaries"
-                fill
-                className="object-cover object-center group-hover:scale-105 transition-transform duration-700"
-                sizes="(max-width: 768px) 100vw, 50vw"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-primary-950/95 via-primary-950/60 to-transparent" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Stat 1: Years of Service */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-soft space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-primary-100 text-primary-800 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5" />
             </div>
-
-            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 text-white space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold text-amber-300 uppercase tracking-wider">
-                <Users className="w-3.5 h-3.5" />
-                Beneficiaries
-              </div>
-              <div className="text-4xl sm:text-5xl font-extrabold font-heading text-white">
-                8,000+
-              </div>
-              <p className="text-sm sm:text-base text-primary-100/90 leading-relaxed font-medium">
-                So far, the number of nomadic communities benefiting from the project is 8,000.
-              </p>
+            <div className="text-3xl sm:text-4xl font-extrabold font-heading text-slate-900">
+              {stats.yearsOfService}+
             </div>
+            <div className="text-sm font-bold text-slate-800">Years of Service</div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Empowering nomadic families and slum communities continuously since 2014.
+            </p>
           </div>
 
-          {/* Current Population */}
-          <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 group">
-            <div className="relative h-64 sm:h-72 w-full">
-              <Image
-                src="/images/aims-current-population.jpg"
-                alt="Slum Students in Twenty-Four Cities"
-                fill
-                className="object-cover object-center group-hover:scale-105 transition-transform duration-700"
-                sizes="(max-width: 768px) 100vw, 50vw"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-primary-950/95 via-primary-950/60 to-transparent" />
+          {/* Stat 2: School Units */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-soft space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center">
+              <School className="w-5 h-5" />
             </div>
+            <div className="text-3xl sm:text-4xl font-extrabold font-heading text-slate-900">
+              {stats.totalSchools}+
+            </div>
+            <div className="text-sm font-bold text-slate-800">School Units</div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Weatherproof campuses established right inside nomadic settlements.
+            </p>
+          </div>
 
-            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 text-white space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold text-amber-300 uppercase tracking-wider">
-                <School className="w-3.5 h-3.5" />
-                Current Population
-              </div>
-              <div className="text-4xl sm:text-5xl font-extrabold font-heading text-white">
-                5,500
-              </div>
-              <p className="text-sm sm:text-base text-primary-100/90 leading-relaxed font-medium">
-                The total number of slum students studying in twenty-four cities across Pakistan is 5,500.
-              </p>
+          {/* Stat 3: Enrolled Students */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-soft space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+              <Users className="w-5 h-5" />
             </div>
+            <div className="text-3xl sm:text-4xl font-extrabold font-heading text-slate-900">
+              {stats.totalStudents.toLocaleString()}+
+            </div>
+            <div className="text-sm font-bold text-slate-800">Students Enrolled</div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Educating thousands of nomadic children with free books, uniforms, and meals.
+            </p>
+          </div>
+
+          {/* Stat 4: Nomads Target */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-soft space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-blue-100 text-blue-800 flex items-center justify-center">
+              <Target className="w-5 h-5" />
+            </div>
+            <div className="text-3xl sm:text-4xl font-extrabold font-heading text-slate-900">
+              {stats.nomadsTargetMillion}M+
+            </div>
+            <div className="text-sm font-bold text-slate-800">Nomads Uplift Target</div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Aiming to uplift and integrate 20 million nomads across Pakistan.
+            </p>
           </div>
         </div>
       </section>

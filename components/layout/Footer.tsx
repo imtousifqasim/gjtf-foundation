@@ -21,18 +21,47 @@ import { useSiteSettings } from "@/lib/hooks/useSiteSettings";
 import { Button } from "@/components/ui/button";
 
 import { subscribeNewsletter } from "@/app/actions/newsletter";
-import { Loader2 } from "lucide-react";
+import { validateEmail } from "@/lib/validation";
+import { Loader2, Sparkles as SparklesIcon } from "lucide-react";
 
 export function Footer() {
   const { settings } = useSiteSettings();
   const [newsletterEmail, setNewsletterEmail] = React.useState("");
+  const [emailSuggestion, setEmailSuggestion] = React.useState<string | null>(null);
+  const [emailError, setEmailError] = React.useState<string | null>(null);
   const [subscribed, setSubscribed] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [feedbackMessage, setFeedbackMessage] = React.useState<string | null>(null);
 
+  const handleEmailChange = (val: string) => {
+    setNewsletterEmail(val);
+    setFeedbackMessage(null);
+    if (!val.trim()) {
+      setEmailError(null);
+      setEmailSuggestion(null);
+      return;
+    }
+    const res = validateEmail(val);
+    if (!res.valid) {
+      setEmailError(res.error || null);
+      setEmailSuggestion(res.suggestion || null);
+    } else {
+      setEmailError(null);
+      setEmailSuggestion(null);
+    }
+  };
+
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newsletterEmail.trim()) return;
+
+    const emailRes = validateEmail(newsletterEmail);
+    if (!emailRes.valid) {
+      setEmailError(emailRes.error || "Please enter a valid email address");
+      setEmailSuggestion(emailRes.suggestion || null);
+      return;
+    }
+
     setSubmitting(true);
     const res = await subscribeNewsletter(newsletterEmail);
     setSubmitting(false);
@@ -40,8 +69,13 @@ export function Footer() {
       setSubscribed(true);
       setFeedbackMessage(res.message);
       setNewsletterEmail("");
+      setEmailSuggestion(null);
+      setEmailError(null);
     } else {
       setFeedbackMessage(res.message);
+      if (res.suggestion) {
+        setEmailSuggestion(res.suggestion);
+      }
     }
   };
 
@@ -60,7 +94,7 @@ export function Footer() {
                 Become a part of our vibrant community, Subscribe to our mailing list!
               </h3>
               <p className="text-primary-100/80 text-sm md:text-base leading-relaxed">
-                Receive inspiring stories of slum children whose lives are transformed, updates from our 2,033+ school units, and invitations to volunteer gatherings.
+                Receive inspiring stories of slum children whose lives are transformed, updates from our nationwide school units, and invitations to volunteer gatherings.
               </p>
             </div>
 
@@ -71,13 +105,15 @@ export function Footer() {
                 </div>
               ) : (
                 <form onSubmit={handleSubscribe} className="space-y-2">
-                  <div className="bg-white/10 backdrop-blur-md border border-white/20 p-1.5 sm:p-2 rounded-2xl flex flex-col sm:flex-row gap-2 shadow-inner focus-within:border-white/40 focus-within:ring-2 focus-within:ring-white/20">
+                  <div className={`bg-white/10 backdrop-blur-md border ${
+                    emailError ? "border-rose-400 ring-2 ring-rose-400/30" : "border-white/20 focus-within:border-white/40 focus-within:ring-2 focus-within:ring-white/20"
+                  } p-1.5 sm:p-2 rounded-2xl flex flex-col sm:flex-row gap-2 shadow-inner transition-all`}>
                     <input
                       type="email"
                       required
                       placeholder="Enter your email address"
                       value={newsletterEmail}
-                      onChange={(e) => setNewsletterEmail(e.target.value)}
+                      onChange={(e) => handleEmailChange(e.target.value)}
                       className="flex-1 bg-transparent text-white placeholder:text-white/60 px-4 py-2.5 sm:py-2 text-sm focus:outline-none"
                     />
                     <Button
@@ -99,7 +135,29 @@ export function Footer() {
                       )}
                     </Button>
                   </div>
-                  {feedbackMessage && !subscribed && (
+
+                  {emailSuggestion && (
+                    <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs">
+                      <span>Did you mean <strong className="text-white underline">{emailSuggestion}</strong>?</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewsletterEmail(emailSuggestion);
+                          setEmailSuggestion(null);
+                          setEmailError(null);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-amber-400 text-charcoal-deep font-bold hover:bg-amber-300 text-[11px] shrink-0"
+                      >
+                        Fix Typo
+                      </button>
+                    </div>
+                  )}
+
+                  {emailError && (
+                    <p className="text-xs text-rose-300 px-2 font-medium">⚠️ {emailError}</p>
+                  )}
+
+                  {feedbackMessage && !subscribed && !emailError && !emailSuggestion && (
                     <p className="text-xs text-rose-300 px-2">{feedbackMessage}</p>
                   )}
                 </form>
@@ -157,7 +215,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/our-school" className="hover:text-white transition-colors flex items-center gap-1.5 text-white/70 hover:text-white">
-                  <ArrowRight className="w-3 h-3 text-primary-400" /> Our Schools (2,033)
+                  <ArrowRight className="w-3 h-3 text-primary-400" /> Our Schools Directory
                 </Link>
               </li>
               <li>
@@ -316,8 +374,11 @@ export function Footer() {
             © 2026 Ghais Jhuggi Taleem Foundation. All Rights Reserved.
           </div>
           <div className="flex items-center gap-6">
-            <Link href="/aims-and-objectives" className="hover:text-white transition-colors">
+            <Link href="/privacy-policy" className="hover:text-white transition-colors">
               Privacy Policy
+            </Link>
+            <Link href="/donor/login" className="hover:text-white transition-colors">
+              Donor Portal
             </Link>
             <Link href="/contact-us" className="hover:text-white transition-colors">
               Contact Us

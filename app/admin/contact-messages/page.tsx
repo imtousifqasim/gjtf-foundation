@@ -38,38 +38,9 @@ interface ContactRecord {
   status: "new" | "read" | "archived";
 }
 
-const INITIAL_MESSAGES: ContactRecord[] = [
-  {
-    id: "msg-1",
-    created_at: "2025-02-14T11:00:00Z",
-    name: "Zubair Khan",
-    email: "zubair.k@example.com",
-    subject: "Sponsorship for Karachi Campus",
-    message: "Our corporate foundation would like to sponsor a full classroom unit at the Meghani Family Campus in Karachi. Please connect us with your central coordinator.",
-    status: "new",
-  },
-  {
-    id: "msg-2",
-    created_at: "2025-02-13T14:30:00Z",
-    name: "Dr. Naila Raza",
-    email: "naila.raza@hospital.org.pk",
-    subject: "Medical Camp Collaboration",
-    message: "We have a team of 10 young doctors eager to host a weekend eye and general screening camp at your Model Town settlement school in Lahore.",
-    status: "new",
-  },
-  {
-    id: "msg-3",
-    created_at: "2025-02-12T09:10:00Z",
-    name: "Hamza Rauf",
-    email: "hamza@example.com",
-    subject: "Book drive in DHA Lahore",
-    message: "We collected 350 illustrated Urdu and English primary books. Where can our volunteer vehicle drop off the cartons?",
-    status: "read",
-  },
-];
-
 export default function AdminContactMessagesPage() {
-  const [messages, setMessages] = React.useState<ContactRecord[]>(INITIAL_MESSAGES);
+  const [messages, setMessages] = React.useState<ContactRecord[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("All");
   const [selectedMessage, setSelectedMessage] = React.useState<ContactRecord | null>(null);
@@ -80,12 +51,14 @@ export default function AdminContactMessagesPage() {
         const res = await fetch("/api/data/contact-messages", { cache: "no-store" });
         if (res.ok) {
           const json = await res.json();
-          if (json.data && json.data.length > 0) {
+          if (Array.isArray(json.data)) {
             setMessages(json.data);
           }
         }
       } catch (err) {
         console.error("Hostinger MySQL load error:", err);
+      } finally {
+        setLoading(false);
       }
     }
     loadData();
@@ -124,6 +97,11 @@ export default function AdminContactMessagesPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const totalCount = messages.length;
+  const newCount = messages.filter((m) => m.status === "new").length;
+  const readCount = messages.filter((m) => m.status === "read").length;
+  const archivedCount = messages.filter((m) => m.status === "archived").length;
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -134,6 +112,32 @@ export default function AdminContactMessagesPage() {
           <p className="text-sm text-slate-600 mt-1">
             Inquiries and partnership requests submitted through the public website.
           </p>
+        </div>
+      </div>
+
+      {/* Live KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Inquiries</span>
+          <div className="mt-2 text-2xl font-black font-heading text-slate-900">{totalCount}</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Unread</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary-100 text-primary-800">Action</span>
+          </div>
+          <div className="mt-2 text-2xl font-black font-heading text-primary-700">{newCount}</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Read</span>
+          <div className="mt-2 text-2xl font-black font-heading text-slate-700">{readCount}</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Archived</span>
+          <div className="mt-2 text-2xl font-black font-heading text-slate-400">{archivedCount}</div>
         </div>
       </div>
 

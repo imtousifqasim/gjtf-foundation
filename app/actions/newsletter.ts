@@ -3,19 +3,18 @@
 import { z } from "zod";
 import { addSubscriberDb, getSubscribersDb, query, syncBackupToSupabase } from "@/lib/db/mysql";
 import { sendEmail, sendWelcomeNewsletterEmail } from "@/lib/email/smtp";
-
-const emailSchema = z.string().email("Please provide a valid email address");
+import { validateEmail } from "@/lib/validation";
 
 export async function subscribeNewsletter(emailInput: string) {
-  const parsed = emailSchema.safeParse(emailInput);
-  if (!parsed.success) {
+  const emailRes = validateEmail(emailInput);
+  if (!emailRes.valid) {
     return {
       success: false,
-      message: "Please enter a valid email address.",
+      message: emailRes.error || "Please enter a valid email address.",
     };
   }
 
-  const email = parsed.data.trim().toLowerCase();
+  const email = emailRes.cleaned;
 
   try {
     await addSubscriberDb(email);

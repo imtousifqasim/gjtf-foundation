@@ -2,10 +2,11 @@
 
 import { z } from "zod";
 import { createContactMessageDb } from "@/lib/db/mysql";
+import { validateEmail } from "@/lib/validation";
 
 const contactSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email address"),
+  email: z.string().min(3, "Please enter an email address"),
   subject: z.string().min(3, "Subject must be at least 3 characters"),
   message: z
     .string()
@@ -26,8 +27,19 @@ export async function submitContactForm(input: ContactInput) {
     };
   }
 
+  const emailRes = validateEmail(parsed.data.email);
+  if (!emailRes.valid) {
+    return {
+      success: false,
+      message: emailRes.error || "Please enter a valid email address.",
+    };
+  }
+
   try {
-    const data = parsed.data;
+    const data = {
+      ...parsed.data,
+      email: emailRes.cleaned,
+    };
     await createContactMessageDb(data);
 
     return {
