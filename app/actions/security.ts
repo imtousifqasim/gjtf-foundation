@@ -16,6 +16,7 @@ export interface DatabaseMetrics {
   database?: string;
   user?: string;
   port?: number;
+  password?: string;
   backupSync?: string;
   totalRecords: number;
   tableCounts: {

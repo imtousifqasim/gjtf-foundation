@@ -33,6 +33,11 @@ import {
   QrCode,
   Scan,
   Download,
+  Eye,
+  EyeOff,
+  Terminal,
+  Play,
+  Code,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +63,12 @@ import {
   DatabaseMetrics,
   SecuritySettings,
 } from "@/app/actions/security";
+import {
+  runAdminSqlQueryAction,
+  getAdminDatabaseTablesAction,
+  pingDatabaseLatencyAction,
+  SqlQueryResult,
+} from "@/app/actions/adminSql";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -70,7 +81,62 @@ export default function AdminSettingsClient({
   initialSecuritySettings?: SecuritySettings | null;
   initialMetrics?: DatabaseMetrics | null;
 }) {
-  const [activeTab, setActiveTab] = React.useState<"site" | "security" | "2fa">("site");
+  const [activeTab, setActiveTab] = React.useState<"site" | "security" | "2fa" | "database">("site");
+
+  // Database Web Console & Direct Hostinger Login state
+  const [showDbPassword, setShowDbPassword] = React.useState(false);
+  const [copiedDbItem, setCopiedDbItem] = React.useState<string | null>(null);
+  const [sqlQuery, setSqlQuery] = React.useState(
+    "SELECT * FROM donations ORDER BY created_at DESC LIMIT 10;"
+  );
+  const [runningSql, setRunningSql] = React.useState(false);
+  const [queryResult, setQueryResult] = React.useState<SqlQueryResult | null>(null);
+  const [dbTables, setDbTables] = React.useState<string[]>([
+    "donations",
+    "donors",
+    "contact_submissions",
+    "volunteer_signups",
+    "schools",
+    "stories",
+    "newsletter_subscribers",
+    "site_settings",
+    "email_logs",
+    "payment_settings",
+  ]);
+  const [pingLatency, setPingLatency] = React.useState<number | null>(null);
+  const [pingingDb, setPingingDb] = React.useState(false);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedDbItem(label);
+    setTimeout(() => setCopiedDbItem(null), 2000);
+  };
+
+  const handlePingDatabase = async () => {
+    setPingingDb(true);
+    const res = await pingDatabaseLatencyAction();
+    setPingingDb(false);
+    if (res.success && res.latencyMs !== undefined) {
+      setPingLatency(res.latencyMs);
+    }
+  };
+
+  const handleRunSqlQuery = async (queryToRun?: string) => {
+    const q = (queryToRun || sqlQuery).trim();
+    if (!q) return;
+    setRunningSql(true);
+    const res = await runAdminSqlQueryAction(q);
+    setRunningSql(false);
+    setQueryResult(res);
+  };
+
+  React.useEffect(() => {
+    getAdminDatabaseTablesAction().then((res) => {
+      if (res.success && res.tables && res.tables.length > 0) {
+        setDbTables(res.tables);
+      }
+    });
+  }, []);
 
   // Site Settings state
   const [siteSettings, setSiteSettings] = React.useState<SiteSettingsData>(
@@ -417,6 +483,22 @@ export default function AdminSettingsClient({
               {twoFactorEnabled && (
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("database")}
+              className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 whitespace-nowrap ${
+                activeTab === "database"
+                  ? "bg-primary-700 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              }`}
+            >
+              <Database className="w-4 h-4 text-amber-500" />
+              <span>Hostinger SQL Console</span>
+              <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-600 border-amber-300 font-bold ml-1">
+                Direct DB
+              </Badge>
             </button>
           </div>
 
@@ -1109,6 +1191,405 @@ export default function AdminSettingsClient({
             </Card>
           )}
 
+          {/* TAB 4: Hostinger MySQL Database Manager & Direct Web Access */}
+          {activeTab === "database" && (
+            <Card className="p-6 sm:p-8 bg-white border-slate-200 shadow-sm space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-4">
+                <div>
+                  <h2 className="text-lg font-bold font-heading text-slate-900 flex items-center gap-2">
+                    <Database className="w-5 h-5 text-amber-600" />
+                    Hostinger MySQL Live Database Console & Direct Access
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Connect directly to Hostinger's official phpMyAdmin, inspect live tables, or execute SQL queries in real time.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href="https://databases.hostinger.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs shadow-md shadow-amber-600/20 transition-all active:scale-95"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open Hostinger phpMyAdmin</span>
+                  </a>
+
+                  <a
+                    href="https://hpanel.hostinger.com/hosting/databases"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 transition-all active:scale-95"
+                  >
+                    <Server className="w-3.5 h-3.5 text-amber-400" />
+                    <span>hPanel DB</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Quick Connection Details Banner */}
+              <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-5 rounded-2xl border border-slate-800 text-white space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] font-bold">
+                      Hostinger Cloud MySQL
+                    </Badge>
+                    <span className="text-xs text-slate-400">Direct Credentials for phpMyAdmin / DBeaver / TablePlus</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handlePingDatabase}
+                    disabled={pingingDb}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-slate-200 transition-colors"
+                  >
+                    {pingingDb ? (
+                      <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
+                    ) : (
+                      <Activity className="w-3 h-3 text-emerald-400" />
+                    )}
+                    <span>
+                      {pingLatency !== null ? `${pingLatency}ms (Online)` : "Ping Connection"}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
+                    <div>
+                      <span className="block text-[10px] text-slate-400 uppercase font-semibold">Host / Server</span>
+                      <span className="font-mono text-slate-200 font-bold">{metrics?.host || "srv1676.hstgr.io"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(metrics?.host || "srv1676.hstgr.io", "host")}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                      title="Copy Host"
+                    >
+                      {copiedDbItem === "host" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
+                    <div>
+                      <span className="block text-[10px] text-slate-400 uppercase font-semibold">Database Name</span>
+                      <span className="font-mono text-amber-300 font-bold">{metrics?.database || "u994156402_gjtff"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(metrics?.database || "u994156402_gjtff", "database")}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                      title="Copy Database Name"
+                    >
+                      {copiedDbItem === "database" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
+                    <div>
+                      <span className="block text-[10px] text-slate-400 uppercase font-semibold">Username</span>
+                      <span className="font-mono text-slate-200 font-bold">{metrics?.user || "u994156402_gjtff"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(metrics?.user || "u994156402_gjtff", "user")}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                      title="Copy Username"
+                    >
+                      {copiedDbItem === "user" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
+                    <div>
+                      <span className="block text-[10px] text-slate-400 uppercase font-semibold">Password</span>
+                      <span className="font-mono text-slate-200 font-bold">
+                        {showDbPassword ? (metrics?.password || "2>RV>E~Lb") : "••••••••••••"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowDbPassword(!showDbPassword)}
+                        className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                        title={showDbPassword ? "Hide password" : "Show password"}
+                      >
+                        {showDbPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(metrics?.password || "2>RV>E~Lb", "password")}
+                        className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                        title="Copy Password"
+                      >
+                        {copiedDbItem === "password" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
+                    <div>
+                      <span className="block text-[10px] text-slate-400 uppercase font-semibold">Port</span>
+                      <span className="font-mono text-slate-200 font-bold">{metrics?.port || 3306}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(String(metrics?.port || 3306), "port")}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                      title="Copy Port"
+                    >
+                      {copiedDbItem === "port" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
+                    <div>
+                      <span className="block text-[10px] text-slate-400 uppercase font-semibold">Full URI</span>
+                      <span className="font-mono text-slate-300 text-[11px] truncate block max-w-[150px]">
+                        mysql://u994156402_gjtff:...
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copyToClipboard(
+                          `mysql://${metrics?.user || "u994156402_gjtff"}:${metrics?.password || "2>RV>E~Lb"}@${metrics?.host || "srv1676.hstgr.io"}:${metrics?.port || 3306}/${metrics?.database || "u994156402_gjtff"}`,
+                          "uri"
+                        )
+                      }
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold text-amber-300 transition-colors"
+                    >
+                      {copiedDbItem === "uri" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      <span>Copy URI</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Table Quick-Explorer Chips */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <HardDrive className="w-3.5 h-3.5 text-primary-600" />
+                    <span>Quick Table Explorer (Click to View Rows)</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    {dbTables.length} Tables Registered
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {dbTables.map((tbl) => (
+                    <button
+                      key={tbl}
+                      type="button"
+                      onClick={() => {
+                        const newQuery = `SELECT * FROM ${tbl} ORDER BY created_at DESC LIMIT 15;`;
+                        setSqlQuery(newQuery);
+                        handleRunSqlQuery(newQuery);
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-primary-50 text-slate-700 hover:text-primary-700 text-xs font-mono font-medium border border-slate-200 hover:border-primary-200 transition-all active:scale-95"
+                    >
+                      {tbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* SQL Query Editor */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <Terminal className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Interactive SQL Query Runner</span>
+                  </label>
+
+                  {/* Preset Buttons */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const q = "SELECT id, donor_name, amount, currency, status, created_at FROM donations ORDER BY created_at DESC LIMIT 10;";
+                        setSqlQuery(q);
+                        handleRunSqlQuery(q);
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium"
+                    >
+                      Donations
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const q = "SELECT id, name, email, subject, status, created_at FROM contact_submissions WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 10;";
+                        setSqlQuery(q);
+                        handleRunSqlQuery(q);
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium"
+                    >
+                      Contact Messages
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const q = "SELECT id, name, email, country, status, created_at FROM donors ORDER BY created_at DESC LIMIT 10;";
+                        setSqlQuery(q);
+                        handleRunSqlQuery(q);
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium"
+                    >
+                      Donors
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const q = "SHOW TABLES;";
+                        setSqlQuery(q);
+                        handleRunSqlQuery(q);
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium"
+                    >
+                      SHOW TABLES
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <Textarea
+                    value={sqlQuery}
+                    onChange={(e) => setSqlQuery(e.target.value)}
+                    rows={4}
+                    placeholder="Enter your SQL query (e.g. SELECT * FROM donations LIMIT 10;)"
+                    className="font-mono text-xs p-3 bg-slate-900 text-emerald-300 border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 shadow-inner"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-slate-500">
+                    Direct execution on Hostinger MySQL pool. Repetitive queries are cached for 60s.
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSqlQuery("")}
+                      className="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                    >
+                      Clear
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRunSqlQuery()}
+                      disabled={runningSql || !sqlQuery.trim()}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-primary-700 hover:from-emerald-500 hover:to-primary-600 text-white font-bold text-xs shadow-md shadow-emerald-700/20 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {runningSql ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Executing Query...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4 fill-white" />
+                          <span>Execute Query</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Query Results */}
+              {queryResult && (
+                <div className="space-y-3 pt-3 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-800">Execution Results</span>
+                      {queryResult.success ? (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
+                          ✓ Success ({queryResult.count ?? 0} {queryResult.count === 1 ? "row" : "rows"} in {queryResult.durationMs}ms)
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-bold">
+                          ✕ Execution Error
+                        </Badge>
+                      )}
+                    </div>
+
+                    {queryResult.success && queryResult.data && queryResult.data.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyToClipboard(JSON.stringify(queryResult.data, null, 2), "results_json")
+                        }
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-700 hover:underline"
+                      >
+                        {copiedDbItem === "results_json" ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                        <span>Copy as JSON</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {!queryResult.success && (
+                    <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs font-mono text-rose-800">
+                      {queryResult.error}
+                    </div>
+                  )}
+
+                  {queryResult.success && queryResult.data && queryResult.data.length > 0 && (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm max-h-[420px] overflow-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-100 text-slate-700 font-bold font-mono text-[11px] sticky top-0 border-b border-slate-200">
+                          <tr>
+                            {(queryResult.columns || Object.keys(queryResult.data[0])).map((col) => (
+                              <th key={col} className="p-2.5 px-3 whitespace-nowrap bg-slate-100">
+                                {col}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-mono text-[11px] text-slate-700 bg-white">
+                          {queryResult.data.map((row, rIdx) => (
+                            <tr key={rIdx} className="hover:bg-slate-50 transition-colors">
+                              {(queryResult.columns || Object.keys(row)).map((col) => {
+                                const val = row[col];
+                                const displayVal =
+                                  val === null
+                                    ? "NULL"
+                                    : typeof val === "object"
+                                    ? JSON.stringify(val)
+                                    : String(val);
+                                return (
+                                  <td
+                                    key={col}
+                                    className={`p-2.5 px-3 whitespace-nowrap max-w-xs truncate ${
+                                      val === null ? "text-slate-400 italic" : ""
+                                    }`}
+                                    title={displayVal}
+                                  >
+                                    {displayVal}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {queryResult.success && (!queryResult.data || queryResult.data.length === 0) && (
+                    <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-xl border border-slate-200">
+                      Query executed successfully. 0 rows returned.
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          )}
+
           {/* Quick Access Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card className="p-5 bg-white border-blue-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -1178,37 +1659,128 @@ export default function AdminSettingsClient({
               </button>
             </div>
 
-            {/* Connection Credentials Info */}
-            <div className="space-y-2 bg-white/5 border border-white/10 rounded-2xl p-3.5 text-xs">
+            {/* Connection Credentials Info & Quick Launch */}
+            <div className="space-y-2.5 bg-white/5 border border-white/10 rounded-2xl p-3.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Host / Server:</span>
-                <span className="font-mono font-semibold text-slate-200">
-                  {metrics?.host || "srv1676.hstgr.io"}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono font-semibold text-slate-200">
+                    {metrics?.host || "srv1676.hstgr.io"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(metrics?.host || "srv1676.hstgr.io", "card_host")}
+                    className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                    title="Copy Host"
+                  >
+                    {copiedDbItem === "card_host" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
               </div>
+
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Database Name:</span>
-                <span className="font-mono font-semibold text-amber-300">
-                  {metrics?.database || "u994156402_gjtff"}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono font-semibold text-amber-300">
+                    {metrics?.database || "u994156402_gjtff"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(metrics?.database || "u994156402_gjtff", "card_db")}
+                    className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                    title="Copy Database Name"
+                  >
+                    {copiedDbItem === "card_db" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
               </div>
+
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Database User:</span>
-                <span className="font-mono font-semibold text-slate-200">
-                  {metrics?.user || "u994156402_gjtff"}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono font-semibold text-slate-200">
+                    {metrics?.user || "u994156402_gjtff"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(metrics?.user || "u994156402_gjtff", "card_user")}
+                    className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                    title="Copy Username"
+                  >
+                    {copiedDbItem === "card_user" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Port / Protocol:</span>
+                <span className="text-slate-400">Password:</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono font-semibold text-slate-200">
+                    {showDbPassword ? (metrics?.password || "2>RV>E~Lb") : "••••••••"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowDbPassword(!showDbPassword)}
+                    className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                    title={showDbPassword ? "Hide password" : "Show password"}
+                  >
+                    {showDbPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(metrics?.password || "2>RV>E~Lb", "card_pass")}
+                    className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                    title="Copy Password"
+                  >
+                    {copiedDbItem === "card_pass" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Port:</span>
                 <span className="font-mono font-semibold text-slate-200">
                   {metrics?.port || 3306} (TCP SSL)
                 </span>
               </div>
+
               <div className="flex items-center justify-between pt-1 border-t border-white/10">
-                <span className="text-slate-400">Backup Dual-Write:</span>
-                <span className="font-semibold text-emerald-400 text-[11px]">
-                  Supabase Active
-                </span>
+                <span className="text-slate-400">Connection URI:</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    copyToClipboard(
+                      `mysql://${metrics?.user || "u994156402_gjtff"}:${metrics?.password || "2>RV>E~Lb"}@${metrics?.host || "srv1676.hstgr.io"}:${metrics?.port || 3306}/${metrics?.database || "u994156402_gjtff"}`,
+                      "card_uri"
+                    )
+                  }
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold text-amber-300 transition-colors"
+                >
+                  {copiedDbItem === "card_uri" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <span>Copy URI</span>
+                </button>
+              </div>
+
+              {/* Direct Access Quick Launch Buttons */}
+              <div className="pt-2 border-t border-white/10 grid grid-cols-2 gap-2">
+                <a
+                  href="https://databases.hostinger.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] text-center transition-all shadow-md active:scale-95"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>phpMyAdmin</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("database")}
+                  className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-[11px] text-center border border-white/10 transition-all active:scale-95"
+                >
+                  <Terminal className="w-3.5 h-3.5" />
+                  <span>SQL Console</span>
+                </button>
               </div>
             </div>
 

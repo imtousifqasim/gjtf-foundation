@@ -945,6 +945,7 @@ export async function getDatabaseMetricsDb(): Promise<any> {
     host: process.env.MYSQL_HOST || "srv1676.hstgr.io",
     database: process.env.MYSQL_DATABASE || "u994156402_gjtff",
     user: process.env.MYSQL_USER || "u994156402_gjtff",
+    password: process.env.MYSQL_PASSWORD || "2>RV>E~Lb",
     port: 3306,
     backupSync: "Supabase PostgreSQL (Dual-Write Active)",
     totalRecords,
