@@ -1,4 +1,5 @@
 import { renderBaseEmailHtml, escapeHtml } from "./baseLayout";
+import siteConfig from "@/lib/siteConfig";
 
 export interface DonorAuthEmailData {
   donorName?: string | null;
@@ -83,7 +84,7 @@ ${data.actionUrl}
 Once set, you will be able to view all your pledges, download receipts, and view your impact.
 
 Ghais Jhuggi Taleem Foundation
-Toll-Free: 0800-00823 | WhatsApp: +92 303 3934771
+Phone: ${siteConfig.phone1.display} | WhatsApp: ${siteConfig.phone2.display}
   `.trim();
 
   return { subject, html, text };
@@ -152,7 +153,7 @@ ${data.actionUrl}
 If you did not request this, please ignore this email.
 
 Ghais Jhuggi Taleem Foundation
-Toll-Free: 0800-00823
+Helpline: ${siteConfig.phone1.display}
   `.trim();
 
   return { subject, html, text };
@@ -185,7 +186,7 @@ export function createPasswordChangedEmail(donorEmail: string, donorName?: strin
 
     <div style="padding: 16px; background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 10px;">
       <p style="margin: 0; font-size: 13px; color: #991b1b; line-height: 1.5;">
-        <strong>Wasn't you?</strong> If you did not make this change, please call our toll-free security line at <strong>0800-00823</strong> or WhatsApp us at <strong>+92 303 3934771</strong> immediately.
+        <strong>Wasn't you?</strong> If you did not make this change, please call our security helpline at <strong>${siteConfig.phone1.display}</strong> or WhatsApp us at <strong>${siteConfig.phone2.display}</strong> immediately.
       </p>
     </div>
   `;
@@ -203,8 +204,8 @@ Hello ${name},
 Your password for your GJTF Donor Portal account was updated on ${new Date().toUTCString()}.
 
 If you did NOT perform this action, please contact us immediately:
-Toll-Free: 0800-00823
-WhatsApp: +92 303 3934771
+Phone: ${siteConfig.phone1.display}
+WhatsApp: ${siteConfig.phone2.display}
 
 Ghais Jhuggi Taleem Foundation
   `.trim();

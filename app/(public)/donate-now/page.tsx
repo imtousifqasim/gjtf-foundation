@@ -285,11 +285,10 @@ export default function DonateNowPage() {
                     key={c.id}
                     type="button"
                     onClick={() => setCause(c.id)}
-                    className={`p-4 rounded-2xl border text-left transition-all ${
-                      cause === c.id
+                    className={`p-4 rounded-2xl border text-left transition-all ${cause === c.id
                         ? "border-primary-600 bg-primary-50/80 ring-2 ring-primary-500 shadow-sm"
                         : "border-warm-200 hover:border-warm-300 bg-white"
-                    }`}
+                      }`}
                   >
                     <div className="font-bold font-heading text-charcoal-deep text-base">
                       {c.label}
@@ -311,22 +310,20 @@ export default function DonateNowPage() {
                   <button
                     type="button"
                     onClick={() => setFrequency("once")}
-                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                      frequency === "once"
+                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${frequency === "once"
                         ? "bg-white text-primary-800 shadow-sm"
                         : "text-charcoal-muted hover:text-charcoal"
-                    }`}
+                      }`}
                   >
                     GIVE ONCE
                   </button>
                   <button
                     type="button"
                     onClick={() => setFrequency("monthly")}
-                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                      frequency === "monthly"
+                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${frequency === "monthly"
                         ? "bg-white text-primary-800 shadow-sm"
                         : "text-charcoal-muted hover:text-charcoal"
-                    }`}
+                      }`}
                   >
                     MONTHLY
                   </button>
@@ -346,11 +343,10 @@ export default function DonateNowPage() {
                       setSelectedAmount(5000);
                       setIsCustom(false);
                     }}
-                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                      currency === "PKR"
+                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${currency === "PKR"
                         ? "bg-white text-primary-800 shadow-sm"
                         : "text-charcoal-muted hover:text-charcoal"
-                    }`}
+                      }`}
                   >
                     PKR (Pakistani Rupee)
                   </button>
@@ -361,11 +357,10 @@ export default function DonateNowPage() {
                       setSelectedAmount(150);
                       setIsCustom(false);
                     }}
-                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-                      currency === "AED"
+                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${currency === "AED"
                         ? "bg-white text-primary-800 shadow-sm"
                         : "text-charcoal-muted hover:text-charcoal"
-                    }`}
+                      }`}
                   >
                     AED (Dirham)
                   </button>
@@ -391,11 +386,10 @@ export default function DonateNowPage() {
                         setSelectedAmount(amt);
                         setIsCustom(false);
                       }}
-                      className={`py-3 px-2 rounded-2xl text-xs sm:text-sm font-bold transition-all text-center border ${
-                        isSelected
+                      className={`py-3 px-2 rounded-2xl text-xs sm:text-sm font-bold transition-all text-center border ${isSelected
                           ? "bg-accent-600 text-white border-accent-600 shadow-soft ring-2 ring-accent-400"
                           : "bg-white text-charcoal border-warm-300 hover:border-accent-400"
-                      }`}
+                        }`}
                     >
                       {label}
                     </button>
@@ -406,11 +400,10 @@ export default function DonateNowPage() {
                 <button
                   type="button"
                   onClick={() => setIsCustom(true)}
-                  className={`py-3 px-2 rounded-2xl text-xs sm:text-sm font-bold transition-all text-center border ${
-                    isCustom
+                  className={`py-3 px-2 rounded-2xl text-xs sm:text-sm font-bold transition-all text-center border ${isCustom
                       ? "bg-accent-600 text-white border-accent-600 shadow-soft ring-2 ring-accent-400"
                       : "bg-white text-charcoal border-warm-300 hover:border-accent-400"
-                  }`}
+                    }`}
                 >
                   OTHER
                 </button>
@@ -460,11 +453,10 @@ export default function DonateNowPage() {
                     key={type}
                     type="button"
                     onClick={() => setDonationType(type)}
-                    className={`py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all border ${
-                      donationType === type
+                    className={`py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all border ${donationType === type
                         ? "bg-primary-50 border-primary-600 text-primary-900 ring-2 ring-primary-500"
                         : "bg-white border-warm-200 text-charcoal hover:bg-warm-50"
-                    }`}
+                      }`}
                   >
                     {type}
                   </button>
@@ -624,7 +616,7 @@ export default function DonateNowPage() {
               Donate by Cheque
             </h3>
             <p className="text-sm text-charcoal-muted leading-relaxed">
-              Call us at <strong className="text-accent-700">0800-00823</strong> to have your cheque or cash collected from your doorstep.
+              Call us at <strong className="text-accent-700">{CONTACT_INFO.telephone.display}</strong> or <strong className="text-accent-700">{CONTACT_INFO.whatsapp.display}</strong> to have your cheque or cash collected from your doorstep.
             </p>
           </Card>
 

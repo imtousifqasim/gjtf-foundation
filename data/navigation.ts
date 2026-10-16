@@ -1,3 +1,5 @@
+import siteConfig from "@/lib/siteConfig";
+
 export interface NavItem {
   label: string;
   href: string;
@@ -61,30 +63,29 @@ export const MAIN_NAV: NavItem[] = [
 ];
 
 export const SOCIAL_LINKS = [
-  { name: "Facebook", href: "https://facebook.com/gjtfoundation", icon: "facebook" },
-  { name: "Instagram", href: "https://instagram.com/gjtfoundation", icon: "instagram" },
-  { name: "YouTube", href: "https://youtube.com/@gjtfoundation", icon: "youtube" },
-  { name: "TikTok", href: "https://tiktok.com/@gjtfoundation", icon: "tiktok" },
-  { name: "Twitter", href: "https://x.com/gjtfoundation", icon: "twitter" },
+  { name: "Instagram", href: siteConfig.socials.instagram, icon: "instagram" },
+  { name: "TikTok", href: siteConfig.socials.tiktok, icon: "tiktok" },
+  { name: "YouTube", href: siteConfig.socials.youtube, icon: "youtube" },
+  { name: "Facebook", href: siteConfig.socials.facebook, icon: "facebook" },
 ];
 
 export const CONTACT_INFO = {
   headOffice: {
     title: "GJTF Head Office - Lahore",
-    contactPerson: "Asra Ahmed",
-    address: "Office # 46-47 First Floor, New Liberty Tower, Model Town Link Road, Lahore",
-    email: "jhuggitaleemiproject@gmail.com",
+    contactPerson: "GJTF Support Team",
+    address: siteConfig.address,
+    email: siteConfig.email.address,
     secondaryEmail: "gjtfoundation1@gmail.com",
-    telephone: "04235236622",
-    mobile: "+923033934771",
-    tollFree: "0800-00823",
+    telephone: siteConfig.phone1.number,
+    mobile: siteConfig.phone2.number,
+    supportHours: siteConfig.supportHours,
   },
   regionalOffices: [
     {
       city: "Lahore Regional Contact",
       contactPerson: "Umer Shahid",
       address: "Plot # 91, Block – C, Broadway Road, Phase VIII, DHA Lahore, Pakistan",
-      email: "jhuggitaleemiproject@gmail.com",
+      email: siteConfig.email.address,
       phone: "+92-42-37135871",
     },
     {
@@ -93,7 +94,6 @@ export const CONTACT_INFO = {
       address: "Regional Office near Fazia Colony, Service Road, Gangal West Rawalpindi",
       email: "gjtfoundation1@gmail.com",
       phone: "+92-51-4578229",
-      tollFree: "0800-00823",
     },
   ],
   bankDetails: {

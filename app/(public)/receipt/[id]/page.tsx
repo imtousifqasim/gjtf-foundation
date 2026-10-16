@@ -4,6 +4,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { query } from "@/lib/db/mysql";
 import { formatCurrencyAmount } from "@/lib/email/templates/donationTemplates";
+import siteConfig from "@/lib/siteConfig";
 import ReceiptPrintButton from "./ReceiptPrintButton";
 
 export const dynamic = "force-dynamic";
@@ -158,8 +159,8 @@ export default async function DonationReceiptPage({
               <div>
                 <div className="font-bold text-slate-900 text-sm">Ghais Jhuggi Taleem Foundation</div>
                 <div className="text-xs text-slate-500 mt-0.5">
-                  Registered Non-Profit NGO • Head Office Lahore, Pakistan<br/>
-                  UAN / Toll-Free: 0800-00823 • Web: www.gjtfoundation.com
+                  {siteConfig.status} • {siteConfig.address}<br/>
+                  Phone: {siteConfig.phone1.display} | WhatsApp: {siteConfig.phone2.display} • Web: gjtfoundation.com
                 </div>
               </div>
               <div className="text-center sm:text-right">

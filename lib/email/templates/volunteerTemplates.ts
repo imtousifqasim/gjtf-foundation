@@ -1,4 +1,5 @@
 import { renderBaseEmailHtml, escapeHtml } from "./baseLayout";
+import siteConfig from "@/lib/siteConfig";
 
 export interface VolunteerData {
   full_name: string;
@@ -140,7 +141,7 @@ What happens next?
 2. You will receive an orientation schedule and local chapter details.
 3. You will be scheduled for your first settlement school drive.
 
-If you have any questions, feel free to reply to this email or call our toll-free helpline at 0800-00823.
+If you have any questions, feel free to reply to this email or call our helpline at ${siteConfig.phone1.display} (WhatsApp: ${siteConfig.phone2.display}).
 
 Warm regards,
 Volunteer Engagement Directorate

@@ -23,6 +23,7 @@ import {
   ChevronRight,
   ShieldCheck,
 } from "lucide-react";
+import siteConfig from "@/lib/siteConfig";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -389,9 +390,9 @@ export default function DonorDashboardPage() {
 
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
             <span className="text-slate-500 block font-semibold">Doorstep Collection & Mobile Accounts</span>
-            <div>Toll-Free Collection Helpline: <strong className="text-emerald-800 font-bold">0800-00823</strong> (Free call)</div>
-            <div>WhatsApp Payment Proof: <strong>+92 303 3934771</strong></div>
-            <div>JazzCash / EasyPaisa: <strong>Tousif Qasim (Chairman)</strong> &bull; 0303-3934771</div>
+            <div>Collection Helpline: <strong className="text-emerald-800 font-bold">{siteConfig.phone1.display}</strong> ({siteConfig.supportHours})</div>
+            <div>WhatsApp Payment Proof: <strong>{siteConfig.phone2.display}</strong></div>
+            <div>JazzCash / EasyPaisa: <strong>Tousif Qasim (Chairman)</strong> &bull; {siteConfig.phone2.display}</div>
             <p className="text-[11px] text-slate-500 mt-2">
               For doorstep cash and cheque receipts, an official foundation rider delivers the stamped carbon receipt directly to your home or office.
             </p>
@@ -499,7 +500,7 @@ export default function DonorDashboardPage() {
                     className="h-10 text-xs rounded-xl"
                   />
                   <span className="text-[11px] text-slate-400 block mt-1">
-                    You may also WhatsApp your receipt screenshot to <strong>+92 303 3934771</strong> with your reference code.
+                    You may also WhatsApp your receipt screenshot to <strong>{siteConfig.phone2.display}</strong> with your reference code.
                   </span>
                 </div>
 

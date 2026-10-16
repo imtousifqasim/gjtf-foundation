@@ -504,7 +504,7 @@ export default function AdminReportsPage() {
                     onChange={(e: any) => setManualForm({ ...manualForm, payment_method: e.target.value })}
                     className="w-full h-10 mt-1 px-3 rounded-xl border border-slate-200 text-xs font-bold bg-white"
                   >
-                    <option value="doorstep_cash">Doorstep Cash (0800-00823)</option>
+                    <option value="doorstep_cash">Doorstep Cash (04235236622)</option>
                     <option value="direct_deposit">Direct Bank Transfer</option>
                     <option value="cheque">Cheque Delivery</option>
                   </select>

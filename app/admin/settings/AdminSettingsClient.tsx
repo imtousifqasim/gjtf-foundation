@@ -477,10 +477,10 @@ export default function AdminSettingsClient({
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Toll-Free Helpline
+                        Helpline Phone
                       </label>
                       <Input
-                        placeholder="0800-00823"
+                        placeholder="04235236622"
                         value={siteSettings.toll_free}
                         onChange={(e) =>
                           setSiteSettings({ ...siteSettings, toll_free: e.target.value })
@@ -651,20 +651,6 @@ export default function AdminSettingsClient({
                           value={siteSettings.twitter_url}
                           onChange={(e) =>
                             setSiteSettings({ ...siteSettings, twitter_url: e.target.value })
-                          }
-                          className="rounded-xl border-slate-200 text-xs"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">
-                          LinkedIn Profile URL
-                        </label>
-                        <Input
-                          placeholder="https://linkedin.com/company/gjtfoundation"
-                          value={siteSettings.linkedin_url}
-                          onChange={(e) =>
-                            setSiteSettings({ ...siteSettings, linkedin_url: e.target.value })
                           }
                           className="rounded-xl border-slate-200 text-xs"
                         />

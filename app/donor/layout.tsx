@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logoutDonorAction } from "@/app/actions/donorAuth";
+import siteConfig from "@/lib/siteConfig";
 
 const DONOR_NAV = [
   { label: "Dashboard", href: "/donor/dashboard", icon: LayoutDashboard },
@@ -77,8 +78,8 @@ export default function DonorLayout({
               Privacy Policy
             </Link>
             <span>&bull;</span>
-            <a href="tel:080000823" className="hover:text-emerald-400 transition-colors">
-              Helpline: 0800-00823
+            <a href={siteConfig.phone1.telLink} className="hover:text-emerald-400 transition-colors">
+              Helpline: {siteConfig.phone1.display}
             </a>
           </div>
         </footer>
@@ -225,9 +226,9 @@ export default function DonorLayout({
           </div>
 
           <div className="flex items-center gap-4">
-            <a href="tel:080000823" className="flex items-center gap-1.5 hover:text-emerald-700 font-medium">
+            <a href={siteConfig.phone1.telLink} className="flex items-center gap-1.5 hover:text-emerald-700 font-medium">
               <Phone className="w-3.5 h-3.5 text-emerald-600" />
-              Toll-Free Helpline: 0800-00823
+              Helpline: {siteConfig.phone1.display}
             </a>
             <span>&bull;</span>
             <Link href="/privacy-policy" className="hover:text-emerald-700">

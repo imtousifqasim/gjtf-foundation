@@ -1,4 +1,5 @@
 import { renderBaseEmailHtml, escapeHtml } from "./baseLayout";
+import siteConfig from "@/lib/siteConfig";
 
 export interface DonationEmailData {
   pledgeId: string;
@@ -37,8 +38,8 @@ export function getBankDetailsHtml(settings?: {
   const iban = settings?.iban || "PK72MEZN0002010103847291";
   const branch = settings?.branch_name || "Model Town Link Road Branch Lahore";
   const swift = settings?.swift_code || "MEZNPKKA";
-  const doorstep = settings?.doorstep_phone || "0800-00823";
-  const jazz = settings?.jazzcash_number || "0303-3934771";
+  const doorstep = settings?.doorstep_phone || siteConfig.phone1.display;
+  const jazz = settings?.jazzcash_number || siteConfig.phone2.display;
   const easy = settings?.easypaisa_number || "0328-6477314";
 
   return `
@@ -60,7 +61,7 @@ export function getBankDetailsHtml(settings?: {
     <tr>
       <td style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #334155;">
         <strong style="color: #0b1536; display: block; margin-bottom: 2px;">Doorstep Cash Collection:</strong>
-        Call our nationwide toll-free helpline: <strong style="color: #0a5c36;">${doorstep}</strong> (Toll-Free, 9 AM – 6 PM PKT)
+        Call our helpline: <strong style="color: #0a5c36;">${doorstep}</strong> (${siteConfig.supportHours})
       </td>
     </tr>
     <tr>
@@ -85,8 +86,8 @@ Account No: 02010103847291
 IBAN: PK72MEZN0002010103847291
 Branch: Model Town Link Road Branch Lahore (Swift: MEZNPKKA)
 
-Doorstep Cash / Cheque Collection Helpline: 0800-00823 (Toll-Free)
-Mobile Wallets: 0303-3934771 / 0328-6477314
+Doorstep Cash / Cheque Collection Helpline: ${siteConfig.phone1.display} (${siteConfig.supportHours})
+Mobile Wallets: ${siteConfig.phone2.display} / 0328-6477314
 `;
 
 // -------------------------------------------------------------
@@ -161,7 +162,7 @@ export function createDonationReceivedEmail(data: DonationEmailData) {
 
     <p style="margin: 0 0 16px; color: #334155; font-size: 14px; line-height: 1.6;">
       If you chose manual bank transfer or mobile wallet, please send your transfer reference or screenshot to 
-      <a href="https://wa.me/923033934771" style="color: #2563eb; text-decoration: none; font-weight: bold;">WhatsApp (+92 303 3934771)</a> 
+      <a href="${siteConfig.phone2.whatsappLink}" style="color: #0d5c3a; text-decoration: none; font-weight: bold;">WhatsApp (${siteConfig.phone2.display})</a> 
       along with reference <strong>#${escapeHtml(data.pledgeId)}</strong> so we can issue your official tax-exempt receipt.
     </p>
 
@@ -195,7 +196,7 @@ ${data.donationType ? `- Type: ${data.donationType}\n` : ""}${data.frequency ? `
 If you are completing via bank transfer, please find account details below:
 ${BANK_DETAILS_TEXT}
 
-Please WhatsApp your payment confirmation to +92 303 3934771 or reply directly to this email with reference #${data.pledgeId}.
+Please WhatsApp your payment confirmation to ${siteConfig.phone2.display} or reply directly to this email with reference #${data.pledgeId}.
 
 With heartfelt gratitude,
 Finance & Accounts Directorate
@@ -355,7 +356,7 @@ export function createDonationPendingEmail(data: DonationEmailData) {
       <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 700; color: #1e3a8a;">How to Confirm Payment:</h3>
       <ol style="margin: 0; padding-left: 20px; font-size: 13px; color: #1e293b; line-height: 1.6;">
         <li>Transfer <strong>${escapeHtml(formattedAmt)}</strong> to any of the accounts above.</li>
-        <li>Send a screenshot or transaction ID to <a href="https://wa.me/923033934771" style="color: #2563eb; font-weight: bold;">WhatsApp (+92 303 3934771)</a> or reply to this email.</li>
+        <li>Send a screenshot or transaction ID to <a href="${siteConfig.phone2.whatsappLink}" style="color: #0d5c3a; font-weight: bold;">WhatsApp (${siteConfig.phone2.display})</a> or reply to this email.</li>
         <li>Mention your pledge reference: <strong>#${escapeHtml(data.pledgeId)}</strong>.</li>
       </ol>
     </div>
@@ -382,7 +383,7 @@ We are following up regarding your pledged donation of ${formattedAmt} for "${da
 To complete your donation, please transfer the pledged amount to our official accounts:
 ${BANK_DETAILS_TEXT}
 
-After making the transfer, please reply to this email or send the transaction receipt on WhatsApp (+92 303 3934771) with reference #${data.pledgeId}.
+After making the transfer, please reply to this email or send the transaction receipt on WhatsApp (${siteConfig.phone2.display}) with reference #${data.pledgeId}.
 
 With sincere appreciation,
 Finance & Accounts Directorate
@@ -429,7 +430,7 @@ export function createDonationFailedEmail(data: DonationEmailData) {
     </div>
 
     <p style="margin: 0; color: #64748b; font-size: 13px; line-height: 1.6;">
-      Need assistance? Reply directly to this email or call us toll-free at <strong>0800-00823</strong>.<br/>
+      Need assistance? Reply directly to this email or call our helpline at <strong>${siteConfig.phone1.display}</strong> (WhatsApp: <strong>${siteConfig.phone2.display}</strong>).<br/>
       Ghais Jhuggi Taleem Foundation
     </p>
   `;
@@ -449,7 +450,7 @@ We were unable to verify or complete your recent donation pledge of ${formattedA
 If this was unexpected, you can easily retry your donation at:
 ${donateUrl}
 
-If you have already transferred the amount or need assistance, please reply to this email or reach us on WhatsApp at +92 303 3934771.
+If you have already transferred the amount or need assistance, please reply to this email or reach us on WhatsApp at ${siteConfig.phone2.display} or phone ${siteConfig.phone1.display}.
 
 Warm regards,
 Donor Support Team
@@ -504,7 +505,7 @@ export function createDonationReminderEmail(data: DonationEmailData) {
     ${BANK_DETAILS_HTML}
 
     <p style="margin: 16px 0 0; color: #64748b; font-size: 13px; line-height: 1.6;">
-      Already sent your payment? Please reply to this email or message us on WhatsApp (+92 303 3934771) with your transfer slip so we can verify and issue your receipt.<br/><br/>
+      Already sent your payment? Please reply to this email or message us on WhatsApp (${siteConfig.phone2.display}) with your transfer slip so we can verify and issue your receipt.<br/><br/>
       With sincere appreciation,<br/>
       <strong>Finance &amp; Community Care Team</strong><br/>
       Ghais Jhuggi Taleem Foundation
@@ -527,7 +528,7 @@ This is a gentle reminder regarding your pledge of ${formattedAmt} for "${data.c
 ${data.customMessage ? `Message from GJTF Team:\n${data.customMessage}\n\n` : ""}Official Payment Details:
 ${BANK_DETAILS_TEXT}
 
-Once transferred, please WhatsApp your slip to +92 303 3934771 or reply directly to this email.
+Once transferred, please WhatsApp your slip to ${siteConfig.phone2.display} or reply directly to this email.
 
 If you wish to stop reminders for this pledge, please visit:
 ${unsubscribeUrl || "https://gjtf-foundation.vercel.app"}

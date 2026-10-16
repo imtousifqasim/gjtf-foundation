@@ -99,60 +99,43 @@ export async function sendEmail({
   return await transporter.sendMail(mailOptions);
 }
 
-export async function sendWelcomeNewsletterEmail(subscriberEmail: string) {
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; }
-          .wrapper { max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-          .header { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); padding: 36px 30px; text-align: center; color: #ffffff; }
-          .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
-          .header p { margin: 8px 0 0; font-size: 14px; opacity: 0.9; }
-          .content { padding: 32px 30px; color: #334155; line-height: 1.6; }
-          .content h2 { color: #0f172a; font-size: 20px; font-weight: 700; margin-top: 0; }
-          .feature-box { background: #f1f5f9; border-left: 4px solid #2563eb; padding: 16px; border-radius: 8px; margin: 20px 0; }
-          .button { display: inline-block; background-color: #2563eb; color: #ffffff !important; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 700; font-size: 14px; margin-top: 10px; }
-          .footer { background: #f8fafc; padding: 24px 30px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; }
-        </style>
-      </head>
-      <body>
-        <div class="wrapper">
-          <div class="header">
-            <h1>Ghais Jhuggi Taleem Foundation</h1>
-            <p>Empowering Nomadic & Slum Children Across Pakistan</p>
-          </div>
-          <div class="content">
-            <h2>Welcome to our Community!</h2>
-            <p>Assalam-o-Alaikum,</p>
-            <p>Thank you for subscribing to the <strong>Ghais Jhuggi Taleem Foundation (GJTF)</strong> newsletter. Your support brings us one step closer to our goal of uplifting over 20 million nomadic community members across Pakistan.</p>
-            
-            <div class="feature-box">
-              <strong style="color: #1e3a8a;">What to expect:</strong>
-              <ul style="margin: 8px 0 0; padding-left: 20px;">
-                <li>Updates on new school openings in remote squatter settlements</li>
-                <li>Inspiring stories of nomadic children stepping into classrooms for the first time</li>
-                <li>Opportunities to volunteer in medical camps, teaching, and youth chapters</li>
-                <li>Transparent reports on how zakat and donations transform lives</li>
-              </ul>
-            </div>
+import { renderBaseEmailHtml } from "./templates/baseLayout";
 
-            <p>If you'd like to get actively involved today, you can explore our schools directory or become a volunteer in your city:</p>
-            <div style="text-align: center; margin: 24px 0;">
-              <a href="https://gjtfoundation.com/donate-now" class="button">Support a Child's Education</a>
-            </div>
-            <p>With warm regards,<br><strong>GJTF Executive Team</strong><br>Head Office: 20-E, Maulana Shaukat Ali Road, Lahore<br>Toll-Free: 0800-00823</p>
-          </div>
-          <div class="footer">
-            <p>© ${new Date().getFullYear()} Ghais Jhuggi Taleem Foundation. All rights reserved.</p>
-            <p>You received this email because you subscribed to updates on gjtfoundation.com.</p>
-          </div>
-        </div>
-      </body>
-    </html>
+export async function sendWelcomeNewsletterEmail(subscriberEmail: string) {
+  const contentHtml = `
+    <h2 style="color: #0f172a; font-size: 20px; font-weight: 700; margin-top: 0;">Welcome to our Community!</h2>
+    <p>Assalam-o-Alaikum,</p>
+    <p>Thank you for subscribing to the <strong>Ghais Jhuggi Taleem Foundation (GJTF)</strong> newsletter. Your support brings us one step closer to our goal of uplifting over 20 million nomadic community members across Pakistan.</p>
+    
+    <div style="background: #f1f5f9; border-left: 4px solid #0d5c3a; padding: 16px; border-radius: 8px; margin: 20px 0;">
+      <strong style="color: #0d5c3a;">What to expect:</strong>
+      <ul style="margin: 8px 0 0; padding-left: 20px; color: #334155; line-height: 1.6;">
+        <li>Updates on new school openings in remote squatter settlements</li>
+        <li>Inspiring stories of nomadic children stepping into classrooms for the first time</li>
+        <li>Opportunities to volunteer in medical camps, teaching, and youth chapters</li>
+        <li>Transparent reports on how zakat and donations transform lives</li>
+      </ul>
+    </div>
+
+    <p>If you'd like to get actively involved today, you can explore our schools directory or become a volunteer in your city:</p>
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="https://gjtfoundation.com/donate-now" class="btn-primary" style="color: #ffffff; text-decoration: none;">Support a Child's Education</a>
+    </div>
+    <p style="margin: 20px 0 0; color: #64748b; font-size: 13px; line-height: 1.6;">
+      With warm regards,<br/>
+      <strong>GJTF Executive Team</strong><br/>
+      Ghais Jhuggi Taleem Foundation
+    </p>
   `;
+
+  const html = renderBaseEmailHtml({
+    title: "Welcome to GJTF Foundation — Thank You for Subscribing!",
+    preheader: "Thank you for subscribing to the Ghais Jhuggi Taleem Foundation newsletter.",
+    contentHtml,
+    recipientEmail: subscriberEmail,
+    isTransactional: false,
+    unsubscribeUrl: "https://gjtfoundation.com/unsubscribe",
+  });
 
   return await sendEmail({
     to: subscriberEmail,

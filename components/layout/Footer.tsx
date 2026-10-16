@@ -13,12 +13,12 @@ import {
   Instagram,
   Youtube,
   Twitter,
-  Linkedin,
   ArrowRight,
 } from "lucide-react";
 import { CONTACT_INFO, SOCIAL_LINKS } from "@/data/navigation";
 import { useSiteSettings } from "@/lib/hooks/useSiteSettings";
 import { Button } from "@/components/ui/button";
+import siteConfig from "@/lib/siteConfig";
 
 import { subscribeNewsletter } from "@/app/actions/newsletter";
 import { validateEmail } from "@/lib/validation";
@@ -275,95 +275,77 @@ export function Footer() {
                 <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0 text-white/90 mt-0.5">
                   <MapPin className="w-3.5 h-3.5" />
                 </div>
-                <span className="leading-snug">{settings.head_office_address}</span>
+                <span className="leading-snug">{siteConfig.address}</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0 text-white/90">
                   <Phone className="w-3.5 h-3.5" />
                 </div>
-                <span>Phone: {settings.telephone}</span>
+                <a href={siteConfig.phone1.telLink} className="hover:text-white transition-colors">
+                  Phone: {siteConfig.phone1.display}
+                </a>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0 text-white/90">
                   <Phone className="w-3.5 h-3.5" />
                 </div>
-                <span>Mobile: {settings.mobile}</span>
+                <a href={siteConfig.phone2.telLink} className="hover:text-white transition-colors">
+                  WhatsApp: {siteConfig.phone2.display}
+                </a>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0 text-white/90">
                   <Mail className="w-3.5 h-3.5" />
                 </div>
-                <a href={`mailto:${settings.email}`} className="hover:underline text-white/90 hover:text-white">
-                  {settings.email}
+                <a href={siteConfig.email.mailtoLink} className="hover:underline text-white/90 hover:text-white">
+                  {siteConfig.email.address}
                 </a>
               </div>
-              {settings.toll_free && (
-                <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0 text-primary-400 font-bold text-[10px]">
-                    TF
-                  </div>
-                  <span className="text-white/90">Toll-Free: {settings.toll_free}</span>
-                </div>
-              )}
+              <div className="pt-1 text-xs text-white/60">
+                <span>Support Hours: {siteConfig.supportHours}</span>
+              </div>
             </div>
 
-            {/* Social Icons */}
+            {/* Social Icons (Instagram, TikTok, YouTube, Facebook - No LinkedIn) */}
             <div className="pt-2 flex items-center gap-2.5 flex-wrap">
-              {settings.facebook_url && (
-                <a
-                  href={settings.facebook_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="h-8 w-8 rounded-full bg-charcoal flex items-center justify-center text-white/80 hover:bg-primary-600 hover:text-white transition-colors"
-                  aria-label="Facebook"
-                >
-                  <Facebook className="w-4 h-4" />
-                </a>
-              )}
-              {settings.instagram_url && (
-                <a
-                  href={settings.instagram_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="h-8 w-8 rounded-full bg-charcoal flex items-center justify-center text-white/80 hover:bg-primary-600 hover:text-white transition-colors"
-                  aria-label="Instagram"
-                >
-                  <Instagram className="w-4 h-4" />
-                </a>
-              )}
-              {settings.youtube_url && (
-                <a
-                  href={settings.youtube_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="h-8 w-8 rounded-full bg-charcoal flex items-center justify-center text-white/80 hover:bg-primary-600 hover:text-white transition-colors"
-                  aria-label="YouTube"
-                >
-                  <Youtube className="w-4 h-4" />
-                </a>
-              )}
-              {settings.twitter_url && (
-                <a
-                  href={settings.twitter_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="h-8 w-8 rounded-full bg-charcoal flex items-center justify-center text-white/80 hover:bg-primary-600 hover:text-white transition-colors"
-                  aria-label="Twitter"
-                >
-                  <Twitter className="w-4 h-4" />
-                </a>
-              )}
-              {settings.linkedin_url && (
-                <a
-                  href={settings.linkedin_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="h-8 w-8 rounded-full bg-charcoal flex items-center justify-center text-white/80 hover:bg-primary-600 hover:text-white transition-colors"
-                  aria-label="LinkedIn"
-                >
-                  <Linkedin className="w-4 h-4" />
-                </a>
-              )}
+              <a
+                href={siteConfig.socials.instagram}
+                target="_blank"
+                rel="noreferrer"
+                className="h-8 w-8 rounded-full bg-charcoal flex items-center justify-center text-white/80 hover:bg-primary-600 hover:text-white transition-colors"
+                aria-label="Instagram"
+              >
+                <Instagram className="w-4 h-4" />
+              </a>
+              <a
+                href={siteConfig.socials.tiktok}
+                target="_blank"
+                rel="noreferrer"
+                className="h-8 w-8 rounded-full bg-charcoal flex items-center justify-center text-white/80 hover:bg-primary-600 hover:text-white transition-colors"
+                aria-label="TikTok"
+              >
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.86 4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-3.04-1.52z"/>
+                </svg>
+              </a>
+              <a
+                href={siteConfig.socials.youtube}
+                target="_blank"
+                rel="noreferrer"
+                className="h-8 w-8 rounded-full bg-charcoal flex items-center justify-center text-white/80 hover:bg-primary-600 hover:text-white transition-colors"
+                aria-label="YouTube"
+              >
+                <Youtube className="w-4 h-4" />
+              </a>
+              <a
+                href={siteConfig.socials.facebook}
+                target="_blank"
+                rel="noreferrer"
+                className="h-8 w-8 rounded-full bg-charcoal flex items-center justify-center text-white/80 hover:bg-primary-600 hover:text-white transition-colors"
+                aria-label="Facebook"
+              >
+                <Facebook className="w-4 h-4" />
+              </a>
             </div>
           </div>
         </div>
@@ -371,7 +353,7 @@ export function Footer() {
         {/* Bottom Bar (Exact) */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/60">
           <div>
-            © 2026 Ghais Jhuggi Taleem Foundation. All Rights Reserved.
+            © {new Date().getFullYear()} Ghais Jhuggi Taleem Foundation. Registered Non-Profit NGO.
           </div>
           <div className="flex items-center gap-6">
             <Link href="/privacy-policy" className="hover:text-white transition-colors">

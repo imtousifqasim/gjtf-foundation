@@ -2,6 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ShieldCheck, Lock, EyeOff, FileText, Phone, Mail, CheckCircle2 } from "lucide-react";
 import { CONTACT_INFO } from "@/data/navigation";
+import siteConfig from "@/lib/siteConfig";
 
 export const metadata = {
   title: "Privacy & Data Protection Policy | Ghais Jhuggi Taleem Foundation (GJTF)",
@@ -111,10 +112,11 @@ export default function PrivacyPolicyPage() {
               For privacy inquiries, data deletion requests, or security reports:
             </p>
             <div className="p-4 rounded-2xl bg-warm-100 border border-warm-200 text-sm space-y-1 text-charcoal">
-              <div><strong>Ghais Jhuggi Taleem Foundation</strong> — Head Office</div>
-              <div>Office # 46-47, First Floor, New Liberty Tower, Model Town Link Road, Lahore, Pakistan</div>
-              <div>Toll-Free Helpline: <strong>0800-00823</strong> | WhatsApp: <strong>+92 303 3934771</strong></div>
-              <div>Official Email: <strong>jhuggitaleemiproject@gmail.com</strong></div>
+              <div><strong>{siteConfig.organisation}</strong> — Head Office</div>
+              <div>{siteConfig.address}</div>
+              <div>Phone: <strong>{siteConfig.phone1.display}</strong> | WhatsApp: <strong>{siteConfig.phone2.display}</strong></div>
+              <div>Official Email: <strong>{siteConfig.email.address}</strong></div>
+              <div>Support Hours: <strong>{siteConfig.supportHours}</strong></div>
             </div>
           </section>
         </div>

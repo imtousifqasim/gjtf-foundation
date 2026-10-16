@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { addSubscriberDb, getSubscribersDb, query, syncBackupToSupabase } from "@/lib/db/mysql";
 import { sendEmail, sendWelcomeNewsletterEmail } from "@/lib/email/smtp";
+import { renderBaseEmailHtml } from "@/lib/email/templates/baseLayout";
 import { validateEmail } from "@/lib/validation";
 
 export async function subscribeNewsletter(emailInput: string) {
@@ -84,44 +85,21 @@ export async function sendBroadcastNewsletter({
       return { success: false, message: "No active subscribers found to send message to." };
     }
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; }
-            .wrapper { max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; }
-            .header { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); padding: 32px; text-align: center; color: #ffffff; }
-            .header h1 { margin: 0; font-size: 22px; font-weight: 800; }
-            .content { padding: 32px; color: #334155; line-height: 1.6; }
-            .content h2 { color: #0f172a; font-size: 20px; font-weight: 700; margin-top: 0; }
-            .body-text { white-space: pre-wrap; margin: 20px 0; }
-            .cta-box { text-align: center; margin: 30px 0; }
-            .button { display: inline-block; background-color: #2563eb; color: #ffffff !important; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 700; font-size: 14px; }
-            .footer { background: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; }
-          </style>
-        </head>
-        <body>
-          <div class="wrapper">
-            <div class="header">
-              <h1>Ghais Jhuggi Taleem Foundation</h1>
-            </div>
-            <div class="content">
-              <h2>${title}</h2>
-              <div class="body-text">${content}</div>
-              <div class="cta-box">
-                <a href="https://gjtfoundation.com" class="button">Visit GJTF Website</a>
-              </div>
-            </div>
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} Ghais Jhuggi Taleem Foundation. All rights reserved.</p>
-              <p>20-E, Maulana Shaukat Ali Road, Lahore • Toll-Free: 0800-00823</p>
-            </div>
-          </div>
-        </body>
-      </html>
+    const contentHtml = `
+      <h2 style="color: #0f172a; font-size: 22px; font-weight: 800; margin-top: 0;">${title}</h2>
+      <div style="color: #334155; line-height: 1.7; font-size: 15px; white-space: pre-wrap; margin: 20px 0;">${content}</div>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="https://gjtfoundation.com" class="btn-primary" style="color: #ffffff; text-decoration: none;">Visit GJTF Website &rarr;</a>
+      </div>
     `;
+
+    const html = renderBaseEmailHtml({
+      title: subject,
+      preheader: title,
+      contentHtml,
+      isTransactional: false,
+      unsubscribeUrl: "https://gjtfoundation.com/unsubscribe",
+    });
 
     // Send in batches or single call
     await sendEmail({

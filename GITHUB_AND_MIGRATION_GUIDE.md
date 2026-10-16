@@ -137,8 +137,8 @@ Naye PC par aap ko AI ko shuru se kuch samjhanay ki zaroorat nahi!
 - **Swift Code:** `MEZNPKKA`
 - **JazzCash:** `0303-3934771`
 - **EasyPaisa:** `0328-6477314`
-- **Doorstep Hotline:** `0800-00823`
-
+- **Doorstep Hotline:** `04235236622` / `03033934771`
+ 
 ### 📧 6. Official Foundation Contact
-- **Emails:** `jhuggitaleemiproject@gmail.com`, `gjtfoundation1@gmail.com`, `admin@gjtfoundation.com`
-- **Head Office:** Lahore, Pakistan
+- **Emails:** `jhuggitaleemiproject@gmail.com`, `admin@gjtfoundation.com`
+- **Head Office:** Office # 46-47, First Floor, New Liberty Tower, Model Town Link Road, Lahore

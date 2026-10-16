@@ -182,10 +182,10 @@ export async function ensureCoreTablesDb(): Promise<void> {
           branch_name VARCHAR(255) DEFAULT 'Model Town Link Road Branch Lahore',
           swift_code VARCHAR(32) DEFAULT 'MEZNPKKA',
           doorstep_enabled TINYINT(1) DEFAULT 1,
-          doorstep_phone VARCHAR(64) DEFAULT '0800-00823',
+          doorstep_phone VARCHAR(64) DEFAULT '04235236622',
           cheque_enabled TINYINT(1) DEFAULT 1,
           bank_transfer_enabled TINYINT(1) DEFAULT 1,
-          jazzcash_number VARCHAR(64) DEFAULT '0303-3934771',
+          jazzcash_number VARCHAR(64) DEFAULT '03033934771',
           easypaisa_number VARCHAR(64) DEFAULT '0328-6477314',
           gateway_provider VARCHAR(64) DEFAULT 'manual',
           gateway_mode VARCHAR(32) DEFAULT 'test',
@@ -203,8 +203,8 @@ export async function ensureCoreTablesDb(): Promise<void> {
         ) VALUES (
           'default', 'Ghais Jhuggi Taleem Foundation', 'Meezan Bank Limited',
           '02010103847291', 'PK72MEZN0002010103847291', 'Model Town Link Road Branch Lahore', 'MEZNPKKA',
-          1, '0800-00823', 1, 1,
-          '0303-3934771', '0328-6477314', 'manual', 'test'
+          1, '04235236622', 1, 1,
+          '03033934771', '0328-6477314', 'manual', 'test'
         );
       `);
 
