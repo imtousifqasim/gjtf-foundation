@@ -116,36 +116,46 @@ export async function GET(req: NextRequest) {
       await ensurePricingTablesDb();
       await ensureBankAccountsTableDb();
 
-      // 5. Section 15 Alterations for donations & donation_plans
-      const alterQueries = [
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS children_equivalent DECIMAL(10, 2) NULL DEFAULT 0.00;",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS pricing_version INT NOT NULL DEFAULT 1;",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS amount_pkr_minor BIGINT NULL;",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS display_currency VARCHAR(10) NOT NULL DEFAULT 'PKR';",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS display_amount_minor BIGINT NULL;",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS fx_rate DECIMAL(16, 6) NULL;",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS fx_buffer_pct DECIMAL(5, 2) NULL DEFAULT 1.00;",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS fx_locked_at TIMESTAMP NULL;",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS fx_valid_until TIMESTAMP NULL;",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS bank_account_id VARCHAR(64) NULL DEFAULT 'bank-islami-primary';",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS received_amount_minor BIGINT NULL;",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS received_currency VARCHAR(10) NULL;",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS received_pkr_minor BIGINT NULL;",
-        "ALTER TABLE donations ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(128) NULL;",
-        "ALTER TABLE donation_plans ADD COLUMN IF NOT EXISTS children_count DECIMAL(10, 2) NOT NULL DEFAULT 1.00;",
-        "ALTER TABLE donation_plans ADD COLUMN IF NOT EXISTS pledge_basis ENUM('pkr_fixed', 'aed_fixed') NOT NULL DEFAULT 'pkr_fixed';",
-        "ALTER TABLE donation_plans ADD COLUMN IF NOT EXISTS end_date TIMESTAMP NULL;",
-        "ALTER TABLE donation_plans ADD COLUMN IF NOT EXISTS total_cycles INT NULL;",
-        "INSERT INTO app_settings (setting_key, setting_value) VALUES ('enrolled_children', '1000') ON DUPLICATE KEY UPDATE updated_at = NOW();",
-      ];
-
-      for (const q of alterQueries) {
+      // 5. Section 15 Alterations using INFORMATION_SCHEMA (100% compatible across all MySQL versions)
+      const ensureColumn = async (table: string, column: string, definition: string) => {
         try {
-          await mysqlQuery(q);
+          const rows = await mysqlQuery<any[]>(`
+            SELECT COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?
+          `, [table, column]);
+          if (!rows || rows.length === 0) {
+            await mysqlQuery(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+          }
         } catch (e) {
-          // Ignore if exists
+          console.warn(`Column check failed for ${table}.${column}:`, e);
         }
-      }
+      };
+
+      await ensureColumn("donations", "children_equivalent", "DECIMAL(10, 2) NULL DEFAULT 0.00");
+      await ensureColumn("donations", "pricing_version", "INT NOT NULL DEFAULT 1");
+      await ensureColumn("donations", "amount_pkr_minor", "BIGINT NULL");
+      await ensureColumn("donations", "display_currency", "VARCHAR(10) NOT NULL DEFAULT 'PKR'");
+      await ensureColumn("donations", "display_amount_minor", "BIGINT NULL");
+      await ensureColumn("donations", "fx_rate", "DECIMAL(16, 6) NULL");
+      await ensureColumn("donations", "fx_buffer_pct", "DECIMAL(5, 2) NULL DEFAULT 1.00");
+      await ensureColumn("donations", "fx_locked_at", "TIMESTAMP NULL");
+      await ensureColumn("donations", "fx_valid_until", "TIMESTAMP NULL");
+      await ensureColumn("donations", "bank_account_id", "VARCHAR(64) NULL DEFAULT 'bank-islami-primary'");
+      await ensureColumn("donations", "received_amount_minor", "BIGINT NULL");
+      await ensureColumn("donations", "received_currency", "VARCHAR(10) NULL");
+      await ensureColumn("donations", "received_pkr_minor", "BIGINT NULL");
+      await ensureColumn("donations", "idempotency_key", "VARCHAR(128) NULL");
+
+      await ensureColumn("donation_plans", "children_count", "DECIMAL(10, 2) NOT NULL DEFAULT 1.00");
+      await ensureColumn("donation_plans", "pledge_basis", "ENUM('pkr_fixed', 'aed_fixed') NOT NULL DEFAULT 'pkr_fixed'");
+      await ensureColumn("donation_plans", "end_date", "TIMESTAMP NULL");
+      await ensureColumn("donation_plans", "total_cycles", "INT NULL");
+
+      try {
+        await mysqlQuery("INSERT INTO app_settings (setting_key, setting_value) VALUES ('enrolled_children', '1000') ON DUPLICATE KEY UPDATE updated_at = NOW()");
+      } catch (e) {}
+
 
       // 6. Sync Backup to Supabase
       const { syncBackupToSupabase } = await import("@/lib/db/mysql");
