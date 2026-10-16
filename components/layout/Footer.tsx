@@ -80,7 +80,7 @@ export function Footer() {
   };
 
   return (
-    <footer className="bg-charcoal-deep text-white/80 pt-16 pb-8 border-t border-charcoal">
+    <footer className="bg-charcoal-deep text-white/80 pt-16 pb-8 border-t border-charcoal print:hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Top Newsletter Card */}
         <div className="bg-gradient-to-r from-primary-900 via-primary-800 to-primary-950 rounded-3xl p-8 md:p-12 mb-16 border border-primary-700/50 shadow-2xl relative overflow-hidden">

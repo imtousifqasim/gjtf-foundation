@@ -49,22 +49,95 @@ export default async function DonationReceiptPage({
   const receiptNo = `GJTF-REC-${String(donation.id || "").slice(-8).toUpperCase()}`;
 
   return (
-    <div className="min-h-screen bg-slate-100 py-10 px-4 sm:px-6 lg:px-8 print:bg-white print:py-0 print:px-0">
-      <div className="max-w-3xl mx-auto space-y-6">
-        
-        {/* Navigation & Print Controls (Hidden on print) */}
-        <div className="flex items-center justify-between gap-4 print:hidden">
-          <Link
-            href="/"
-            className="text-xs font-semibold text-slate-600 hover:text-primary-700 transition-colors flex items-center gap-1.5"
-          >
-            &larr; Back to gjtfoundation.com
-          </Link>
-          <ReceiptPrintButton receiptNo={receiptNo} />
-        </div>
+    <>
+      {/* Scoped Print Styles: Guarantees that only the receipt card prints, hiding all website layout elements */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @media print {
+              /* Strictly hide site header, top utility bar, footer, and any navigation elements */
+              header,
+              footer,
+              nav,
+              aside,
+              .print\\:hidden,
+              [role="navigation"],
+              #site-header,
+              #site-footer {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+              }
 
-        {/* Printable Official Receipt Card */}
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden print:shadow-none print:border-none print:rounded-none">
+              /* Reset page canvas so ONLY the receipt card occupies the paper */
+              html, body {
+                background: #ffffff !important;
+                color: #0f172a !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                min-height: auto !important;
+                height: auto !important;
+              }
+
+              main {
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+
+              @page {
+                size: A4 portrait;
+                margin: 8mm 10mm;
+              }
+
+              .receipt-wrapper {
+                padding: 0 !important;
+                margin: 0 !important;
+                min-height: auto !important;
+                background: transparent !important;
+              }
+
+              .receipt-card {
+                box-shadow: none !important;
+                border: 1px solid #cbd5e1 !important;
+                border-radius: 12px !important;
+                overflow: hidden !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 auto !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
+
+              /* Enforce exact colors and background graphics for printing */
+              * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+            }
+          `,
+        }}
+      />
+
+      <div className="receipt-wrapper min-h-screen bg-slate-100 py-10 px-4 sm:px-6 lg:px-8 print:bg-white print:py-0 print:px-0">
+        <div className="max-w-3xl mx-auto space-y-6 print:space-y-0 print:max-w-none">
+          {/* Navigation & Print Controls (Hidden on print) */}
+          <div className="flex items-center justify-between gap-4 print:hidden">
+            <Link
+              href="/"
+              className="text-xs font-semibold text-slate-600 hover:text-primary-700 transition-colors flex items-center gap-1.5"
+            >
+              &larr; Back to gjtfoundation.com
+            </Link>
+            <ReceiptPrintButton receiptNo={receiptNo} />
+          </div>
+
+          {/* Printable Official Receipt Card */}
+          <div className="receipt-card bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden print:shadow-none print:border-none print:rounded-none">
           {/* Header */}
           <div className="bg-gradient-to-r from-[#0b1536] via-[#1e3a8a] to-[#0b1536] text-white p-8 sm:p-10 border-b-4 border-blue-600 print:bg-slate-900 print:text-white">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
@@ -184,5 +257,6 @@ export default async function DonationReceiptPage({
 
       </div>
     </div>
+    </>
   );
 }

@@ -58,7 +58,7 @@ export function Header({ donorLoggedIn = false }: HeaderProps) {
   return (
     <>
       {/* Top Utility Bar */}
-      <div className="bg-[#0b1536] text-white text-xs py-2 px-4 sm:px-8 border-b border-white/10 hidden md:block">
+      <div className="bg-[#0b1536] text-white text-xs py-2 px-4 sm:px-8 border-b border-white/10 hidden md:block print:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-1.5 text-slate-200">
@@ -138,7 +138,7 @@ export function Header({ donorLoggedIn = false }: HeaderProps) {
       {/* Main Navigation Header */}
       <header
         className={cn(
-          "sticky top-0 z-50 w-full transition-all duration-200",
+          "sticky top-0 z-50 w-full transition-all duration-200 print:hidden",
           isScrolled
             ? "bg-white/95 backdrop-blur-md shadow-md"
             : "bg-white border-b border-slate-200"
