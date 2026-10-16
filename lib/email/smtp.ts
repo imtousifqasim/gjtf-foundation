@@ -15,29 +15,36 @@ export async function getSmtpConfig(): Promise<SmtpConfig> {
   try {
     const data = await getSmtpSettingsDb();
 
-    if (data) {
+    // Use DB settings if both username and password are saved
+    if (data && data.user_name && data.password) {
+      const port = Number(data.port) || Number(process.env.SMTP_PORT) || 465;
+      const isSecure = data.secure !== undefined ? Boolean(data.secure) : port === 465;
       return {
-        host: data.host || process.env.SMTP_HOST || "smtp.gmail.com",
-        port: Number(data.port) || Number(process.env.SMTP_PORT) || 587,
-        secure: Boolean(data.secure),
-        user_name: data.user_name || process.env.SMTP_USER || "",
-        password: data.password || process.env.SMTP_PASS || "",
-        from_name: data.from_name || "Ghais Jhuggi Taleem Foundation",
-        from_email: data.from_email || data.user_name || "info@gjtfoundation.com",
+        host: data.host || process.env.SMTP_HOST || "smtp.hostinger.com",
+        port,
+        secure: isSecure,
+        user_name: data.user_name || process.env.SMTP_USER || "admin@gjtfoundation.com",
+        password: data.password || process.env.SMTP_PASS || "4hZN6j9Nr+",
+        from_name: data.from_name || process.env.SMTP_FROM_NAME || "Ghais Jhuggi Taleem Foundation",
+        from_email: data.from_email || data.user_name || process.env.SMTP_FROM || "admin@gjtfoundation.com",
       };
     }
   } catch (err) {
     console.warn("Could not fetch smtp_settings from Hostinger MySQL:", err);
   }
 
+  // Fallback to environment variables or Hostinger defaults
+  const envPort = Number(process.env.SMTP_PORT) || 465;
+  const envSecure = process.env.SMTP_SECURE === "true" || envPort === 465;
+
   return {
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false,
-    user_name: process.env.SMTP_USER || "",
-    password: process.env.SMTP_PASS || "",
-    from_name: "Ghais Jhuggi Taleem Foundation",
-    from_email: process.env.SMTP_FROM || "info@gjtfoundation.com",
+    host: process.env.SMTP_HOST || "smtp.hostinger.com",
+    port: envPort,
+    secure: envSecure,
+    user_name: process.env.SMTP_USER || "admin@gjtfoundation.com",
+    password: process.env.SMTP_PASS || "4hZN6j9Nr+",
+    from_name: process.env.SMTP_FROM_NAME || "Ghais Jhuggi Taleem Foundation",
+    from_email: process.env.SMTP_FROM || process.env.SMTP_USER || "admin@gjtfoundation.com",
   };
 }
 
@@ -45,7 +52,7 @@ export async function createTransporter(config?: SmtpConfig) {
   const settings = config || (await getSmtpConfig());
 
   if (!settings.host || !settings.user_name || !settings.password) {
-    throw new Error("SMTP credentials are not configured yet. Please configure them in Admin Settings.");
+    throw new Error("SMTP credentials are not configured yet. Please configure them in Admin Settings or .env.local.");
   }
 
   return nodemailer.createTransport({
@@ -59,6 +66,9 @@ export async function createTransporter(config?: SmtpConfig) {
     tls: {
       rejectUnauthorized: false,
     },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
   });
 }
 
@@ -76,8 +86,10 @@ export async function sendEmail({
   const config = await getSmtpConfig();
   const transporter = await createTransporter(config);
 
+  const senderAddress = config.from_email || config.user_name || "admin@gjtfoundation.com";
   const mailOptions = {
-    from: `"${config.from_name}" <${config.from_email || config.user_name}>`,
+    from: `"${config.from_name || "Ghais Jhuggi Taleem Foundation"}" <${senderAddress}>`,
+    replyTo: `"${config.from_name || "Ghais Jhuggi Taleem Foundation"}" <${senderAddress}>`,
     to: Array.isArray(to) ? to.join(", ") : to,
     subject,
     text: text || html.replace(/<[^>]*>?/gm, ""),

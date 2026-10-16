@@ -27,13 +27,13 @@ export default function AdminSmtpClient({
 }) {
   const [config, setConfig] = React.useState<SmtpConfig>(
     initialConfig || {
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      user_name: "",
+      host: "smtp.hostinger.com",
+      port: 465,
+      secure: true,
+      user_name: "admin@gjtfoundation.com",
       password: "",
       from_name: "Ghais Jhuggi Taleem Foundation",
-      from_email: "info@gjtfoundation.com",
+      from_email: "admin@gjtfoundation.com",
     }
   );
 

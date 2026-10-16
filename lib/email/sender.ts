@@ -41,9 +41,9 @@ export async function sendTransactionalEmail(options: SendTransactionalEmailOpti
             Authorization: `Bearer ${resendApiKey.trim()}`,
           },
           body: JSON.stringify({
-            from: process.env.RESEND_FROM || "Ghais Jhuggi Taleem Foundation <no-reply@gjtfoundation.com>",
+            from: process.env.RESEND_FROM || "Ghais Jhuggi Taleem Foundation <admin@gjtfoundation.com>",
             to: [to],
-            reply_to: "jhuggitaleemiproject@gmail.com",
+            reply_to: "admin@gjtfoundation.com",
             subject,
             html,
             text,

@@ -613,13 +613,13 @@ export async function saveSmtpSettingsDb(smtp: any): Promise<void> {
       updated_at = NOW();
   `;
   await query(sql, [
-    smtp.host || "smtp.gmail.com",
-    Number(smtp.port) || 587,
-    smtp.secure ? 1 : 0,
-    smtp.user_name || "",
+    smtp.host || "smtp.hostinger.com",
+    Number(smtp.port) || 465,
+    smtp.secure ? 1 : (Number(smtp.port) === 465 ? 1 : 0),
+    smtp.user_name || "admin@gjtfoundation.com",
     smtp.password || "",
     smtp.from_name || "Ghais Jhuggi Taleem Foundation",
-    smtp.from_email || "info@gjtfoundation.com",
+    smtp.from_email || "admin@gjtfoundation.com",
   ]);
 
   syncBackupToSupabase("saveSmtpSettings", (sb) =>
