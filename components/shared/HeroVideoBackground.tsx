@@ -55,7 +55,7 @@ export function HeroVideoBackground({
         fill
         priority
         className={`object-cover object-center transition-opacity duration-1000 ${
-          isLoaded ? "opacity-20" : "opacity-100"
+          isLoaded ? "opacity-0" : "opacity-100"
         }`}
         sizes="100vw"
       />
@@ -78,18 +78,15 @@ export function HeroVideoBackground({
         )}
       </div>
 
-      {/* Upper Black & Cinematic Gradient Overlays for High Legibility & Vibrant Colors */}
-      {/* 1. Deep black base tint */}
-      <div className="absolute inset-0 bg-black/60" />
+      {/* Balanced Cinematic Overlays: Lighter so video is clearly visible while text stays crisp */}
+      {/* 1. Gentle vertical framing gradient (darker near navbar & bottom, bright & open in the center) */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/25 to-black/65" />
 
-      {/* 2. Top-to-bottom dark gradient to frame navbar and bottom stats */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-black/45 to-black/90" />
+      {/* 2. Soft horizontal framing vignette for side focus */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/35 via-transparent to-black/35" />
 
-      {/* 3. Horizontal vignette to keep center-stage text crisp */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-transparent to-black/80" />
-
-      {/* 4. Subtle rich primary green brand atmosphere */}
-      <div className="absolute inset-0 bg-primary-950/20 mix-blend-multiply" />
+      {/* 3. Subtle ambient brand tone */}
+      <div className="absolute inset-0 bg-primary-950/10 mix-blend-overlay" />
     </div>
   );
 }

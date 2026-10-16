@@ -94,7 +94,10 @@ export default async function HomePage() {
 
         {/* Content Container */}
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24 text-center text-white space-y-6 sm:space-y-7">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 text-slate-100 text-xs sm:text-sm font-semibold tracking-wider uppercase shadow-lg">
+          {/* Subtle localized ambient glow for optimal text readability without darkening the video */}
+          <div className="absolute inset-0 -z-10 mx-auto max-w-2xl rounded-full bg-black/25 blur-3xl pointer-events-none" />
+
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950/75 backdrop-blur-md border border-white/20 text-slate-100 text-xs sm:text-sm font-semibold tracking-wider uppercase shadow-xl">
             <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
             <EditableText id="home_hero_badge" defaultText="JHUGGI TALEEMI PROJECT • ESTABLISHED 2015" />
           </div>
@@ -103,14 +106,14 @@ export default async function HomePage() {
             as="h1"
             id="home_hero_title"
             defaultText="Donate to educate less-privileged children in Pakistan"
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-extrabold font-heading tracking-tight leading-tight sm:leading-snug max-w-3xl mx-auto drop-shadow-md select-text"
+            className="text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-extrabold font-heading tracking-tight leading-tight sm:leading-snug max-w-3xl mx-auto drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)] [text-shadow:_0_2px_14px_rgba(0,0,0,0.95)] select-text text-white"
           />
 
           <EditableText
             as="p"
             id="home_hero_subtitle"
             defaultText="The largest educational and skill development movement for over 20 million nomadic communities."
-            className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto font-normal leading-relaxed drop-shadow select-text"
+            className="text-base sm:text-lg md:text-xl text-white font-medium max-w-2xl mx-auto leading-relaxed drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)] [text-shadow:_0_1px_8px_rgba(0,0,0,0.9)] select-text"
           />
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
