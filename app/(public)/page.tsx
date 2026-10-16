@@ -93,7 +93,7 @@ export default async function HomePage() {
         />
 
         {/* Content Container */}
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24 text-center text-white space-y-6 sm:space-y-7">
+        <div className="relative z-20 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24 text-center text-white space-y-6 sm:space-y-7">
           {/* Subtle localized ambient glow for optimal text readability without darkening the video */}
           <div className="absolute inset-0 -z-10 mx-auto max-w-2xl rounded-full bg-black/25 blur-3xl pointer-events-none" />
 
