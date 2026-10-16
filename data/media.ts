@@ -79,7 +79,7 @@ export const media = {
         category: "Success Stories",
         description: "Real journeys of slum children gaining knowledge, dignity, and building a brighter future through Jhuggi Taleemi Project.",
         videoUrl: "https://github.com/imtousifqasim/gjtf-foundation/releases/download/v1.0.0-media/Succesful-stories.mp4",
-        posterUrl: "https://gjtfoundation.com/wp-content/uploads/2025/06/WhatsApp-Image-2022-08-21-at-10.32.19-PM-1.jpeg",
+        posterUrl: "/images/aims-education.jpg",
       },
       {
         id: "vid-002",
@@ -87,7 +87,7 @@ export const media = {
         category: "Community Review",
         description: "Heartfelt feedback from a slum settlement elder and parent on the profound community change brought by GJTF schools.",
         videoUrl: "https://github.com/imtousifqasim/gjtf-foundation/releases/download/v1.0.0-media/Uncle-review.mp4",
-        posterUrl: "https://gjtfoundation.com/wp-content/uploads/2025/06/Faisalbad-School-scaled.jpg",
+        posterUrl: "/images/aims-community-services.jpg",
       },
       {
         id: "vid-003",
@@ -95,7 +95,7 @@ export const media = {
         category: "Student Story",
         description: "From informal street labor to academic excellence — Sajid shares his personal transformation story.",
         videoUrl: "https://github.com/imtousifqasim/gjtf-foundation/releases/download/v1.0.0-media/Sajid-Story.mp4",
-        posterUrl: "https://gjtfoundation.com/wp-content/uploads/2025/06/2-scaled.jpeg",
+        posterUrl: "/images/aims-vision.jpg",
       },
       {
         id: "vid-004",
@@ -103,7 +103,7 @@ export const media = {
         category: "Vocational Training",
         description: "Empowering mothers and adolescent girls in nomadic settlements with sewing skills and financial self-sufficiency.",
         videoUrl: "https://github.com/imtousifqasim/gjtf-foundation/releases/download/v1.0.0-media/Stiching.mp4",
-        posterUrl: "https://gjtfoundation.com/wp-content/uploads/2025/06/Raiwind-school-3.jpeg",
+        posterUrl: "/images/aims-services.jpg",
       },
     ],
   },

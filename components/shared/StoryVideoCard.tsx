@@ -36,7 +36,7 @@ export function StoryVideoCard({ video }: StoryVideoCardProps) {
 
   const fallbackPoster =
     video.posterUrl ||
-    "https://gjtfoundation.com/wp-content/uploads/2025/06/WhatsApp-Image-2022-08-21-at-10.32.19-PM-1.jpeg";
+    "/images/aims-education.jpg";
 
   const handleStartPlayback = (e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
