@@ -14,6 +14,8 @@ export interface DonationEmailData {
   createdAt?: string;
   customMessage?: string | null;
   unsubscribeToken?: string;
+  uploadUrl?: string;
+  rejectionReason?: string;
 }
 
 export function formatCurrencyAmount(amount: number | string, currency: string = "PKR"): string {
@@ -163,6 +165,21 @@ export function createDonationReceivedEmail(data: DonationEmailData) {
     </p>
 
     ${BANK_DETAILS_HTML}
+
+    ${
+      data.uploadUrl
+        ? `
+        <div style="text-align: center; margin: 28px 0 20px;">
+          <a href="${data.uploadUrl}" class="btn-primary" target="_blank" style="display: inline-block; background-color: #0d5c3a; color: #ffffff; padding: 14px 28px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            I Have Paid: Upload Payment Screenshot &rarr;
+          </a>
+          <p style="margin: 8px 0 0; color: #64748b; font-size: 12px;">
+            Securely upload your bank transfer slip or banking app receipt to expedite verification.
+          </p>
+        </div>
+        `
+        : ""
+    }
 
     <p style="margin: 20px 0 0; color: #64748b; font-size: 13px; line-height: 1.6;">
       May Almighty reward your noble contribution in abundance.<br/>
@@ -537,3 +554,158 @@ https://gjtfoundation.com
 
   return { subject, html, text };
 }
+
+// -------------------------------------------------------------
+// 6. Payment Proof Received (Under Verification)
+// -------------------------------------------------------------
+export function createPaymentProofReceivedEmail(data: DonationEmailData) {
+  const donorDisplayName = data.donorName && data.donorName.trim() ? data.donorName : "Generous Donor";
+  const formattedAmt = formatCurrencyAmount(data.amount, data.currency);
+  const subject = `Payment Screenshot Received: Pledge #${data.pledgeId} Under Verification - GJTF`;
+  const preheader = `We have safely received your payment screenshot for ${formattedAmt}. Our accounts team is reviewing it.`;
+
+  const contentHtml = `
+    <div style="margin-bottom: 24px;">
+      <span style="display: inline-block; background-color: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+        Screenshot Received • Under Verification
+      </span>
+      <h1 style="margin: 0 0 12px; font-size: 24px; font-weight: 800; color: #0b1536; line-height: 1.3;">
+        Screenshot Received, ${escapeHtml(donorDisplayName)}!
+      </h1>
+      <p style="margin: 0; color: #334155; font-size: 15px; line-height: 1.6;">
+        We have safely received the payment screenshot for your donation pledge of <strong>${escapeHtml(formattedAmt)}</strong> towards 
+        <strong>${escapeHtml(data.cause)}</strong> (Reference <strong>#${escapeHtml(data.pledgeId)}</strong>).
+      </p>
+    </div>
+
+    <!-- Status Box -->
+    <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+      <h3 style="margin: 0 0 10px; font-size: 14px; font-weight: 700; color: #0b1536;">What happens next?</h3>
+      <p style="margin: 0 0 12px; color: #475569; font-size: 13px; line-height: 1.6;">
+        1. Our Finance &amp; Accounts team verifies the credit in our official bank account.<br/>
+        2. Once verified, your pledge status will automatically change to <strong>Completed</strong>.<br/>
+        3. You will receive an official tax-exempt digital receipt with your unique receipt number.
+      </p>
+      ${
+        data.uploadUrl
+          ? `<p style="margin: 0; font-size: 13px;"><a href="${data.uploadUrl}" style="color: #0d5c3a; font-weight: 700; text-decoration: underline;">View your pledge status and uploaded proofs &rarr;</a></p>`
+          : ""
+      }
+    </div>
+
+    <p style="margin: 0; color: #64748b; font-size: 13px; line-height: 1.6;">
+      Thank you for your patience and for transforming nomadic children's lives.<br/>
+      <strong>Finance & Accounts Directorate</strong><br/>
+      Ghais Jhuggi Taleem Foundation
+    </p>
+  `;
+
+  const html = renderBaseEmailHtml({
+    title: subject,
+    preheader,
+    contentHtml,
+    recipientEmail: data.donorEmail,
+  });
+
+  const text = `
+Dear ${donorDisplayName},
+
+We have safely received your payment screenshot for pledge #${data.pledgeId} (${formattedAmt} for "${data.cause}").
+
+Our Finance & Accounts team is currently verifying the transfer with our bank statement. Once confirmed, you will receive your official tax receipt automatically.
+
+You can track your pledge status at:
+${data.uploadUrl || "https://gjtf-foundation.vercel.app"}
+
+Warm regards,
+Finance & Accounts Directorate
+Ghais Jhuggi Taleem Foundation
+https://gjtfoundation.com
+  `.trim();
+
+  return { subject, html, text };
+}
+
+// -------------------------------------------------------------
+// 7. Payment Proof Rejected (Re-upload Request)
+// -------------------------------------------------------------
+export function createPaymentProofRejectedEmail(data: DonationEmailData) {
+  const donorDisplayName = data.donorName && data.donorName.trim() ? data.donorName : "Generous Donor";
+  const formattedAmt = formatCurrencyAmount(data.amount, data.currency);
+  const subject = `Action Needed: Payment Verification Update for Pledge #${data.pledgeId} - GJTF`;
+  const preheader = `We could not verify your payment screenshot. Please review the reason and re-upload.`;
+  const reasonText = data.rejectionReason || "The transfer details could not be verified against the bank statement.";
+
+  const contentHtml = `
+    <div style="margin-bottom: 24px;">
+      <span style="display: inline-block; background-color: #fee2e2; color: #991b1b; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+        Action Required • Re-Upload Screenshot
+      </span>
+      <h1 style="margin: 0 0 12px; font-size: 24px; font-weight: 800; color: #0b1536; line-height: 1.3;">
+        Hello, ${escapeHtml(donorDisplayName)}
+      </h1>
+      <p style="margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;">
+        Our accounts team reviewed the uploaded screenshot for your donation pledge of 
+        <strong>${escapeHtml(formattedAmt)}</strong> (Reference <strong>#${escapeHtml(data.pledgeId)}</strong>), 
+        but was unable to confirm the transaction.
+      </p>
+    </div>
+
+    <!-- Reason Box -->
+    <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;">
+      <strong style="color: #991b1b; font-size: 14px; display: block; margin-bottom: 6px;">Reason provided by Accounts Directorate:</strong>
+      <p style="margin: 0; color: #7f1d1d; font-size: 14px; line-height: 1.5; font-style: italic;">
+        "${escapeHtml(reasonText)}"
+      </p>
+    </div>
+
+    <!-- Re-upload CTA -->
+    ${
+      data.uploadUrl
+        ? `
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${data.uploadUrl}" class="btn-primary" target="_blank" style="display: inline-block; background-color: #0d5c3a; color: #ffffff; padding: 14px 28px; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 15px;">
+            Re-Upload Payment Screenshot &rarr;
+          </a>
+        </div>
+        `
+        : ""
+    }
+
+    ${BANK_DETAILS_HTML}
+
+    <p style="margin: 0; color: #64748b; font-size: 13px; line-height: 1.6;">
+      Need help? Reply directly to this email or contact us via WhatsApp: <strong>${siteConfig.phone2.display}</strong>.<br/>
+      Ghais Jhuggi Taleem Foundation
+    </p>
+  `;
+
+  const html = renderBaseEmailHtml({
+    title: subject,
+    preheader,
+    contentHtml,
+    recipientEmail: data.donorEmail,
+  });
+
+  const text = `
+Dear ${donorDisplayName},
+
+Regarding your pledge #${data.pledgeId} (${formattedAmt} for "${data.cause}"):
+
+Our accounts team reviewed your payment screenshot but could not verify the transfer for the following reason:
+"${reasonText}"
+
+Please review the reason and re-upload a clear screenshot or banking app transfer receipt here:
+${data.uploadUrl || "https://gjtf-foundation.vercel.app"}
+
+If you need any assistance, reply directly to this email or message us on WhatsApp (${siteConfig.phone2.display}).
+
+Warm regards,
+Finance & Accounts Directorate
+Ghais Jhuggi Taleem Foundation
+https://gjtfoundation.com
+  `.trim();
+
+  return { subject, html, text };
+}
+

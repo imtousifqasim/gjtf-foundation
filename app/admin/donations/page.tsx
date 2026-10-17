@@ -19,8 +19,21 @@ import {
   ExternalLink,
   FileText,
   AlertTriangle,
+  ShieldCheck,
+  Image as ImageIcon,
+  Folder,
+  Copy,
+  Check,
 } from "lucide-react";
-import { updateDonationStatus, deleteDonation } from "@/app/actions/admin";
+import {
+  updateDonationStatus,
+  deleteDonation,
+  getDonationProofsAdminAction,
+  confirmDonationWithProofAction,
+  rejectPaymentProofAdminAction,
+  deletePaymentProofAdminAction,
+  getActiveBankAccountsAction,
+} from "@/app/actions/admin";
 import {
   setDonationReminderAction,
   getDonationReminderStatusAction,
@@ -28,6 +41,7 @@ import {
   sendDonationReminderNowAction,
 } from "@/app/actions/emails";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ProofViewerModal } from "@/components/donations/ProofViewerModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +57,7 @@ import {
 
 interface DonationRecord {
   id: string;
+  reference_no?: string | null;
   created_at: string;
   cause: string;
   frequency: string;
@@ -54,6 +69,12 @@ interface DonationRecord {
   donor_email: string | null;
   donor_phone: string | null;
   status: "pending" | "completed" | "failed";
+  proof_status?: "none" | "submitted" | "approved" | "rejected";
+  bank_transaction_ref?: string | null;
+  bank_account_id?: string | null;
+  confirmed_by?: string | null;
+  confirmed_at?: string | null;
+  paid_at?: string | null;
   payment_reference: string | null;
 }
 
@@ -62,9 +83,41 @@ export default function AdminDonationsPage() {
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("All");
+  const [proofFilter, setProofFilter] = React.useState<string>("All");
   const [causeFilter, setCauseFilter] = React.useState<string>("All");
   const [selectedDonation, setSelectedDonation] = React.useState<DonationRecord | null>(null);
   const [donationToDelete, setDonationToDelete] = React.useState<string | null>(null);
+
+  // Proof & Verification State
+  const [proofsList, setProofsList] = React.useState<any[]>([]);
+  const [proofsLoading, setProofsLoading] = React.useState(false);
+  const [duplicateWarnings, setDuplicateWarnings] = React.useState<any[]>([]);
+  const [viewerProof, setViewerProof] = React.useState<any | null>(null);
+
+  // Verification Confirm Modal State
+  const [confirmModalOpen, setConfirmModalOpen] = React.useState(false);
+  const [confirmAmount, setConfirmAmount] = React.useState<number>(0);
+  const [confirmBankAccountId, setConfirmBankAccountId] = React.useState<string>("");
+  const [confirmBankRef, setConfirmBankRef] = React.useState<string>("");
+  const [confirmDate, setConfirmDate] = React.useState<string>("");
+  const [confirmAdminNote, setConfirmAdminNote] = React.useState<string>("");
+  const [isConfirming, setIsConfirming] = React.useState(false);
+
+  // Reject Proof Modal State
+  const [rejectModalOpen, setRejectModalOpen] = React.useState(false);
+  const [rejectReason, setRejectReason] = React.useState<string>("");
+  const [selectedRejectProofId, setSelectedRejectProofId] = React.useState<string | null>(null);
+  const [isRejecting, setIsRejecting] = React.useState(false);
+
+  // Bank Accounts
+  const [bankAccounts, setBankAccounts] = React.useState<any[]>([]);
+  const [copiedText, setCopiedText] = React.useState<string | null>(null);
+
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedText(label);
+    setTimeout(() => setCopiedText(null), 2000);
+  };
 
   // Reminder Modal State
   const [reminderPledge, setReminderPledge] = React.useState<DonationRecord | null>(null);
@@ -108,6 +161,168 @@ export default function AdminDonationsPage() {
   React.useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Load proofs and bank accounts whenever selectedDonation changes
+  React.useEffect(() => {
+    if (selectedDonation) {
+      setProofsLoading(true);
+      getDonationProofsAdminAction(selectedDonation.id).then((res) => {
+        if (res.success) {
+          setProofsList(res.proofs || []);
+          setDuplicateWarnings(res.duplicates || []);
+        } else {
+          setProofsList([]);
+          setDuplicateWarnings([]);
+        }
+        setProofsLoading(false);
+      });
+
+      if (bankAccounts.length === 0) {
+        getActiveBankAccountsAction().then((res) => {
+          if (res.success && res.accounts.length > 0) {
+            setBankAccounts(res.accounts);
+          }
+        });
+      }
+    } else {
+      setProofsList([]);
+      setDuplicateWarnings([]);
+    }
+  }, [selectedDonation, bankAccounts.length]);
+
+  const handleOpenConfirmModal = (donation: DonationRecord) => {
+    setConfirmAmount(donation.amount);
+    const defaultAcc = bankAccounts.find((b: any) => b.is_active) || bankAccounts[0];
+    setConfirmBankAccountId(donation.bank_account_id || defaultAcc?.id || "");
+    const latestProof = proofsList[0];
+    setConfirmBankRef(donation.bank_transaction_ref || latestProof?.transaction_ref || "");
+    setConfirmDate(new Date().toISOString().split("T")[0]);
+    setConfirmAdminNote("");
+    setConfirmModalOpen(true);
+  };
+
+  const handleExecuteConfirm = async () => {
+    if (!selectedDonation) return;
+    if (!confirmBankRef.trim()) {
+      showToast("Bank transaction reference is required.", "error");
+      return;
+    }
+    if (!confirmBankAccountId) {
+      showToast("Please select receiving bank account.", "error");
+      return;
+    }
+
+    setIsConfirming(true);
+    const res = await confirmDonationWithProofAction({
+      donationId: selectedDonation.id,
+      receivedAmount: confirmAmount,
+      bankAccountId: confirmBankAccountId,
+      bankTransactionRef: confirmBankRef.trim(),
+      confirmationDate: confirmDate,
+      adminNote: confirmAdminNote.trim() || undefined,
+    });
+    setIsConfirming(false);
+
+    if (res.success) {
+      showToast(`Donation confirmed! Official receipt generated and emailed to donor.`, "success");
+      setConfirmModalOpen(false);
+      setDonations((prev) =>
+        prev.map((d) =>
+          d.id === selectedDonation.id
+            ? {
+                ...d,
+                status: "completed",
+                proof_status: "approved",
+                bank_transaction_ref: confirmBankRef.trim(),
+                bank_account_id: confirmBankAccountId,
+                confirmed_at: new Date().toISOString(),
+              }
+            : d
+        )
+      );
+      setSelectedDonation((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "completed",
+              proof_status: "approved",
+              bank_transaction_ref: confirmBankRef.trim(),
+              bank_account_id: confirmBankAccountId,
+              confirmed_at: new Date().toISOString(),
+            }
+          : null
+      );
+      getDonationProofsAdminAction(selectedDonation.id).then((r) => {
+        if (r.success) setProofsList(r.proofs || []);
+      });
+    } else {
+      showToast(res.error || "Failed to confirm donation", "error");
+    }
+  };
+
+  const handleOpenRejectModal = (proofId?: string) => {
+    setSelectedRejectProofId(proofId || null);
+    setRejectReason("");
+    setRejectModalOpen(true);
+  };
+
+  const handleExecuteReject = async () => {
+    if (!selectedDonation) return;
+    if (!rejectReason.trim()) {
+      showToast("Please provide a reason for rejection.", "error");
+      return;
+    }
+
+    setIsRejecting(true);
+    const res = await rejectPaymentProofAdminAction({
+      donationId: selectedDonation.id,
+      proofId: selectedRejectProofId || undefined,
+      reason: rejectReason.trim(),
+    });
+    setIsRejecting(false);
+
+    if (res.success) {
+      showToast("Proof rejected and donor notified with re-upload link.", "success");
+      setRejectModalOpen(false);
+      setDonations((prev) =>
+        prev.map((d) =>
+          d.id === selectedDonation.id ? { ...d, proof_status: "rejected" } : d
+        )
+      );
+      setSelectedDonation((prev) =>
+        prev ? { ...prev, proof_status: "rejected" } : null
+      );
+      getDonationProofsAdminAction(selectedDonation.id).then((r) => {
+        if (r.success) setProofsList(r.proofs || []);
+      });
+    } else {
+      showToast(res.error || "Failed to reject proof", "error");
+    }
+  };
+
+  const handleDeleteProof = async (proofId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this proof file from Google Drive?")) return;
+    const res = await deletePaymentProofAdminAction(proofId);
+    if (res.success) {
+      showToast("Proof permanently removed from Google Drive.", "success");
+      setProofsList((prev) => prev.filter((p) => p.id !== proofId));
+      if (selectedDonation) {
+        getDonationProofsAdminAction(selectedDonation.id).then((r) => {
+          if (r.success) {
+            setProofsList(r.proofs || []);
+            if ((r.proofs || []).length === 0) {
+              setDonations((prev) =>
+                prev.map((d) => (d.id === selectedDonation.id ? { ...d, proof_status: "none" } : d))
+              );
+              setSelectedDonation((prev) => (prev ? { ...prev, proof_status: "none" } : null));
+            }
+          }
+        });
+      }
+    } else {
+      showToast(res.error || "Failed to delete proof", "error");
+    }
+  };
 
   const handleStatusChange = async (newStatus: "pending" | "completed" | "failed") => {
     if (!selectedDonation) return;
@@ -236,23 +451,41 @@ export default function AdminDonationsPage() {
     }
   };
 
-  const filteredDonations = donations.filter((d) => {
-    const matchesSearch =
-      (d.donor_name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (d.donor_email || "").toLowerCase().includes(search.toLowerCase()) ||
-      d.id.toLowerCase().includes(search.toLowerCase());
+  const filteredDonations = React.useMemo(() => {
+    return donations
+      .filter((d) => {
+        const matchesSearch =
+          (d.donor_name || "").toLowerCase().includes(search.toLowerCase()) ||
+          (d.donor_email || "").toLowerCase().includes(search.toLowerCase()) ||
+          (d.reference_no || "").toLowerCase().includes(search.toLowerCase()) ||
+          d.id.toLowerCase().includes(search.toLowerCase());
 
-    const matchesStatus = statusFilter === "All" || d.status === statusFilter;
-    const matchesCause = causeFilter === "All" || d.cause === causeFilter;
+        const matchesStatus = statusFilter === "All" || d.status === statusFilter;
+        const matchesProof =
+          proofFilter === "All" ||
+          (proofFilter === "submitted" && d.proof_status === "submitted") ||
+          (proofFilter === "approved" && d.proof_status === "approved") ||
+          (proofFilter === "rejected" && d.proof_status === "rejected") ||
+          (proofFilter === "none" && (!d.proof_status || d.proof_status === "none"));
+        const matchesCause = causeFilter === "All" || d.cause === causeFilter;
 
-    return matchesSearch && matchesStatus && matchesCause;
-  });
+        return matchesSearch && matchesStatus && matchesProof && matchesCause;
+      })
+      .sort((a, b) => {
+        // Queue requirement: When filtering for proofs to review, sort oldest first!
+        if (proofFilter === "submitted") {
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        }
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+  }, [donations, search, statusFilter, proofFilter, causeFilter]);
 
   const exportCSV = () => {
-    const headers = ["ID,Date,Cause,Frequency,Currency,Amount,Type,Donor Name,Email,Phone,Country,Status"];
+    const headers = ["ID,Reference,Date,Cause,Frequency,Currency,Amount,Type,Donor Name,Email,Phone,Country,Status,Proof Status"];
     const rows = filteredDonations.map((d) =>
       [
         d.id,
+        d.reference_no || "",
         new Date(d.created_at).toISOString(),
         `"${(d.cause || "").replace(/"/g, '""')}"`,
         d.frequency,
@@ -264,6 +497,7 @@ export default function AdminDonationsPage() {
         d.donor_phone || "",
         `"${(d.country || "").replace(/"/g, '""')}"`,
         d.status,
+        d.proof_status || "none",
       ].join(",")
     );
     const blob = new Blob([[headers, ...rows].join("\n")], { type: "text/csv;charset=utf-8;" });
@@ -281,15 +515,10 @@ export default function AdminDonationsPage() {
     .filter((d) => (d.currency || "").toUpperCase() === "PKR")
     .reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
 
-  const aedTotal = donations
-    .filter((d) => (d.currency || "").toUpperCase() === "AED")
-    .reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
-
   const pkrCount = donations.filter((d) => (d.currency || "").toUpperCase() === "PKR").length;
-  const aedCount = donations.filter((d) => (d.currency || "").toUpperCase() === "AED").length;
-
   const completedCount = donations.filter((d) => d.status === "completed").length;
   const pendingCount = donations.filter((d) => d.status === "pending").length;
+  const proofSubmittedCount = donations.filter((d) => d.proof_status === "submitted").length;
 
   return (
     <div className="space-y-6">
@@ -312,13 +541,22 @@ export default function AdminDonationsPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 tracking-tight flex items-center gap-3">
             <Heart className="w-7 h-7 text-primary-700" />
-            Donations &amp; Pledge Management
+            Donations &amp; Proof Verification
           </h1>
           <p className="text-sm text-slate-600 mt-1">
-            Track pledges, issue official receipts on completion, and schedule automated donor reminders.
+            Review payment proofs, confirm bank credits with Bank Islami statement, and issue official receipts.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link href="/admin/payment-settings/proof-storage">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 gap-2 h-9"
+            >
+              <Folder className="w-4 h-4 text-primary-600" /> Drive Storage Settings
+            </Button>
+          </Link>
           <Button
             variant="outline"
             size="sm"
@@ -341,6 +579,7 @@ export default function AdminDonationsPage() {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total PKR */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">PKR Pledges</span>
@@ -354,19 +593,42 @@ export default function AdminDonationsPage() {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+        {/* Proofs to Review Queue Card */}
+        <div
+          onClick={() => {
+            setProofFilter(proofFilter === "submitted" ? "All" : "submitted");
+            setStatusFilter("All");
+          }}
+          className={`p-4 rounded-xl border shadow-xs flex flex-col justify-between cursor-pointer transition-all ${
+            proofFilter === "submitted"
+              ? "bg-amber-50 border-amber-400 ring-2 ring-amber-300"
+              : "bg-white border-slate-200 hover:border-amber-300 hover:bg-amber-50/30"
+          }`}
+          title="Click to toggle Review Queue"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">AED Pledges</span>
-            <span className="text-xs font-bold text-slate-600">AED</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+              Proofs Submitted
+            </span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-200/80 text-amber-900">
+              Queue
+            </span>
           </div>
           <div className="mt-2">
-            <div className="text-xl sm:text-2xl font-black font-heading text-slate-900">
-              AED {aedTotal.toLocaleString()}
+            <div className="text-xl sm:text-2xl font-black font-heading text-amber-900 flex items-center gap-2">
+              {proofSubmittedCount}
+              {proofSubmittedCount > 0 && (
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping inline-block" />
+              )}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">{aedCount} {aedCount === 1 ? "pledge" : "pledges"}</div>
+            <div className="text-xs text-amber-800/80 mt-0.5 font-medium">
+              {proofFilter === "submitted" ? "Active: Sorted oldest first" : "Click to view queue"}
+            </div>
           </div>
         </div>
 
+        {/* Verified & Received */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Verified &amp; Received</span>
@@ -380,6 +642,7 @@ export default function AdminDonationsPage() {
           </div>
         </div>
 
+        {/* Awaiting Proof */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Awaiting Proof</span>
@@ -394,40 +657,115 @@ export default function AdminDonationsPage() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
-          <Input
-            placeholder="Search by donor name, email, or pledge ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-10 text-sm border-slate-200 text-slate-900"
-          />
+      {/* Filter Bar with Quick Chips */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <div className="flex flex-wrap items-center gap-2 pb-1 border-b border-slate-100">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">Quick View:</span>
+          <button
+            type="button"
+            onClick={() => {
+              setProofFilter("All");
+              setStatusFilter("All");
+            }}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              proofFilter === "All" && statusFilter === "All"
+                ? "bg-slate-900 text-white"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
+          >
+            All Pledges
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setProofFilter("submitted");
+              setStatusFilter("All");
+            }}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              proofFilter === "submitted"
+                ? "bg-amber-600 text-white shadow-sm"
+                : "bg-amber-100/70 text-amber-800 hover:bg-amber-200"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Review Queue ({proofSubmittedCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setProofFilter("All");
+              setStatusFilter("pending");
+            }}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              statusFilter === "pending" && proofFilter === "All"
+                ? "bg-slate-900 text-white"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
+          >
+            Pending ({pendingCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setProofFilter("All");
+              setStatusFilter("completed");
+            }}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              statusFilter === "completed" && proofFilter === "All"
+                ? "bg-emerald-700 text-white"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
+          >
+            Completed ({completedCount})
+          </button>
         </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          <option value="All">All Statuses</option>
-          <option value="pending">Pending</option>
-          <option value="completed">Completed</option>
-          <option value="failed">Failed</option>
-        </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+            <Input
+              placeholder="Search by donor name, email, or pledge ID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 h-10 text-sm border-slate-200 text-slate-900"
+            />
+          </div>
 
-        <select
-          value={causeFilter}
-          onChange={(e) => setCauseFilter(e.target.value)}
-          className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          <option value="All">All Causes</option>
-          <option value="General Education">General Education</option>
-          <option value="Educate a Child">Educate a Child</option>
-          <option value="Support a Classroom">Support a Classroom</option>
-          <option value="Support a Child: KG to Matric">Support a Child: KG to Matric</option>
-        </select>
+          <select
+            value={proofFilter}
+            onChange={(e) => setProofFilter(e.target.value)}
+            className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="All">All Proof Statuses</option>
+            <option value="submitted">Proof Submitted (Review Queue)</option>
+            <option value="approved">Proof Approved</option>
+            <option value="rejected">Proof Rejected</option>
+            <option value="none">No Proof Uploaded</option>
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="All">All Donation Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+          </select>
+
+          <select
+            value={causeFilter}
+            onChange={(e) => setCauseFilter(e.target.value)}
+            className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="All">All Causes</option>
+            <option value="General Education">General Education</option>
+            <option value="Educate a Child">Educate a Child</option>
+            <option value="Support a Classroom">Support a Classroom</option>
+            <option value="Support a Child: KG to Matric">Support a Child: KG to Matric</option>
+          </select>
+        </div>
       </div>
 
       {/* Data Table */}
@@ -436,11 +774,11 @@ export default function AdminDonationsPage() {
           <TableHeader>
             <TableRow className="bg-slate-50/75 border-b border-slate-200">
               <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-600">Date</TableHead>
-              <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-600">Donor</TableHead>
+              <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-600">Donor &amp; Ref</TableHead>
               <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-600">Cause</TableHead>
               <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-600">Amount</TableHead>
-              <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-600">Type</TableHead>
-              <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-600">Status &amp; Follow-up</TableHead>
+              <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-600">Proof Status</TableHead>
+              <TableHead className="font-bold text-xs uppercase tracking-wider text-slate-600">Status</TableHead>
               <TableHead className="text-right font-bold text-xs uppercase tracking-wider text-slate-600 pr-6">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -473,10 +811,15 @@ export default function AdminDonationsPage() {
                       })}
                     </TableCell>
                     <TableCell>
-                      <div className="font-bold text-sm text-slate-900">
-                        {donation.donor_name || "Anonymous Donor"}
+                      <div className="font-bold text-sm text-slate-900 flex items-center gap-1.5 flex-wrap">
+                        <span>{donation.donor_name || "Anonymous Donor"}</span>
+                        {donation.reference_no && (
+                          <span className="text-[10px] bg-slate-100 text-slate-600 font-mono px-1.5 py-0.5 rounded border border-slate-200">
+                            #{donation.reference_no}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-xs text-slate-500">{donation.donor_email || "—"}</div>
+                      <div className="text-xs text-slate-500 font-mono">{donation.donor_email || "—"}</div>
                     </TableCell>
                     <TableCell className="text-xs font-medium text-slate-700 max-w-[160px] truncate" title={donation.cause}>
                       {donation.cause}
@@ -488,9 +831,21 @@ export default function AdminDonationsPage() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-xs font-semibold text-slate-800">
-                        {donation.donation_type}
-                      </span>
+                      {donation.proof_status === "submitted" ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                          <Clock className="w-3 h-3 text-amber-700" /> Proof Submitted
+                        </span>
+                      ) : donation.proof_status === "approved" ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-700" /> Verified
+                        </span>
+                      ) : donation.proof_status === "rejected" ? (
+                        <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-900 border border-rose-300">
+                          Rejected
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">None</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
@@ -514,6 +869,18 @@ export default function AdminDonationsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap space-x-1 pr-6" onClick={(e) => e.stopPropagation()}>
+                      {donation.proof_status === "submitted" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedDonation(donation)}
+                          className="h-8 px-2.5 text-xs font-bold text-amber-800 border-amber-300 bg-amber-50 hover:bg-amber-100 rounded-lg gap-1 shadow-xs"
+                          title="Review Uploaded Proof"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-700" /> Review
+                        </Button>
+                      )}
+
                       {isPending && (
                         <Button
                           variant="outline"
@@ -583,167 +950,654 @@ export default function AdminDonationsPage() {
         onOpenChange={(open) => !open && setSelectedDonation(null)}
       >
         {selectedDonation && (
-          <div className="space-y-4">
+          <div className="space-y-5 max-h-[85vh] overflow-y-auto pr-1">
             <DialogHeader>
-              <div className="flex items-center justify-between">
-                <DialogTitle className="text-slate-900 text-xl font-heading font-extrabold">Pledge Details</DialogTitle>
-                <Badge
-                  variant={
-                    selectedDonation.status === "completed"
-                      ? "success"
-                      : selectedDonation.status === "pending"
-                      ? "warning"
-                      : "outline"
-                  }
-                  className="capitalize"
-                >
-                  {selectedDonation.status}
-                </Badge>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <DialogTitle className="text-slate-900 text-xl font-heading font-extrabold flex items-center gap-2">
+                    Pledge Details
+                    {selectedDonation.reference_no && (
+                      <span className="font-mono text-sm text-primary-700 bg-primary-50 px-2 py-0.5 rounded border border-primary-200">
+                        #{selectedDonation.reference_no}
+                      </span>
+                    )}
+                  </DialogTitle>
+                  <DialogDescription className="text-slate-500 text-xs mt-0.5">
+                    ID: <code className="font-mono text-slate-700">{selectedDonation.id}</code> • Recorded on{" "}
+                    {new Date(selectedDonation.created_at).toLocaleString()}
+                  </DialogDescription>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Badge
+                    variant={
+                      selectedDonation.status === "completed"
+                        ? "success"
+                        : selectedDonation.status === "pending"
+                        ? "warning"
+                        : "outline"
+                    }
+                    className="capitalize font-bold text-xs"
+                  >
+                    {selectedDonation.status}
+                  </Badge>
+                  {selectedDonation.proof_status === "submitted" && (
+                    <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-xs font-bold gap-1 animate-pulse">
+                      <Clock className="w-3 h-3 text-amber-700" /> Proof Submitted
+                    </Badge>
+                  )}
+                  {selectedDonation.proof_status === "approved" && (
+                    <Badge className="bg-emerald-100 text-emerald-900 border-emerald-300 text-xs font-bold gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-700" /> Proof Approved
+                    </Badge>
+                  )}
+                  {selectedDonation.proof_status === "rejected" && (
+                    <Badge className="bg-rose-100 text-rose-900 border-rose-300 text-xs font-bold">
+                      Proof Rejected
+                    </Badge>
+                  )}
+                </div>
               </div>
-              <DialogDescription className="text-slate-500 text-xs mt-1">
-                Pledge ID: <code className="font-mono font-bold text-slate-700">{selectedDonation.id}</code> • Logged on{" "}
-                {new Date(selectedDonation.created_at).toLocaleString()}
-              </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-4 p-5 rounded-2xl bg-slate-50 border border-slate-200 text-sm">
-              <div>
-                <span className="text-xs text-slate-500 block font-medium">Donor Name</span>
-                <span className="font-bold text-slate-900">
-                  {selectedDonation.donor_name || "Anonymous Donor"}
+            {/* MANDATORY Verification Reminder Notice */}
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs sm:text-sm flex items-start gap-3 shadow-xs">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <span className="font-extrabold block text-amber-900">
+                  Bank Credit Verification Notice
                 </span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block font-medium">Email Address</span>
-                <span className="font-medium text-slate-900 font-mono text-xs">
-                  {selectedDonation.donor_email || "Not provided"}
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block font-medium">Phone Number</span>
-                <span className="font-medium text-slate-900">
-                  {selectedDonation.donor_phone || "Not provided"}
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block font-medium">Donor Country</span>
-                <span className="font-medium text-slate-900">{selectedDonation.country}</span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block font-medium">Cause</span>
-                <span className="font-bold text-primary-700">{selectedDonation.cause}</span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block font-medium">Amount &amp; Currency</span>
-                <span className="font-bold font-mono text-primary-700 text-base">
-                  {selectedDonation.currency} {selectedDonation.amount.toLocaleString()} (
-                  {selectedDonation.frequency})
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block font-medium">Type</span>
-                <span className="font-medium text-slate-900">
-                  {selectedDonation.donation_type}
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block font-medium">Payment Reference</span>
-                <span className="font-mono text-xs text-slate-900">
-                  {selectedDonation.payment_reference || "Direct pledge / Pending gateway"}
+                <span className="text-amber-800 text-xs leading-relaxed block">
+                  A screenshot or slip is <strong>not proof of payment</strong>. Confirm this donation only after directly seeing and matching the credited funds in your Bank Islami online banking portal or official statement.
                 </span>
               </div>
             </div>
 
-            {/* Completed Receipt Shortcut */}
+            {/* Confirmed Transaction Record if Completed */}
             {selectedDonation.status === "completed" && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3">
-                <span className="text-xs text-emerald-800 font-semibold">
-                  Official tax-exempt receipt issued for this donation.
-                </span>
-                <Link
-                  href={`/receipt/${encodeURIComponent(selectedDonation.id)}`}
-                  target="_blank"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-900 underline"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" /> View Receipt
-                </Link>
+              <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-xs space-y-2">
+                <div className="font-bold text-emerald-900 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-sm">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Verified Bank Credit
+                  </span>
+                  <Link
+                    href={`/receipt/${encodeURIComponent(selectedDonation.id)}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-900 underline"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Official Receipt
+                  </Link>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-slate-700">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">Bank Account</span>
+                    <span className="font-semibold text-slate-900">
+                      {bankAccounts.find((b) => b.id === selectedDonation.bank_account_id)?.bank_name || "Bank Islami"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">Bank Transaction Ref</span>
+                    <span className="font-mono font-bold text-slate-900 text-[11px]">
+                      {selectedDonation.bank_transaction_ref || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">Confirmed By</span>
+                    <span className="font-medium text-slate-900 font-mono text-[11px]">
+                      {selectedDonation.confirmed_by || "Admin"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">Confirmed At</span>
+                    <span className="font-medium text-slate-900">
+                      {selectedDonation.confirmed_at ? new Date(selectedDonation.confirmed_at).toLocaleString() : "—"}
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* Change Status Controls & Actions */}
-            <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                  Change Pledge Status (Dispatches Branded Email):
+            {/* Pledge Information Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+              <div>
+                <span className="text-[10px] text-slate-500 block font-medium">Donor Name</span>
+                <span className="font-bold text-slate-900 text-sm">
+                  {selectedDonation.donor_name || "Anonymous"}
                 </span>
-                <div className="flex flex-wrap gap-1.5">
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 block font-medium">Email Address</span>
+                <span className="font-medium text-slate-900 font-mono">
+                  {selectedDonation.donor_email || "—"}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 block font-medium">Phone</span>
+                <span className="font-medium text-slate-900">
+                  {selectedDonation.donor_phone || "—"}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 block font-medium">Country</span>
+                <span className="font-medium text-slate-900">{selectedDonation.country}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 block font-medium">Cause</span>
+                <span className="font-bold text-primary-700">{selectedDonation.cause}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 block font-medium">Amount &amp; Frequency</span>
+                <span className="font-bold font-mono text-primary-700 text-sm">
+                  {selectedDonation.currency} {selectedDonation.amount.toLocaleString()}{" "}
+                  <span className="font-normal text-[10px] text-slate-500">({selectedDonation.frequency})</span>
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 block font-medium">Type</span>
+                <span className="font-medium text-slate-900">{selectedDonation.donation_type}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 block font-medium">Payment Remarks Ref</span>
+                <span className="font-mono font-bold text-slate-900 text-[11px]">
+                  #{selectedDonation.reference_no || selectedDonation.id}
+                </span>
+              </div>
+            </div>
+
+            {/* Payment Proofs Inspection Section */}
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold font-heading text-slate-900 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-primary-600" />
+                  Uploaded Payment Proofs ({proofsList.length})
+                </h3>
+                {selectedDonation.proof_status === "submitted" && (
+                  <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
+                    Awaiting Verification
+                  </span>
+                )}
+              </div>
+
+              {proofsLoading ? (
+                <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-2xl border border-slate-200">
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto text-primary-600 mb-1" />
+                  <span className="text-xs">Loading uploaded screenshots...</span>
+                </div>
+              ) : proofsList.length === 0 ? (
+                <div className="p-6 text-center text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-1">
+                  <p className="text-xs font-semibold text-slate-700">No payment proof uploaded yet</p>
+                  <p className="text-[11px] text-slate-500">
+                    The donor has not yet uploaded a transfer receipt. You can schedule a reminder email.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {proofsList.map((proof) => {
+                    const dupMatch = duplicateWarnings.find((w) => w.proofId === proof.id);
+
+                    return (
+                      <div
+                        key={proof.id}
+                        className={`p-4 rounded-2xl border bg-white transition-all space-y-3 ${
+                          dupMatch
+                            ? "border-amber-400 bg-amber-50/20 shadow-sm"
+                            : "border-slate-200 shadow-xs"
+                        }`}
+                      >
+                        {/* Duplicate Alert Banner */}
+                        {dupMatch && (
+                          <div className="p-2.5 bg-amber-100 border border-amber-300 rounded-xl text-amber-950 text-xs font-semibold flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                            <span>
+                              <strong>Warning: Duplicate Screenshot!</strong> Identical file previously uploaded in pledge{" "}
+                              <strong>#{dupMatch.otherRefNo}</strong>.
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          {/* Image Thumbnail with zoom overlay */}
+                          <div
+                            onClick={() => setViewerProof(proof)}
+                            className="relative w-full sm:w-36 h-36 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 cursor-pointer group shadow-xs"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`/api/proofs/${proof.id}`}
+                              alt="Payment Proof Screenshot"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
+                              <Eye className="w-4 h-4" /> Full View
+                            </div>
+                          </div>
+
+                          {/* Details and Drive Metadata */}
+                          <div className="flex-1 space-y-2 text-xs">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <span className="font-bold text-slate-900 text-sm truncate max-w-xs">
+                                {proof.filename}
+                              </span>
+                              <Badge
+                                variant={
+                                  proof.status === "approved"
+                                    ? "success"
+                                    : proof.status === "submitted"
+                                    ? "warning"
+                                    : "outline"
+                                }
+                                className="capitalize text-[10px]"
+                              >
+                                {proof.status}
+                              </Badge>
+                            </div>
+
+                            {/* Donor-Supplied Fields */}
+                            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                              <div>
+                                <span className="text-[10px] text-slate-500 block">Sender Bank</span>
+                                <span className="font-medium text-slate-900">{proof.sender_bank || "Not specified"}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-500 block">Payment Date &amp; Time</span>
+                                <span className="font-medium text-slate-900">
+                                  {proof.paid_at ? new Date(proof.paid_at).toLocaleString() : "Not specified"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-500 block">Transaction Reference</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-mono font-bold text-slate-900 text-[11px]">
+                                    {proof.transaction_ref || "None"}
+                                  </span>
+                                  {proof.transaction_ref && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopy(proof.transaction_ref, proof.id + "_ref")}
+                                      className="text-slate-500 hover:text-slate-800"
+                                      title="Copy Transaction Ref"
+                                    >
+                                      {copiedText === proof.id + "_ref" ? (
+                                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                      ) : (
+                                        <Copy className="w-3.5 h-3.5" />
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-500 block">Amount Paid</span>
+                                <span className="font-mono font-bold text-slate-900">
+                                  {proof.paid_amount_minor
+                                    ? `PKR ${(Number(proof.paid_amount_minor) / 100).toLocaleString()}`
+                                    : "Not specified"}
+                                </span>
+                              </div>
+                              {proof.note && (
+                                <div className="col-span-2 pt-1 border-t border-slate-200/60">
+                                  <span className="text-[10px] text-slate-500 block">Donor Note:</span>
+                                  <p className="text-slate-800 text-[11px] italic">{proof.note}</p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Google Drive Location & Integrity */}
+                            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 flex-wrap gap-2">
+                              <span className="flex items-center gap-1 font-mono">
+                                <Folder className="w-3.5 h-3.5 text-primary-700" /> {proof.folder_path}
+                              </span>
+                              <span className="font-mono text-[10px] text-slate-400">
+                                SHA-256: {proof.sha256.slice(0, 12)}...
+                              </span>
+                            </div>
+
+                            {proof.reject_reason && (
+                              <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-900 text-[11px]">
+                                <strong>Rejection Reason:</strong> {proof.reject_reason}
+                              </div>
+                            )}
+
+                            {/* Actions per proof */}
+                            <div className="flex items-center justify-end gap-2 pt-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setViewerProof(proof)}
+                                className="h-7 text-xs font-semibold rounded-lg gap-1 border-slate-200"
+                              >
+                                <Eye className="w-3.5 h-3.5" /> Full Size &amp; Rotate
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteProof(proof.id)}
+                                className="h-7 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+                                title="Permanently delete from Google Drive"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete File
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Verification Actions Bar */}
+            <div className="pt-4 border-t border-slate-200 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-slate-900 block">
+                    Verification Decision
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    Confirm payment after matching bank statement, or reject proof with donor notice.
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {selectedDonation.proof_status === "submitted" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleOpenRejectModal()}
+                      className="rounded-xl text-xs font-bold text-rose-700 border-rose-300 hover:bg-rose-50 gap-1.5"
+                    >
+                      <XCircle className="w-3.5 h-3.5" /> Reject Proof
+                    </Button>
+                  )}
+
                   <Button
                     size="sm"
-                    variant={selectedDonation.status === "completed" ? "primary" : "outline"}
-                    onClick={() => handleStatusChange("completed")}
-                    className={`rounded-xl text-xs font-semibold gap-1.5 ${
-                      selectedDonation.status === "completed"
-                        ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-                        : "border-slate-200 text-slate-700 hover:bg-slate-50"
-                    }`}
+                    onClick={() => handleOpenConfirmModal(selectedDonation)}
+                    className="rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5 shadow-sm"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Completed (Sends Receipt)
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Confirm Bank Credit &amp; Send Receipt
                   </Button>
+                </div>
+              </div>
+
+              {/* Status Change Controls & Reminders */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">Status:</span>
                   <Button
                     size="sm"
                     variant={selectedDonation.status === "pending" ? "primary" : "outline"}
                     onClick={() => handleStatusChange("pending")}
-                    className={`rounded-xl text-xs font-semibold gap-1.5 ${
+                    className={`rounded-xl text-xs font-semibold h-8 ${
                       selectedDonation.status === "pending"
-                        ? "bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+                        ? "bg-amber-600 hover:bg-amber-700 text-white"
                         : "border-slate-200 text-slate-700 hover:bg-slate-50"
                     }`}
                   >
-                    <Clock className="w-3.5 h-3.5" /> Pending (Sends Instructions)
+                    Pending
                   </Button>
                   <Button
                     size="sm"
                     variant={selectedDonation.status === "failed" ? "primary" : "outline"}
                     onClick={() => handleStatusChange("failed")}
-                    className={`rounded-xl text-xs font-semibold gap-1.5 ${
+                    className={`rounded-xl text-xs font-semibold h-8 ${
                       selectedDonation.status === "failed"
-                        ? "bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
+                        ? "bg-rose-600 hover:bg-rose-700 text-white"
                         : "border-slate-200 text-slate-700 hover:bg-slate-50"
                     }`}
                   >
-                    <XCircle className="w-3.5 h-3.5" /> Failed
+                    Failed
                   </Button>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                {selectedDonation.status === "pending" && (
+                <div className="flex items-center gap-2">
+                  {selectedDonation.status === "pending" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        handleOpenReminder(selectedDonation);
+                        setSelectedDonation(null);
+                      }}
+                      className="rounded-xl text-xs font-bold text-purple-700 border-purple-200 bg-purple-50 hover:bg-purple-100 gap-1.5 h-8"
+                    >
+                      <Bell className="w-3.5 h-3.5" /> Set Reminder
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {
-                      handleOpenReminder(selectedDonation);
-                      setSelectedDonation(null);
-                    }}
-                    className="rounded-xl text-xs font-bold text-purple-700 border-purple-200 bg-purple-50 hover:bg-purple-100 gap-1.5"
+                    onClick={() => setDonationToDelete(selectedDonation.id)}
+                    className="rounded-xl text-xs font-bold text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 gap-1.5 h-8"
                   >
-                    <Bell className="w-3.5 h-3.5" /> Set Reminder
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
                   </Button>
-                )}
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setDonationToDelete(selectedDonation.id)}
-                  className="rounded-xl text-xs font-bold text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 gap-1.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
-                </Button>
+                </div>
               </div>
             </div>
           </div>
         )}
       </Dialog>
+
+      {/* Confirm Donation Verification Modal */}
+      <Dialog open={confirmModalOpen} onOpenChange={(open) => !open && setConfirmModalOpen(false)}>
+        <div className="space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-heading font-extrabold text-slate-900 flex items-center gap-2">
+              <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+              Confirm Payment &amp; Issue Receipt
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Pledge: <strong className="text-slate-800">#{selectedDonation?.reference_no || selectedDonation?.id}</strong> ({selectedDonation?.donor_name || "Anonymous"})
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 text-xs">
+            {/* Warning if amount changed */}
+            {selectedDonation && confirmAmount !== selectedDonation.amount && (
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>
+                  <strong>Amount Notice:</strong> Received amount (PKR {confirmAmount.toLocaleString()}) does not match pledged amount (PKR {selectedDonation.amount.toLocaleString()}).
+                </span>
+              </div>
+            )}
+
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">
+                Receiving Bank Account *
+              </label>
+              <select
+                value={confirmBankAccountId}
+                onChange={(e) => setConfirmBankAccountId(e.target.value)}
+                className="w-full h-10 rounded-xl border border-slate-300 bg-white px-3 font-semibold text-slate-800"
+              >
+                {bankAccounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.bank_name} — {acc.account_number} ({acc.account_title})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Received Amount (PKR) *
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={confirmAmount}
+                  onChange={(e) => setConfirmAmount(Number(e.target.value) || 0)}
+                  className="h-10 text-slate-900 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Confirmation Date *
+                </label>
+                <Input
+                  type="date"
+                  value={confirmDate}
+                  onChange={(e) => setConfirmDate(e.target.value)}
+                  className="h-10 text-slate-900 font-medium"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-bold text-slate-700">
+                  Bank Transaction Reference *
+                </label>
+                <span className="text-[10px] text-slate-500 font-medium">From bank statement/portal</span>
+              </div>
+              <Input
+                placeholder="e.g. TRX-20261017-987654 or Bank Reference #"
+                value={confirmBankRef}
+                onChange={(e) => setConfirmBankRef(e.target.value)}
+                className="h-10 font-mono text-sm text-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">
+                Optional Admin Note
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Internal verification notes (optional)..."
+                value={confirmAdminNote}
+                onChange={(e) => setConfirmAdminNote(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900"
+              />
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmModalOpen(false)}
+              className="rounded-xl text-xs font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleExecuteConfirm}
+              disabled={isConfirming}
+              className="rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white gap-1.5 shadow-sm"
+            >
+              {isConfirming ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Confirm &amp; Issue Receipt
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Reject Payment Proof Modal */}
+      <Dialog open={rejectModalOpen} onOpenChange={(open) => !open && setRejectModalOpen(false)}>
+        <div className="space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-heading font-extrabold text-slate-900 flex items-center gap-2">
+              <XCircle className="w-6 h-6 text-rose-600" />
+              Reject Payment Proof
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              The donor will receive a respectful notification with this reason and a secure re-upload link.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs">
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">
+                Quick Rejection Presets:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "Screenshot is blurry or illegible. Please upload a clear copy.",
+                  "Funds not found in bank statement for this date and amount.",
+                  "Transaction reference does not match our bank records.",
+                  "Duplicate screenshot previously submitted for another donation.",
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setRejectReason(preset)}
+                    className="p-1.5 px-2.5 rounded-lg border border-slate-200 text-[11px] bg-slate-50 hover:bg-slate-100 text-slate-700 text-left transition-all"
+                  >
+                    {preset.slice(0, 36)}...
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="font-bold text-slate-700 block mb-1">
+                Reason for Rejection *
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Explain clearly what is needed so the donor can re-upload..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900"
+              />
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRejectModalOpen(false)}
+              className="rounded-xl text-xs font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleExecuteReject}
+              disabled={isRejecting}
+              className="rounded-xl text-xs font-bold bg-rose-700 hover:bg-rose-800 text-white gap-1.5 shadow-sm"
+            >
+              {isRejecting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Rejecting...
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-3.5 h-3.5" /> Reject Proof &amp; Email Donor
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* In-App Fullscreen & Rotate Proof Viewer */}
+      {viewerProof && (
+        <ProofViewerModal
+          proofId={viewerProof.id}
+          filename={viewerProof.filename}
+          driveFolderInfo={{
+            folderPath: viewerProof.folder_path,
+            filename: viewerProof.filename,
+          }}
+          onClose={() => setViewerProof(null)}
+          isSuperAdmin={true}
+        />
+      )}
 
       {/* Reminder Scheduling Modal */}
       <Dialog open={Boolean(reminderPledge)} onOpenChange={(open) => !open && setReminderPledge(null)}>

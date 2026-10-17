@@ -26,6 +26,9 @@ export async function ensureCoreTablesDb(force = false): Promise<void> {
       if (!force) {
         try {
           await pool.query("SELECT 1 FROM donors LIMIT 1");
+          // Ensure payment proofs tables are provisioned on existing databases
+          const { ensurePaymentProofTablesDb } = await import("./paymentProofsSchema");
+          await ensurePaymentProofTablesDb(force);
           coreTablesInitialized = true;
           global.__coreTablesInitialized = true;
           return;
@@ -287,11 +290,13 @@ export async function ensureCoreTablesDb(force = false): Promise<void> {
           pkr_per_child_annual = 60000;
       `);
 
-      // 11. Ensure Section 15 tables (pricing_settings, fx_rates, bank_accounts)
+      // 11. Ensure Section 15 & Payment Proofs tables
       const { ensurePricingTablesDb } = await import("./pricingDb");
       const { ensureBankAccountsTableDb } = await import("./bankAccounts");
+      const { ensurePaymentProofTablesDb } = await import("./paymentProofsSchema");
       await ensurePricingTablesDb();
       await ensureBankAccountsTableDb();
+      await ensurePaymentProofTablesDb(force);
 
       // 12. Enterprise Hardening: admin_sessions & lockout tracking
       await pool.query(`

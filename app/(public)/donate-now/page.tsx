@@ -26,7 +26,6 @@ import { submitDonation, DonationInput } from "@/app/actions/donations";
 import { validateEmail, validatePhoneNumber } from "@/lib/validation";
 import { ValidationFeedback } from "@/components/shared/ValidationFeedback";
 import { calculateImpact, DEFAULT_PRICING } from "@/lib/pricing/impact";
-import { convertPkrToAed, convertAedToPkr, DEFAULT_MANUAL_PKR_PER_AED, DEFAULT_FX_BUFFER_PCT } from "@/lib/pricing/fx";
 import siteConfig from "@/lib/siteConfig";
 
 const CAUSES = [
@@ -59,7 +58,7 @@ export default function DonateNowPage() {
   const router = useRouter();
   const [cause, setCause] = React.useState<DonationInput["cause"]>("Educate a Child");
   const [frequency, setFrequency] = React.useState<"monthly" | "once">("monthly");
-  const [currency, setCurrency] = React.useState<"PKR" | "AED">("PKR");
+  const currency = "PKR";
 
   // Child-months & amount state (stay in sync)
   const [childrenCount, setChildrenCount] = React.useState<number>(1);
@@ -95,30 +94,24 @@ export default function DonateNowPage() {
   React.useEffect(() => {
     if (cause === "Support a Classroom") {
       setChildrenCount(30);
-      updateAmountFromChildren(30, currency);
+      updateAmountFromChildren(30);
     } else if (cause === "Support a Child: KG to Matric") {
       setChildrenCount(1);
-      updateAmountFromChildren(1, currency);
+      updateAmountFromChildren(1);
     }
-  }, [cause, currency]);
+  }, [cause]);
 
-  // Sync helpers
-  function updateAmountFromChildren(numChildren: number, curr: "PKR" | "AED") {
+  // Sync helpers (PKR only)
+  function updateAmountFromChildren(numChildren: number) {
     const pkr = Math.round(numChildren * DEFAULT_PRICING.costPerChildMonthPkr);
-    if (curr === "AED") {
-      const aed = convertPkrToAed(pkr).aedAmount;
-      setAmount(aed);
-      setCustomInputStr(String(aed));
-    } else {
-      setAmount(pkr);
-      setCustomInputStr(String(pkr));
-    }
+    setAmount(pkr);
+    setCustomInputStr(String(pkr));
     setIsCustomAmount(false);
   }
 
   function handleSelectPreset(numChildren: number) {
     setChildrenCount(numChildren);
-    updateAmountFromChildren(numChildren, currency);
+    updateAmountFromChildren(numChildren);
   }
 
   function handleAmountInputChange(val: string) {
@@ -127,31 +120,18 @@ export default function DonateNowPage() {
     setAmount(num);
     setIsCustomAmount(true);
 
-    // Sync children count
-    if (currency === "AED") {
-      const pkrEq = convertAedToPkr(num).pkrAmount;
-      const calcChildren = Math.round((pkrEq / DEFAULT_PRICING.costPerChildMonthPkr) * 10) / 10;
-      setChildrenCount(Math.max(0.1, calcChildren));
-    } else {
-      const calcChildren = Math.round((num / DEFAULT_PRICING.costPerChildMonthPkr) * 10) / 10;
-      setChildrenCount(Math.max(0.1, calcChildren));
-    }
+    const calcChildren = Math.round((num / DEFAULT_PRICING.costPerChildMonthPkr) * 10) / 10;
+    setChildrenCount(Math.max(0.1, calcChildren));
   }
 
   function handleChildrenInputChange(val: string) {
     const count = Math.max(0.1, Number(val) || 0.1);
     setChildrenCount(count);
-    updateAmountFromChildren(count, currency);
-  }
-
-  function handleCurrencySwitch(newCurr: "PKR" | "AED") {
-    setCurrency(newCurr);
-    updateAmountFromChildren(childrenCount, newCurr);
+    updateAmountFromChildren(count);
   }
 
   // Calculate live impact
-  const currentPkrEquivalent = currency === "AED" ? convertAedToPkr(amount).pkrAmount : amount;
-  const impact = calculateImpact(currentPkrEquivalent, frequency);
+  const impact = calculateImpact(amount, frequency);
 
   const handleCopy = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -193,12 +173,8 @@ export default function DonateNowPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (currency === "PKR" && amount < 500) {
+    if (amount < 500) {
       setErrorMsg("Please enter a donation amount of at least PKR 500.");
-      return;
-    }
-    if (currency === "AED" && amount < 7) {
-      setErrorMsg("Please enter a donation amount of at least AED 7.");
       return;
     }
 
@@ -228,7 +204,7 @@ export default function DonateNowPage() {
       currency,
       amount,
       children_count: childrenCount,
-      pledge_basis: currency === "AED" && isCustomAmount ? "aed_fixed" : "pkr_fixed",
+      pledge_basis: "pkr_fixed",
       payment_method: paymentMethod,
       donation_type: donationType,
       country,
@@ -241,6 +217,10 @@ export default function DonateNowPage() {
 
     setSubmitting(false);
     if (res.success) {
+      if (res.redirectUrl) {
+        router.push(res.redirectUrl);
+        return;
+      }
       if (res.donorLoggedIn) {
         router.push("/donor/dashboard?pledge_success=" + encodeURIComponent(res.referenceNo));
         return;
@@ -255,6 +235,7 @@ export default function DonateNowPage() {
         impact: res.impact || impact,
         fxLockNotice: res.fxLockNotice,
         bankAccount: res.bankAccount || siteConfig.bankAccount,
+        redirectUrl: res.redirectUrl,
         isGuest: true,
       });
     } else {
@@ -411,8 +392,15 @@ export default function DonateNowPage() {
             </div>
 
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+              {submittedData.redirectUrl && (
+                <a href={submittedData.redirectUrl}>
+                  <Button className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-6">
+                    Upload Payment Proof &rarr;
+                  </Button>
+                </a>
+              )}
               <a href="/donor/login">
-                <Button className="font-bold bg-primary-700 hover:bg-primary-600 text-white rounded-xl px-6">
+                <Button variant="outline" className="font-bold rounded-xl px-6">
                   Donor Login &rarr;
                 </Button>
               </a>
@@ -508,38 +496,26 @@ export default function DonateNowPage() {
                 </div>
               </div>
 
-              {/* Currency Toggle (PKR / AED with Live rate badge) */}
+              {/* Currency Display (PKR Only) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold uppercase tracking-wider text-charcoal-muted">
                     Step 3: Currency *
                   </label>
-                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                    <Info className="w-3 h-3 text-slate-400" />
-                    1 AED ≈ {DEFAULT_MANUAL_PKR_PER_AED} PKR (+1% buffer)
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 font-semibold px-2 py-0.5 rounded-full">
+                    PKR Only
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 bg-warm-100 p-1.5 rounded-2xl border border-warm-200">
-                  <button
-                    type="button"
-                    onClick={() => handleCurrencySwitch("PKR")}
-                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${currency === "PKR"
-                        ? "bg-white text-primary-800 shadow-sm"
-                        : "text-charcoal-muted hover:text-charcoal"
-                      }`}
-                  >
-                    PKR (Pakistani Rupee)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleCurrencySwitch("AED")}
-                    className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${currency === "AED"
-                        ? "bg-white text-primary-800 shadow-sm"
-                        : "text-charcoal-muted hover:text-charcoal"
-                      }`}
-                  >
-                    AED (UAE Dirham)
-                  </button>
+                <div className="bg-warm-100 p-3 rounded-2xl border border-warm-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                    <span className="font-bold text-charcoal-deep text-sm">
+                      PKR (Pakistani Rupee)
+                    </span>
+                  </div>
+                  <span className="text-xs text-charcoal-muted font-medium">
+                    All pledges processed in PKR
+                  </span>
                 </div>
               </div>
             </div>
@@ -551,7 +527,7 @@ export default function DonateNowPage() {
                   Step 4: Number of Children & Amount *
                 </label>
                 <span className="text-xs text-charcoal-muted">
-                  {currency === "PKR" ? "PKR 5,000" : "AED 67"} / child / month
+                  PKR 5,000 / child / month
                 </span>
               </div>
 
@@ -559,7 +535,6 @@ export default function DonateNowPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                 {PRESET_CHILDREN.map((cnt) => {
                   const pkrCost = cnt * DEFAULT_PRICING.costPerChildMonthPkr;
-                  const displayCost = currency === "AED" ? convertPkrToAed(pkrCost).aedAmount : pkrCost;
                   const isSelected = !isCustomAmount && childrenCount === cnt;
 
                   return (
@@ -576,7 +551,7 @@ export default function DonateNowPage() {
                         {cnt === 30 ? "Classroom (30)" : `${cnt} Child${cnt > 1 ? "ren" : ""}`}
                       </div>
                       <div className={`text-[11px] mt-0.5 ${isSelected ? "text-white/90" : "text-charcoal-muted"}`}>
-                        {currency} {displayCost.toLocaleString()}
+                        PKR {pkrCost.toLocaleString()}
                       </div>
                     </button>
                   );
@@ -599,7 +574,7 @@ export default function DonateNowPage() {
                       onClick={() => {
                         const next = Math.max(0.5, childrenCount - 1);
                         setChildrenCount(next);
-                        updateAmountFromChildren(next, currency);
+                        updateAmountFromChildren(next);
                       }}
                     >
                       <Minus className="w-4 h-4" />
@@ -620,7 +595,7 @@ export default function DonateNowPage() {
                       onClick={() => {
                         const next = childrenCount + 1;
                         setChildrenCount(next);
-                        updateAmountFromChildren(next, currency);
+                        updateAmountFromChildren(next);
                       }}
                     >
                       <Plus className="w-4 h-4" />
@@ -631,15 +606,15 @@ export default function DonateNowPage() {
                 {/* Amount Input */}
                 <div className="space-y-1.5">
                   <span className="block text-xs font-semibold text-charcoal">
-                    Total Amount ({currency}):
+                    Total Amount (PKR):
                   </span>
                   <div className="relative">
                     <span className="absolute left-4 top-3 text-sm font-bold text-charcoal-muted">
-                      {currency}
+                      PKR
                     </span>
                     <Input
                       type="number"
-                      min={currency === "PKR" ? "500" : "7"}
+                      min="500"
                       value={customInputStr}
                       onChange={(e) => handleAmountInputChange(e.target.value)}
                       className="pl-16 h-12 font-bold text-lg rounded-xl"
@@ -657,11 +632,6 @@ export default function DonateNowPage() {
                 <p className="text-xs text-emerald-800 leading-relaxed">
                   {impact.summary}
                 </p>
-                {currency === "AED" && (
-                  <div className="text-[11px] text-emerald-900/80 pt-1 font-medium">
-                    Rate Locked: AED {amount} ≈ PKR {currentPkrEquivalent.toLocaleString()} (Includes 1% buffer; locked for 48 hours).
-                  </div>
-                )}
               </div>
             </div>
 

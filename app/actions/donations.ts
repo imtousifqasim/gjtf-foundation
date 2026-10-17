@@ -11,6 +11,7 @@ import {
   createDonationStatusHistoryDb,
   createAuditLogDb,
   createAuthTokenDb,
+  linkDonationsToDonorDb,
 } from "@/lib/db/mysql";
 import { getActivePricingSettingsDb, getLatestFxRateDb } from "@/lib/db/pricingDb";
 import { getActiveBankAccountsDb } from "@/lib/db/bankAccounts";
@@ -23,6 +24,8 @@ import { createWelcomeSetPasswordEmail } from "@/lib/email/templates/donorTempla
 import { validateEmail, validatePhoneNumber } from "@/lib/validation";
 import { getAuthenticatedDonor } from "@/lib/auth/donor";
 import { generateSecureToken, hashToken } from "@/lib/auth/tokens";
+import { getEnabledCurrenciesDb } from "@/lib/db/paymentProofsSchema";
+import { createPledgeAccessToken } from "@/lib/db/pledgeTokens";
 import siteConfig from "@/lib/siteConfig";
 
 const donationSchema = z.object({
@@ -101,7 +104,16 @@ export async function submitDonation(input: DonationInput) {
   }
 
   try {
-    // 3. Load Active Pricing & Live FX Rate (Never trust client-calculated numbers)
+    // 3. Enforce Enabled Currencies (PKR Only by default; reject non-enabled currencies)
+    const enabledCurrencies = await getEnabledCurrenciesDb();
+    if (!enabledCurrencies.includes(parsed.data.currency)) {
+      return {
+        success: false,
+        message: `Donations in ${parsed.data.currency} are currently disabled. Only ${enabledCurrencies.join(", ")} donations are accepted at this time.`,
+      };
+    }
+
+    // 4. Load Active Pricing & Live FX Rate (Never trust client-calculated numbers)
     const pricing = await getActivePricingSettingsDb();
     const fx = await getLatestFxRateDb();
 
@@ -264,6 +276,7 @@ export async function submitDonation(input: DonationInput) {
       donor_email: cleanedEmail || null,
       donor_phone: cleanedPhone || null,
       status: "pending",
+      proof_status: "none",
       payment_method: parsed.data.payment_method,
       payment_reference: referenceNo,
       is_anonymous: !parsed.data.donor_name,
@@ -271,7 +284,15 @@ export async function submitDonation(input: DonationInput) {
 
     const donationId = await createDonationDb(donationData);
 
-    // 9. Status History & Audit Log
+    // 9. Generate Single-Pledge Access Token for Guest Donors (Valid 7 days, scoped to pledge)
+    let guestAccessToken: string | null = null;
+    let redirectUrl = `/donor/donations/${donationId}`;
+    if (!loggedInDonor) {
+      guestAccessToken = await createPledgeAccessToken(donationId, referenceNo);
+      redirectUrl = `/donate-now/pay/${referenceNo}`;
+    }
+
+    // 10. Status History & Audit Log
     await createDonationStatusHistoryDb({
       donation_id: donationId,
       old_status: null,
@@ -296,11 +317,14 @@ export async function submitDonation(input: DonationInput) {
       },
     });
 
-    // 10. Asynchronously Dispatch Emails
+    // 11. Asynchronously Dispatch Emails
     if (cleanedEmail) {
       (async () => {
         try {
           const appUrl = siteConfig.baseUrl || "https://gjtf-foundation.vercel.app";
+          const uploadUrl = loggedInDonor
+            ? `${appUrl}/donor/donations/${donationId}`
+            : `${appUrl}/donate-now/pay/${referenceNo}?token=${guestAccessToken}`;
 
           const { subject, html, text } = createDonationReceivedEmail({
             pledgeId: referenceNo,
@@ -315,6 +339,7 @@ export async function submitDonation(input: DonationInput) {
             childrenSupported: impact.childrenCount,
             childMonths: impact.childMonths,
             impactHeadline: impact.headline,
+            uploadUrl,
             fxLockNotice: parsed.data.currency === "AED" ? lockedFx.lockNotice : undefined,
           });
 
@@ -352,11 +377,15 @@ export async function submitDonation(input: DonationInput) {
       })();
     }
 
-    revalidatePath("/admin");
-    revalidatePath("/admin/donations");
-    revalidatePath("/donor/dashboard");
-    revalidatePath("/donor/donations");
-    revalidatePath("/donor/plans");
+    try {
+      revalidatePath("/admin");
+      revalidatePath("/admin/donations");
+      revalidatePath("/donor/dashboard");
+      revalidatePath("/donor/donations");
+      revalidatePath("/donor/plans");
+      revalidatePath(`/donor/donations/${donationId}`);
+      revalidatePath(`/donate-now/pay/${referenceNo}`);
+    } catch {}
 
     return {
       success: true,
@@ -371,6 +400,9 @@ export async function submitDonation(input: DonationInput) {
       bankAccount: primaryBank,
       donorLoggedIn: Boolean(loggedInDonor),
       isGuest: !Boolean(loggedInDonor),
+      redirectUrl,
+      proofStatus: "none",
+      guestAccessToken,
       message: `Pledge #${referenceNo} registered successfully!`,
     };
   } catch (err: any) {

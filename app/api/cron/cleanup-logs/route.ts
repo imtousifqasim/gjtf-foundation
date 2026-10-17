@@ -5,6 +5,7 @@ import {
   getContactMessagesSettingsDb,
   cleanupOldContactMessagesDb,
 } from "@/lib/db/mysql";
+import { executePaymentProofRetention } from "@/lib/storage/retention";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +118,15 @@ export async function GET(req: NextRequest) {
   } catch (contactErr: any) {
     console.error("Cleanup contact messages cron error:", contactErr);
     results.contactCleanup = { success: false, error: contactErr.message };
+  }
+
+  // 5. Payment Proof Retention Auto-Cleanup & Drive Maintenance
+  try {
+    const proofRetentionResult = await executePaymentProofRetention();
+    results.proofRetention = proofRetentionResult;
+  } catch (proofErr: any) {
+    console.error("Proof retention cron error:", proofErr);
+    results.proofRetention = { success: false, error: proofErr.message };
   }
 
   return NextResponse.json({

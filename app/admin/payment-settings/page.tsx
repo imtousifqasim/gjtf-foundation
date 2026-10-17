@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   CreditCard,
   Building,
@@ -12,6 +13,7 @@ import {
   Lock,
   Sparkles,
   ShieldCheck,
+  Folder,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,13 +81,26 @@ export default function AdminPaymentSettingsPage() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-heading">
-          Payment Accounts &amp; Gateway Settings
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Configure official bank accounts, mobile wallets, doorstep collection numbers, and future gateway readiness.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-heading">
+            Payment Accounts &amp; Gateway Settings
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Configure official bank accounts, mobile wallets, doorstep collection numbers, and future gateway readiness.
+          </p>
+        </div>
+
+        <Link href="/admin/payment-settings/proof-storage">
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 gap-2 font-bold"
+          >
+            <Folder className="w-4 h-4 text-primary-600" />
+            Proof &amp; Drive Storage Settings &rarr;
+          </Button>
+        </Link>
       </div>
 
       {feedback && (

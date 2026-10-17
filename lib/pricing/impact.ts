@@ -83,8 +83,21 @@ export function calculateImpact(
       badge = `${pct}% Child Support`;
     }
 
-    const summary = children > 0
-      ? `Your monthly pledge of PKR ${safeAmount.toLocaleString()} covers tuition, syllabus books, uniforms, warm meals, and teacher salaries for ${children === 1 ? "1 child" : `${children} children`} in nomadic settlement schools.`
+    let summary = "";
+    if (children === 1) {
+      summary = "Supports 1 child's full monthly education";
+    } else if (children > 1 && children % 1 === 0) {
+      summary = `Supports ${children} children's full monthly education`;
+    } else if (children > 1) {
+      summary = `Supports ${children} children's monthly education`;
+    } else if (percentageOfChild) {
+      summary = `Supports ${percentageOfChild}% of one child's monthly education`;
+    } else {
+      summary = "Supports pooled educational funding for children";
+    }
+
+    const description = children > 0
+      ? `Your monthly pledge of PKR ${safeAmount.toLocaleString()} covers tuition, syllabus books, uniforms, warm meals, and teacher salaries for ${children === 1 ? "1 child" : `${children} children`} in nomadic settlement schools. All donations are pooled to guarantee uninterrupted school operations.`
       : "Your donation is pooled with community contributions to provide holistic education for nomadic children.";
 
     return {
@@ -93,7 +106,7 @@ export function calculateImpact(
       childMonthsFunded: children,
       headline,
       summary,
-      description: summary,
+      description,
       badge,
       isFractional,
       percentageOfChild,
@@ -131,8 +144,21 @@ export function calculateImpact(
     badge = `${pct}% Child-Month`;
   }
 
-  const summary = childMonths > 0
-    ? `Your contribution of PKR ${safeAmount.toLocaleString()} provides ${childMonths} child-months of uninterrupted schooling, learning kits, and nutrition in nomadic settlements.`
+  let summary = "";
+  if (childMonths === 12) {
+    summary = "Funds 12 child-months of education (e.g. 1 child for 12 months)";
+  } else if (childMonths === 1) {
+    summary = "Funds 1 child-month of education";
+  } else if (childMonths > 1) {
+    summary = `Funds ${childMonths} child-months of education`;
+  } else if (percentageOfChild) {
+    summary = `Funds ${percentageOfChild}% of one child-month of education`;
+  } else {
+    summary = "Funds pooled educational materials";
+  }
+
+  const description = childMonths > 0
+    ? `Your contribution of PKR ${safeAmount.toLocaleString()} provides ${childMonths} child-months of uninterrupted schooling, learning kits, and nutrition in nomadic settlements. All funds are pooled to support settlement schools.`
     : "Your contribution directly funds classroom materials and teacher stipends for children residing in temporary jhuggi settlements.";
 
   return {
@@ -141,7 +167,7 @@ export function calculateImpact(
     childMonthsFunded: childMonths,
     headline,
     summary,
-    description: summary,
+    description,
     badge,
     isFractional,
     percentageOfChild,

@@ -57,7 +57,8 @@ export function formatCurrencyAmount(
   const majorValue = isMinor ? toMajorUnits(amount, curr) : Number(amount) || 0;
 
   const formattedNumber = Math.round(majorValue).toLocaleString("en-US");
-  return `${curr} ${formattedNumber}`;
+  const prefix = curr === "PKR" ? "Rs." : curr;
+  return `${prefix} ${formattedNumber}`;
 }
 
 /**

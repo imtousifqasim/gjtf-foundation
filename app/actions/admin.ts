@@ -30,11 +30,20 @@ import {
   createDonationCompletedEmail,
   createDonationPendingEmail,
   createDonationFailedEmail,
+  createPaymentProofRejectedEmail,
 } from "@/lib/email/templates/donationTemplates";
 import {
   createVolunteerAcceptedEmail,
   createVolunteerRejectedEmail,
 } from "@/lib/email/templates/volunteerTemplates";
+import { getOrCreateReceiptDb } from "@/lib/db/donorDb";
+import { getProofStorage } from "@/lib/storage";
+import { getProofFolderPath } from "@/lib/storage/folderPath";
+import {
+  getPaymentProofsSettingsDb,
+  updatePaymentProofsSettingsDb,
+} from "@/lib/db/paymentProofsSchema";
+import { createPledgeAccessToken } from "@/lib/db/pledgeTokens";
 
 export async function updateDonationStatus(
   donationId: string,
@@ -603,3 +612,520 @@ export async function deleteStory(storyId: string) {
     return { success: false, error: err.message };
   }
 }
+
+export async function getActiveBankAccountsAction() {
+  try {
+    const { getActiveBankAccountsDb } = await import("@/lib/db/bankAccounts");
+    const accounts = await getActiveBankAccountsDb();
+    return { success: true, accounts };
+  } catch (err: any) {
+    return { success: false, accounts: [], error: err.message };
+  }
+}
+
+// -------------------------------------------------------------
+// Payment Proofs Verification & Storage Admin Actions
+// -------------------------------------------------------------
+
+export async function getDonationProofsAdminAction(donationId: string) {
+  try {
+    await requireAdmin();
+
+    const proofs: any = await query<any[]>(
+      `SELECT id, donation_id, donor_id, storage_driver, drive_file_id, drive_folder_id,
+              folder_path, filename, mime, size_bytes, sha256, is_encrypted,
+              transaction_ref, sender_bank, paid_at, paid_amount_minor, note,
+              status, reject_reason, uploaded_at, reviewed_by, reviewed_at
+       FROM payment_proofs
+       WHERE donation_id = ? AND status != 'deleted'
+       ORDER BY uploaded_at DESC`,
+      [donationId]
+    );
+
+    // Check duplicate SHA-256 hashes across other donations
+    const duplicateWarnings: Array<{ proofId: string; otherDonationId: string; otherRefNo?: string }> = [];
+    if (proofs && proofs.length > 0) {
+      const hashes = proofs.map((p: any) => p.sha256).filter(Boolean);
+      if (hashes.length > 0) {
+        const placeholders = hashes.map(() => "?").join(",");
+        const dupRows: any = await query(
+          `SELECT p.id as proof_id, p.sha256, p.donation_id, d.reference_no
+           FROM payment_proofs p
+           JOIN donations d ON d.id = p.donation_id
+           WHERE p.sha256 IN (${placeholders})
+             AND p.donation_id != ?
+             AND p.status != 'deleted'`,
+          [...hashes, donationId]
+        );
+
+        if (dupRows && dupRows.length > 0) {
+          for (const row of dupRows) {
+            duplicateWarnings.push({
+              proofId: row.proof_id,
+              otherDonationId: row.donation_id,
+              otherRefNo: row.reference_no || row.donation_id,
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      success: true,
+      proofs: proofs || [],
+      duplicates: duplicateWarnings,
+    };
+  } catch (err: any) {
+    console.error("[getDonationProofsAdminAction] Error:", err);
+    return { success: false, error: err.message, proofs: [], duplicates: [] };
+  }
+}
+
+export async function confirmDonationWithProofAction(data: {
+  donationId: string;
+  receivedAmount: number;
+  bankAccountId: string;
+  bankTransactionRef: string;
+  confirmationDate?: string;
+  adminNote?: string;
+}): Promise<{ success: boolean; error?: string; receiptUrl?: string }> {
+  try {
+    const admin = await requireAdmin();
+
+    const cleanRef = data.bankTransactionRef?.trim();
+    if (!cleanRef) {
+      return { success: false, error: "Bank transaction reference number is required." };
+    }
+
+    if (!data.bankAccountId) {
+      return { success: false, error: "Please select the receiving bank account." };
+    }
+
+    if (!data.receivedAmount || data.receivedAmount <= 0) {
+      return { success: false, error: "Please provide a valid received amount." };
+    }
+
+    // 1. Check uniqueness of bank_transaction_ref across donations (where not null)
+    const existingRefRows: any = await query(
+      "SELECT id, reference_no FROM donations WHERE bank_transaction_ref = ? AND id != ? LIMIT 1",
+      [cleanRef, data.donationId]
+    );
+    if (existingRefRows && existingRefRows.length > 0) {
+      const match = existingRefRows[0];
+      return {
+        success: false,
+        error: `Duplicate Bank Transaction Reference! This reference was already verified for donation #${match.reference_no || match.id}.`,
+      };
+    }
+
+    // 2. Fetch the target donation
+    const donRows: any = await query("SELECT * FROM donations WHERE id = ? LIMIT 1", [data.donationId]);
+    if (!donRows || donRows.length === 0) {
+      return { success: false, error: "Donation record not found." };
+    }
+    const donation = donRows[0];
+
+    const recAmtMinor = BigInt(Math.round(data.receivedAmount * 100));
+    const paidAtSql = data.confirmationDate ? new Date(data.confirmationDate) : new Date();
+
+    // 3. Update donations table
+    await query(`
+      UPDATE donations
+      SET status = 'completed',
+          proof_status = 'approved',
+          bank_account_id = ?,
+          bank_transaction_ref = ?,
+          received_amount_minor = ?,
+          received_currency = 'PKR',
+          received_pkr_minor = ?,
+          confirmed_by = ?,
+          confirmed_at = NOW(),
+          paid_at = ?,
+          admin_note = CASE 
+            WHEN ? IS NOT NULL AND ? != '' THEN CONCAT(COALESCE(admin_note, ''), '\n', ?) 
+            ELSE admin_note 
+          END
+      WHERE id = ?
+    `, [
+      data.bankAccountId,
+      cleanRef,
+      recAmtMinor.toString(),
+      recAmtMinor.toString(),
+      admin.email,
+      paidAtSql,
+      data.adminNote || null,
+      data.adminNote || null,
+      data.adminNote || null,
+      data.donationId,
+    ]);
+
+    // 4. Update payment_proofs table: approve any submitted proofs for this donation
+    await query(`
+      UPDATE payment_proofs
+      SET status = 'approved',
+          reviewed_by = ?,
+          reviewed_at = NOW()
+      WHERE donation_id = ? AND status = 'submitted'
+    `, [admin.email, data.donationId]);
+
+    // 5. Advance recurring monthly plan if this donation belongs to one
+    if (donation.plan_id) {
+      try {
+        await query(`
+          UPDATE donation_plans
+          SET cycles_completed = cycles_completed + 1,
+              next_due_date = DATE_ADD(next_due_date, INTERVAL 1 MONTH),
+              updated_at = NOW()
+          WHERE id = ?
+        `, [donation.plan_id]);
+      } catch (planErr: any) {
+        console.warn("[Plan Advance] Could not advance donation plan:", planErr.message);
+      }
+    }
+
+    // 6. Generate official digital receipt
+    let receiptNo = "";
+    try {
+      const receiptInfo = await getOrCreateReceiptDb(data.donationId);
+      receiptNo = receiptInfo.receiptNo;
+    } catch (recErr: any) {
+      console.warn("[Receipt] Could not generate digital receipt:", recErr.message);
+    }
+
+    // 7. Auto-cancel any active pending reminders
+    try {
+      await cancelDonationReminderDb(data.donationId);
+    } catch {}
+
+    // 8. Record audit log
+    try {
+      await createAuditLogDb({
+        actor_type: "admin",
+        actor_id: admin.email,
+        action: "confirm_donation_with_proof",
+        target_type: "donation",
+        target_id: data.donationId,
+        metadata: {
+          receivedAmount: data.receivedAmount,
+          bankAccountId: data.bankAccountId,
+          bankTransactionRef: cleanRef,
+          receiptNo,
+          previousProofStatus: donation.proof_status,
+        },
+      });
+    } catch {}
+
+    // 9. Dispatch completion & receipt email to donor
+    if (donation.donor_email && donation.donor_email.trim() !== "") {
+      try {
+        const { subject, html, text } = createDonationCompletedEmail({
+          pledgeId: donation.reference_no || donation.id,
+          donorName: donation.donor_name,
+          donorEmail: donation.donor_email,
+          amount: data.receivedAmount,
+          currency: "PKR",
+          cause: donation.cause,
+          frequency: donation.frequency,
+          donationType: donation.donation_type,
+        });
+
+        await sendTransactionalEmail({
+          to: donation.donor_email,
+          recipientName: donation.donor_name,
+          emailType: "donation_completed",
+          subject,
+          html,
+          text,
+          metadata: { pledgeId: donation.id, receiptNo, bankRef: cleanRef },
+        });
+      } catch (emErr: any) {
+        console.warn("[Confirm Email] Failed to send confirmation email:", emErr.message);
+      }
+    }
+
+    try {
+      revalidatePath("/admin/donations");
+      revalidatePath("/admin");
+      revalidatePath(`/donor/donations/${data.donationId}`);
+      revalidatePath("/donor/dashboard");
+    } catch {}
+
+    return {
+      success: true,
+      receiptUrl: `/receipt/${encodeURIComponent(data.donationId)}`,
+    };
+  } catch (err: any) {
+    console.error("[confirmDonationWithProofAction] Error:", err);
+    return { success: false, error: err.message || "Failed to confirm donation" };
+  }
+}
+
+export async function rejectPaymentProofAdminAction(data: {
+  donationId: string;
+  proofId?: string;
+  reason: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const admin = await requireAdmin();
+
+    const cleanReason = data.reason?.trim();
+    if (!cleanReason) {
+      return { success: false, error: "Rejection reason is required." };
+    }
+
+    // 1. Fetch donation
+    const donRows: any = await query("SELECT * FROM donations WHERE id = ? LIMIT 1", [data.donationId]);
+    if (!donRows || donRows.length === 0) {
+      return { success: false, error: "Donation record not found." };
+    }
+    const donation = donRows[0];
+
+    // 2. Update donations table proof_status
+    await query("UPDATE donations SET proof_status = 'rejected' WHERE id = ?", [data.donationId]);
+
+    // 3. Update payment_proofs table
+    if (data.proofId) {
+      await query(`
+        UPDATE payment_proofs
+        SET status = 'rejected',
+            reject_reason = ?,
+            reviewed_by = ?,
+            reviewed_at = NOW()
+        WHERE id = ? AND donation_id = ?
+      `, [cleanReason, admin.email, data.proofId, data.donationId]);
+    } else {
+      await query(`
+        UPDATE payment_proofs
+        SET status = 'rejected',
+            reject_reason = ?,
+            reviewed_by = ?,
+            reviewed_at = NOW()
+        WHERE donation_id = ? AND status = 'submitted'
+      `, [cleanReason, admin.email, data.donationId]);
+    }
+
+    // 4. Audit log
+    try {
+      await createAuditLogDb({
+        actor_type: "admin",
+        actor_id: admin.email,
+        action: "reject_payment_proof",
+        target_type: "donation",
+        target_id: data.donationId,
+        metadata: {
+          proofId: data.proofId || null,
+          reason: cleanReason,
+        },
+      });
+    } catch {}
+
+    // 5. Build re-upload link & dispatch email
+    if (donation.donor_email && donation.donor_email.trim() !== "") {
+      try {
+        let uploadUrl: string;
+        if (donation.donor_id) {
+          uploadUrl = `https://gjtf-foundation.vercel.app/donor/donations/${donation.id}`;
+        } else {
+          const rawToken = await createPledgeAccessToken(donation.id, donation.reference_no || donation.id);
+          uploadUrl = `https://gjtf-foundation.vercel.app/donate-now/pay/${donation.reference_no || donation.id}?token=${rawToken}`;
+        }
+
+        const { subject, html, text } = createPaymentProofRejectedEmail({
+          pledgeId: donation.reference_no || donation.id,
+          donorName: donation.donor_name,
+          donorEmail: donation.donor_email,
+          amount: Number(donation.amount) || 0,
+          currency: donation.currency || "PKR",
+          rejectReason: cleanReason,
+          uploadUrl,
+        });
+
+        await sendTransactionalEmail({
+          to: donation.donor_email,
+          recipientName: donation.donor_name,
+          emailType: "proof_rejected",
+          subject,
+          html,
+          text,
+          metadata: { pledgeId: donation.id, reason: cleanReason },
+        });
+      } catch (emErr: any) {
+        console.warn("[Reject Email] Failed to send rejection email:", emErr.message);
+      }
+    }
+
+    try {
+      revalidatePath("/admin/donations");
+      revalidatePath("/admin");
+      revalidatePath(`/donor/donations/${data.donationId}`);
+    } catch {}
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("[rejectPaymentProofAdminAction] Error:", err);
+    return { success: false, error: err.message || "Failed to reject payment proof" };
+  }
+}
+
+export async function deletePaymentProofAdminAction(proofId: string) {
+  try {
+    const admin = await requireAdmin();
+
+    const rows: any = await query("SELECT * FROM payment_proofs WHERE id = ? LIMIT 1", [proofId]);
+    if (!rows || rows.length === 0) {
+      return { success: false, error: "Proof not found" };
+    }
+    const proof = rows[0];
+
+    // Permanently delete file from Google Drive
+    try {
+      const storage = getProofStorage();
+      await storage.delete(proof.drive_file_id);
+    } catch (delErr: any) {
+      console.warn("[Storage Delete] Could not delete file from storage:", delErr.message);
+    }
+
+    // Soft delete row in DB
+    await query("UPDATE payment_proofs SET status = 'deleted', deleted_at = NOW() WHERE id = ?", [proofId]);
+
+    // Check remaining active proofs for this donation
+    const remaining: any = await query(
+      "SELECT COUNT(*) as count FROM payment_proofs WHERE donation_id = ? AND status != 'deleted'",
+      [proof.donation_id]
+    );
+    const count = Number(remaining?.[0]?.count) || 0;
+    if (count === 0) {
+      await query("UPDATE donations SET proof_status = 'none' WHERE id = ?", [proof.donation_id]);
+    }
+
+    // Audit log
+    try {
+      await createAuditLogDb({
+        actor_type: "admin",
+        actor_id: admin.email,
+        action: "delete_payment_proof",
+        target_type: "payment_proof",
+        target_id: proofId,
+        metadata: {
+          donationId: proof.donation_id,
+          driveFileId: proof.drive_file_id,
+          filename: proof.filename,
+        },
+      });
+    } catch {}
+
+    try {
+      revalidatePath("/admin/donations");
+      revalidatePath(`/donor/donations/${proof.donation_id}`);
+    } catch {}
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("[deletePaymentProofAdminAction] Error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function testStorageHealthAction() {
+  try {
+    await requireAdmin();
+    const storage = getProofStorage();
+    const health = await storage.health();
+
+    await updatePaymentProofsSettingsDb({
+      last_health_check_at: new Date(),
+      last_health_status: health.healthy ? "healthy" : "degraded",
+      last_health_error: health.error || null,
+    });
+
+    return { success: true, health };
+  } catch (err: any) {
+    console.error("[testStorageHealthAction] Error:", err);
+    return {
+      success: false,
+      health: {
+        healthy: false,
+        driver: "google-drive",
+        error: err.message || "Failed to test storage",
+        hasPublicPermissions: false,
+      },
+    };
+  }
+}
+
+export async function getProofStorageSettingsAction() {
+  try {
+    await requireAdmin();
+    const [settings, storage] = await Promise.all([
+      getPaymentProofsSettingsDb(),
+      Promise.resolve(getProofStorage()),
+    ]);
+
+    const health = await storage.health();
+    const folderPreview = getProofFolderPath(new Date());
+
+    // Get last upload timestamp
+    const lastUploadRows: any = await query(
+      "SELECT uploaded_at, folder_path, filename FROM payment_proofs WHERE status != 'deleted' ORDER BY uploaded_at DESC LIMIT 1"
+    );
+    const lastUpload = lastUploadRows?.[0] || null;
+
+    // Count proofs
+    const countsRows: any = await query(
+      `SELECT
+         COUNT(*) as total_proofs,
+         SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) as submitted_proofs,
+         SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_proofs,
+         SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected_proofs,
+         COALESCE(SUM(size_bytes), 0) as total_size_bytes
+       FROM payment_proofs WHERE status != 'deleted'`
+    );
+    const stats = countsRows?.[0] || {};
+
+    return {
+      success: true,
+      settings,
+      health,
+      folderPreview,
+      lastUpload,
+      stats: {
+        totalProofs: Number(stats.total_proofs) || 0,
+        submittedProofs: Number(stats.submitted_proofs) || 0,
+        approvedProofs: Number(stats.approved_proofs) || 0,
+        rejectedProofs: Number(stats.rejected_proofs) || 0,
+        totalSizeBytes: Number(stats.total_size_bytes) || 0,
+      },
+    };
+  } catch (err: any) {
+    console.error("[getProofStorageSettingsAction] Error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function updateProofStorageSettingsAction(updates: any) {
+  try {
+    const admin = await requireAdmin();
+    await updatePaymentProofsSettingsDb(updates);
+
+    try {
+      await createAuditLogDb({
+        actor_type: "admin",
+        actor_id: admin.email,
+        action: "update_payment_proofs_settings",
+        target_type: "payment_proofs_settings",
+        target_id: "default",
+        metadata: updates,
+      });
+    } catch {}
+
+    try {
+      revalidatePath("/admin/payment-settings");
+      revalidatePath("/admin/payment-settings/proof-storage");
+    } catch {}
+    return { success: true };
+  } catch (err: any) {
+    console.error("[updateProofStorageSettingsAction] Error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
