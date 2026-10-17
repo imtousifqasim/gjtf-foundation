@@ -31,6 +31,7 @@ import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/shared/SectionHeading";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { VolunteerModal } from "@/components/shared/VolunteerModal";
+import { PartnerUniversitiesMarquee } from "@/components/shared/PartnerUniversitiesMarquee";
 
 export default function AboutVolunteersPage() {
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -542,6 +543,9 @@ export default function AboutVolunteersPage() {
           })}
         </div>
       </section>
+
+      {/* Attached / Partner Universities Marquee */}
+      <PartnerUniversitiesMarquee />
 
       {/* -------------------------------------------------------------
           7. CLOSING CTA: BE THE CHANGE

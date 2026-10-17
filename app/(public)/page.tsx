@@ -27,9 +27,9 @@ import { StatsCounter, HeroStatsPills } from "@/components/shared/StatsCounter";
 import { SchoolCard } from "@/components/shared/SchoolCard";
 import { StoryCard } from "@/components/shared/StoryCard";
 import { DonateBanner } from "@/components/shared/DonateBanner";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { HeroVideoBackground } from "@/components/shared/HeroVideoBackground";
 import { StoryVideoCard } from "@/components/shared/StoryVideoCard";
+import { PartnerUniversitiesMarquee } from "@/components/shared/PartnerUniversitiesMarquee";
 import { EditableText, EditableButton } from "@/components/editor/LiveEditorProvider";
 import { getLiveStatsDb, getSchoolsDb } from "@/lib/db/mysql";
 
@@ -40,7 +40,7 @@ export default async function HomePage() {
     totalSchools: staticSchools.length,
     totalStudents: staticSchools.reduce((acc, s) => acc + (s.currentStudents || 0), 0),
     yearsOfService: 11,
-    nomadsTargetMillion: 20,
+    totalVolunteers: 10000,
   };
   let displaySchools: School[] = staticSchools;
 
@@ -304,6 +304,11 @@ export default async function HomePage() {
       </section>
 
       {/* -------------------------------------------------------------
+          4B. ATTACHED / PARTNER UNIVERSITIES SCROLLING MARQUEE
+          ------------------------------------------------------------- */}
+      <PartnerUniversitiesMarquee />
+
+      {/* -------------------------------------------------------------
           5. OUR MODEL SECTION
           ------------------------------------------------------------- */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -344,8 +349,8 @@ export default async function HomePage() {
               },
               {
                 num: "05",
-                title: "Aiming to uplift 20 million nomads across Pakistan",
-                desc: "A nationwide scalable blueprint operating actively in 24 cities.",
+                title: "10,000+ passionate volunteers mobilizing nationwide",
+                desc: "Active student and youth chapters across 15+ premier universities driving educational change.",
               },
             ].map((step, idx) => (
               <div
@@ -376,7 +381,7 @@ export default async function HomePage() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent flex items-end p-4 sm:p-5">
                 <span className="text-white text-xs sm:text-sm font-bold font-heading">
-                  Real Impact • Transforming 20M Nomadic Lives
+                  Real Impact • Empowered by 10,000+ Volunteers Across Pakistan
                 </span>
               </div>
             </div>

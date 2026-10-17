@@ -1172,7 +1172,8 @@ export async function getLiveStatsDb(): Promise<{
   totalSchools: number;
   totalStudents: number;
   yearsOfService: number;
-  nomadsTargetMillion: number;
+  totalVolunteers: number;
+  nomadsTargetMillion?: number;
 }> {
   const cached = getCached<any>("stats:live");
   if (cached) return cached;
@@ -1198,6 +1199,7 @@ export async function getLiveStatsDb(): Promise<{
           totalSchools: staticSchools.length,
           totalStudents: staticSchools.reduce((acc, s) => acc + (s.currentStudents || 0), 0),
           yearsOfService: years,
+          totalVolunteers: 10000,
           nomadsTargetMillion: 20,
         };
         setCached("stats:live", fallbackStats, 60);
@@ -1207,6 +1209,7 @@ export async function getLiveStatsDb(): Promise<{
           totalSchools: 7,
           totalStudents: 1081,
           yearsOfService: years,
+          totalVolunteers: 10000,
           nomadsTargetMillion: 20,
         };
         setCached("stats:live", fallbackStats, 60);
@@ -1218,6 +1221,7 @@ export async function getLiveStatsDb(): Promise<{
       totalSchools: count,
       totalStudents: students,
       yearsOfService: years,
+      totalVolunteers: 10000,
       nomadsTargetMillion: 20,
     };
     setCached("stats:live", liveStats, 60);
@@ -1230,6 +1234,7 @@ export async function getLiveStatsDb(): Promise<{
         totalSchools: staticSchools.length,
         totalStudents: staticSchools.reduce((acc, s) => acc + (s.currentStudents || 0), 0),
         yearsOfService: 11,
+        totalVolunteers: 10000,
         nomadsTargetMillion: 20,
       };
     } catch {
@@ -1237,6 +1242,7 @@ export async function getLiveStatsDb(): Promise<{
         totalSchools: 7,
         totalStudents: 1081,
         yearsOfService: 11,
+        totalVolunteers: 10000,
         nomadsTargetMillion: 20,
       };
     }

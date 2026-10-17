@@ -26,6 +26,7 @@ export async function GET() {
           totalSchools: fallbackCount,
           totalStudents: fallbackStudents,
           yearsOfService: 11,
+          totalVolunteers: 10000,
           nomadsTargetMillion: 20,
         },
       },

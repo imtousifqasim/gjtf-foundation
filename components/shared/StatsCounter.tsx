@@ -20,6 +20,7 @@ export interface StatsCounterProps {
     totalSchools?: number;
     totalStudents?: number;
     yearsOfService?: number;
+    totalVolunteers?: number;
     nomadsTargetMillion?: number;
   };
   className?: string;
@@ -82,10 +83,10 @@ const DEFAULT_STATS: StatItem[] = [
     description: "Educating thousands of nomadic children",
   },
   {
-    label: "Nomads Uplift Target",
-    value: 20,
-    suffix: "M+",
-    description: "Aiming to uplift 20 million nomads across Pakistan",
+    label: "Volunteers",
+    value: 10000,
+    suffix: "+",
+    description: "Passionate volunteers & university youth across Pakistan",
   },
 ];
 
@@ -118,10 +119,10 @@ export function StatsCounter({
           description: "Educating thousands of nomadic children",
         },
         {
-          label: "Nomads Uplift Target",
-          value: initialStats.nomadsTargetMillion ?? 20,
-          suffix: "M+",
-          description: "Aiming to uplift 20 million nomads across Pakistan",
+          label: "Volunteers",
+          value: initialStats.totalVolunteers ?? 10000,
+          suffix: "+",
+          description: "Passionate volunteers & university youth across Pakistan",
         },
       ];
     }
@@ -145,7 +146,7 @@ export function StatsCounter({
             const schoolsCount = d.totalSchools !== undefined && d.totalSchools !== null ? Number(d.totalSchools) : 7;
             const studentsCount = d.totalStudents !== undefined && d.totalStudents !== null ? Number(d.totalStudents) : 1081;
             const yearsCount = Number(d.yearsOfService) || 11;
-            const nomadsTarget = Number(d.nomadsTargetMillion) || 20;
+            const volunteersCount = Number(d.totalVolunteers) || 10000;
 
             setCurrentStats([
               {
@@ -167,10 +168,10 @@ export function StatsCounter({
                 description: "Educating thousands of nomadic children",
               },
               {
-                label: "Nomads Uplift Target",
-                value: nomadsTarget,
-                suffix: "M+",
-                description: "Aiming to uplift 20 million nomads across Pakistan",
+                label: "Volunteers",
+                value: volunteersCount,
+                suffix: "+",
+                description: "Passionate volunteers & university youth across Pakistan",
               },
             ]);
           }
@@ -321,6 +322,13 @@ export function HeroStatsPills({
         <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
         <span className="font-medium tabular-nums" data-dynamic-stat="true">
           {stats.yearsOfService}+ Years of Service
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-white/20 shadow-md">
+        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <span className="font-medium tabular-nums" data-dynamic-stat="true">
+          10,000+ Volunteers
         </span>
       </div>
     </div>

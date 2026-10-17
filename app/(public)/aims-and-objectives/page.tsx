@@ -22,10 +22,11 @@ import { getLiveStatsDb } from "@/lib/db/mysql";
 export const dynamic = "force-dynamic";
 
 export default async function AimsAndObjectivesPage() {
-  let stats = {
+  let stats: any = {
     totalSchools: 7,
     totalStudents: 1081,
     yearsOfService: 11,
+    totalVolunteers: 10000,
     nomadsTargetMillion: 20,
   };
 
@@ -139,17 +140,17 @@ export default async function AimsAndObjectivesPage() {
             </p>
           </div>
 
-          {/* Stat 4: Nomads Target */}
+          {/* Stat 4: Active Volunteers */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-soft space-y-3">
             <div className="w-11 h-11 rounded-2xl bg-blue-100 text-blue-800 flex items-center justify-center">
-              <Target className="w-5 h-5" />
+              <Users className="w-5 h-5" />
             </div>
             <div className="text-3xl sm:text-4xl font-extrabold font-heading text-slate-900">
-              {stats.nomadsTargetMillion}M+
+              10,000+
             </div>
-            <div className="text-sm font-bold text-slate-800">Nomads Uplift Target</div>
+            <div className="text-sm font-bold text-slate-800">Active Volunteers</div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Aiming to uplift and integrate 20 million nomads across Pakistan.
+              Mobilizing passionate youth and university student chapters nationwide.
             </p>
           </div>
         </div>
