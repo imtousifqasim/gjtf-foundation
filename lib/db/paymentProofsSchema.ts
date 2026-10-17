@@ -61,6 +61,9 @@ export interface PledgeAccessTokenRecord {
 export interface PaymentProofsSettings {
   id: string;
   storage_driver: string;
+  client_id?: string | null;
+  client_secret?: string | null;
+  refresh_token?: string | null;
   root_folder_id?: string | null;
   scope_mode: "drive" | "drive.file";
   encryption_enabled: boolean;
@@ -78,6 +81,9 @@ export interface PaymentProofsSettings {
 export const DEFAULT_PAYMENT_PROOFS_SETTINGS: PaymentProofsSettings = {
   id: "default",
   storage_driver: "google-drive",
+  client_id: process.env.GOOGLE_CLIENT_ID || null,
+  client_secret: process.env.GOOGLE_CLIENT_SECRET || null,
+  refresh_token: process.env.GOOGLE_REFRESH_TOKEN || null,
   root_folder_id: process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || null,
   scope_mode: (process.env.GOOGLE_DRIVE_SCOPE_MODE as any) === "drive.file" ? "drive.file" : "drive",
   encryption_enabled: process.env.PROOF_ENCRYPTION === "on",
@@ -293,6 +299,9 @@ export async function getPaymentProofsSettingsDb(): Promise<PaymentProofsSetting
       return {
         id: r.id,
         storage_driver: r.storage_driver || "google-drive",
+        client_id: r.client_id || process.env.GOOGLE_CLIENT_ID || null,
+        client_secret: r.client_secret || process.env.GOOGLE_CLIENT_SECRET || null,
+        refresh_token: r.refresh_token || process.env.GOOGLE_REFRESH_TOKEN || null,
         root_folder_id: r.root_folder_id || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || null,
         scope_mode: r.scope_mode || "drive",
         encryption_enabled: Boolean(r.encryption_enabled),
@@ -324,6 +333,9 @@ export async function updatePaymentProofsSettingsDb(
     UPDATE payment_proofs_settings
     SET
       storage_driver = COALESCE(?, storage_driver),
+      client_id = COALESCE(?, client_id),
+      client_secret = COALESCE(?, client_secret),
+      refresh_token = COALESCE(?, refresh_token),
       root_folder_id = COALESCE(?, root_folder_id),
       scope_mode = COALESCE(?, scope_mode),
       encryption_enabled = COALESCE(?, encryption_enabled),
@@ -339,6 +351,9 @@ export async function updatePaymentProofsSettingsDb(
     WHERE id = 'default'
   `, [
     updates.storage_driver ?? null,
+    updates.client_id ?? null,
+    updates.client_secret ?? null,
+    updates.refresh_token ?? null,
     updates.root_folder_id ?? null,
     updates.scope_mode ?? null,
     updates.encryption_enabled !== undefined ? (updates.encryption_enabled ? 1 : 0) : null,

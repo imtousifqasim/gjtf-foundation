@@ -60,7 +60,17 @@ export class GoogleDriveStorage implements ProofStorage {
     }
 
     if (!this.clientId || !this.clientSecret || !this.refreshToken) {
-      throw new Error("Google Drive credentials are not fully configured in environment variables.");
+      try {
+        const settings = await getPaymentProofsSettingsDb();
+        if (settings.client_id) this.clientId = settings.client_id;
+        if (settings.client_secret) this.clientSecret = settings.client_secret;
+        if (settings.refresh_token) this.refreshToken = settings.refresh_token;
+        if (settings.root_folder_id && !this.rootFolderId) this.rootFolderId = settings.root_folder_id;
+      } catch (err) {}
+    }
+
+    if (!this.clientId || !this.clientSecret || !this.refreshToken) {
+      throw new Error("Google Drive credentials are not fully configured in environment variables or database settings.");
     }
 
     const tokenUrl = "https://oauth2.googleapis.com/token";
