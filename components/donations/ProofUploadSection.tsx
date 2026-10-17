@@ -325,7 +325,7 @@ export function ProofUploadSection({
             Payment Verified &amp; Completed!
           </h4>
           <p className="text-xs sm:text-sm text-emerald-800 max-w-md mx-auto">
-            Your transfer has been matched with our bank credit. Your official tax-exempt donation receipt is ready.
+            Your transfer has been matched with our bank credit. Your official donation receipt is ready.
           </p>
           <div className="pt-2">
             <Link href={`/receipt/${encodeURIComponent(referenceNo)}`}>

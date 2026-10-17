@@ -15,6 +15,14 @@ export interface SiteSettingsData {
   tiktok_url: string;
   twitter_url: string;
   linkedin_url?: string;
+  chairman_name?: string;
+  chairman_title?: string;
+  show_phone_in_receipts?: boolean;
+  show_whatsapp_in_receipts?: boolean;
+  show_email_in_receipts?: boolean;
+  show_address_in_receipts?: boolean;
+  show_socials_in_receipts?: boolean;
+  show_chairman_in_receipts?: boolean;
 }
 
 export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
@@ -32,4 +40,12 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
   tiktok_url: siteConfig.socials.tiktok,
   twitter_url: "",
   linkedin_url: "",
+  chairman_name: "Mubashir Hussain Chand",
+  chairman_title: "Chairman, Ghais Jhuggi Taleem Foundation",
+  show_phone_in_receipts: true,
+  show_whatsapp_in_receipts: true,
+  show_email_in_receipts: true,
+  show_address_in_receipts: true,
+  show_socials_in_receipts: true,
+  show_chairman_in_receipts: true,
 };

@@ -9,6 +9,8 @@ import {
   createDonorDb,
   updateDonorDb,
   getDonorByEmailDb,
+  getDonorByPhoneDb,
+  arePhoneNumbersMatching,
   createDonationPlanDb,
   createDonationStatusHistoryDb,
   createAuditLogDb,
@@ -28,7 +30,7 @@ import { getAuthenticatedDonor } from "@/lib/auth/donor";
 import { generateSecureToken, hashToken, hashPassword } from "@/lib/auth/tokens";
 import { getEnabledCurrenciesDb } from "@/lib/db/paymentProofsSchema";
 import { createPledgeAccessToken } from "@/lib/db/pledgeTokens";
-import siteConfig from "@/lib/siteConfig";
+import siteConfig, { getSiteBaseUrl } from "@/lib/siteConfig";
 
 const donationSchema = z.object({
   cause: z.enum([
@@ -181,7 +183,7 @@ export async function submitDonation(input: DonationInput) {
     const currentYear = new Date().getFullYear();
     const referenceNo = `GJTF-${currentYear}-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // 5. Check or Create Donor Record (Session-First Ownership & Zero-Trust)
+    // 5. Check or Create Donor Record (Session-First Ownership & Zero-Trust Verification)
     const loggedInDonor = await getAuthenticatedDonor();
     let donorId: string | null = loggedInDonor ? loggedInDonor.id : null;
     let isNewDonor = false;
@@ -193,23 +195,68 @@ export async function submitDonation(input: DonationInput) {
       donorId = loggedInDonor.id;
       // Auto-link any previous unlinked pledges matching donor's email
       await linkDonationsToDonorDb(donorId, loggedInDonor.email);
-    } else if (cleanedEmail) {
-      // Guest Donor: Find or create donor row with normalized lowercase email
-      const existingDonor = await getDonorByEmailDb(cleanedEmail);
-      if (existingDonor) {
-        donorId = existingDonor.id;
+    } else if (cleanedEmail || cleanedPhone) {
+      // Guest Donor: Validate account ownership, prevent duplication, and enforce zero-trust identity verification
+      const existingByEmail = cleanedEmail ? await getDonorByEmailDb(cleanedEmail) : null;
+      const existingByPhone = cleanedPhone ? await getDonorByPhoneDb(cleanedPhone) : null;
+
+      if (existingByEmail) {
+        // Case 1: Email is registered in the database
+        if (existingByEmail.phone && existingByEmail.phone.trim() !== "") {
+          if (!cleanedPhone) {
+            return {
+              success: false,
+              code: "PHONE_EMAIL_MISMATCH",
+              message: "This email address is already registered. Please enter the phone number associated with this account or sign in to your supporter dashboard.",
+              registeredEmail: cleanedEmail,
+            };
+          }
+
+          const matches = arePhoneNumbersMatching(cleanedPhone, existingByEmail.phone);
+          if (!matches) {
+            return {
+              success: false,
+              code: "PHONE_EMAIL_MISMATCH",
+              message: "This email address is already registered, but the phone number entered does not match this account. Please enter the correct phone number or log in securely to verify your identity.",
+              registeredEmail: cleanedEmail,
+            };
+          }
+        } else {
+          // Existing donor has no phone on file yet
+          if (existingByPhone && existingByPhone.id !== existingByEmail.id) {
+            return {
+              success: false,
+              code: "PHONE_ALREADY_REGISTERED",
+              message: "This phone number is already registered under another donor account. Please use the email registered with this phone number or log in.",
+            };
+          }
+          if (cleanedPhone) {
+            await updateDonorDb(existingByEmail.id, { phone: cleanedPhone });
+          }
+        }
+
+        // Link directly to existing account - ZERO DUPLICATION!
+        donorId = existingByEmail.id;
+
         // If donor has no password yet, auto-generate one for donor portal access
-        if (!existingDonor.password_hash) {
+        if (!existingByEmail.password_hash) {
           generatedPassword = "Gjtf!" + crypto.randomBytes(3).toString("hex").toUpperCase();
           const hashed = hashPassword(generatedPassword);
           await updateDonorDb(donorId, { password_hash: hashed });
         }
+      } else if (existingByPhone) {
+        // Case 2: Email is not found, but phone number belongs to an existing registered donor!
+        return {
+          success: false,
+          code: "PHONE_ALREADY_REGISTERED",
+          message: "This phone number is already registered with another email address. To protect account security, please use the email address associated with this phone number, or sign in to your donor portal.",
+        };
       } else {
-        // Auto-generate strong readable random password for the new donor
+        // Case 3: Completely new donor (neither email nor phone registered)
         generatedPassword = "Gjtf!" + crypto.randomBytes(3).toString("hex").toUpperCase();
         const hashed = hashPassword(generatedPassword);
         donorId = await createDonorDb({
-          email: cleanedEmail,
+          email: cleanedEmail || `guest_${Date.now()}@gjtfoundation.com`,
           name: parsed.data.donor_name || null,
           phone: cleanedPhone || null,
           country: parsed.data.country || "Pakistan",
@@ -219,8 +266,11 @@ export async function submitDonation(input: DonationInput) {
         });
         isNewDonor = true;
       }
+
       // Link any prior orphan donations for this guest email
-      await linkDonationsToDonorDb(donorId, cleanedEmail);
+      if (donorId && cleanedEmail) {
+        await linkDonationsToDonorDb(donorId, cleanedEmail);
+      }
     }
 
     // 6. Handle Monthly Recurring Plan (if frequency === 'monthly')
@@ -306,7 +356,7 @@ export async function submitDonation(input: DonationInput) {
     });
 
     await createAuditLogDb({
-      actor_type: donorId ? "donor" : "public",
+      actor_type: "donor",
       actor_id: donorId,
       action: "donation.pledged",
       target_type: "donation",
@@ -325,7 +375,7 @@ export async function submitDonation(input: DonationInput) {
     if (cleanedEmail) {
       (async () => {
         try {
-          const appUrl = siteConfig.baseUrl || "https://gjtf-foundation.vercel.app";
+          const appUrl = getSiteBaseUrl();
           const uploadUrl = loggedInDonor
             ? `${appUrl}/donor/donations/${donationId}`
             : `${appUrl}/donate-now/pay/${referenceNo}?token=${guestAccessToken}`;
@@ -403,5 +453,80 @@ export async function submitDonation(input: DonationInput) {
       success: false,
       message: err.message || "An unexpected error occurred while registering your pledge.",
     };
+  }
+}
+
+/**
+ * Pre-submit live verification of donor contact details.
+ * Prevents account takeover, duplicate dashboards, and mismatched phone/email registrations.
+ */
+export async function verifyDonorContactAction(input: { email?: string; phone?: string }) {
+  try {
+    const loggedIn = await getAuthenticatedDonor();
+    if (loggedIn) {
+      return { status: "logged_in", donorId: loggedIn.id };
+    }
+
+    const rawEmail = (input.email || "").trim();
+    const rawPhone = (input.phone || "").trim();
+
+    let cleanedEmail = "";
+    if (rawEmail) {
+      const val = validateEmail(rawEmail);
+      if (val.valid) cleanedEmail = val.cleaned;
+    }
+
+    let cleanedPhone = "";
+    if (rawPhone) {
+      const val = validatePhoneNumber(rawPhone);
+      if (val.valid) cleanedPhone = val.formatted;
+    }
+
+    if (!cleanedEmail && !cleanedPhone) {
+      return { status: "empty" };
+    }
+
+    const [donorByEmail, donorByPhone] = await Promise.all([
+      cleanedEmail ? getDonorByEmailDb(cleanedEmail) : null,
+      cleanedPhone ? getDonorByPhoneDb(cleanedPhone) : null,
+    ]);
+
+    if (donorByEmail) {
+      if (donorByEmail.phone && donorByEmail.phone.trim() !== "") {
+        if (cleanedPhone) {
+          if (!arePhoneNumbersMatching(cleanedPhone, donorByEmail.phone)) {
+            return {
+              status: "mismatch",
+              code: "PHONE_EMAIL_MISMATCH",
+              message: "This email address is already registered, but the phone number entered does not match this account. Enter the registered phone or sign in.",
+            };
+          }
+          return {
+            status: "matched",
+            message: "Account verified! Your donation will be linked to your existing supporter dashboard.",
+          };
+        }
+        return {
+          status: "needs_phone",
+          message: "This email is registered. Please enter your registered phone number or sign in to verify your identity.",
+        };
+      }
+      return {
+        status: "matched",
+        message: "Account verified! Your donation will be linked to your existing supporter dashboard.",
+      };
+    }
+
+    if (donorByPhone) {
+      return {
+        status: "phone_conflict",
+        code: "PHONE_ALREADY_REGISTERED",
+        message: "This phone number is already registered under another email. Please use your registered email or sign in.",
+      };
+    }
+
+    return { status: "new" };
+  } catch (err: any) {
+    return { status: "error", message: err.message };
   }
 }

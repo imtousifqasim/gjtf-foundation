@@ -73,8 +73,8 @@ export function Footer() {
       setEmailError(null);
     } else {
       setFeedbackMessage(res.message);
-      if (res.suggestion) {
-        setEmailSuggestion(res.suggestion);
+      if ((res as any).suggestion) {
+        setEmailSuggestion((res as any).suggestion);
       }
     }
   };

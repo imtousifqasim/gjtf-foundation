@@ -91,6 +91,7 @@ export async function GET(req: NextRequest) {
               currency: plan.currency || "PKR",
               cause: plan.cause,
               nextDueDate: planDueDate,
+              billingDay: plan.billing_day || 1,
             });
 
             await sendTransactionalEmail({
@@ -172,7 +173,6 @@ export async function GET(req: NextRequest) {
                 cause: plan.cause,
                 donationType: plan.donation_type,
                 frequency: "monthly",
-                country: plan.donor_country,
               });
 
               await sendTransactionalEmail({

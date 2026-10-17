@@ -24,7 +24,7 @@ const DONOR_NAV = [
   { label: "Dashboard", href: "/donor/dashboard", icon: LayoutDashboard },
   { label: "My Donations", href: "/donor/donations", icon: Heart },
   { label: "Monthly Plans", href: "/donor/plans", icon: CalendarClock },
-  { label: "Tax Receipts", href: "/donor/receipts", icon: Receipt },
+  { label: "Donation Receipts", href: "/donor/receipts", icon: Receipt },
   { label: "Profile & Privacy", href: "/donor/profile", icon: UserCheck },
 ];
 

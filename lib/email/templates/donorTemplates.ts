@@ -39,7 +39,7 @@ export function createWelcomeSetPasswordEmail(data: DonorAuthEmailData) {
         Welcome, ${escapeHtml(name)}!
       </h1>
       <p style="margin: 0; color: #334155; font-size: 15px; line-height: 1.6;">
-        Thank you for supporting the <strong>Jhuggi Taleemi Project</strong>. We have set up a private, secure donor profile for you so you can track your donations, download tax-deductible receipts, and see how your contribution educates children across nomadic settlements in Pakistan.
+        Thank you for supporting the <strong>Jhuggi Taleemi Project</strong>. We have set up a private, secure donor profile for you so you can track your donations, download official donation receipts, and see how your contribution educates children across nomadic settlements in Pakistan.
       </p>
     </div>
 

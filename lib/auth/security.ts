@@ -16,7 +16,7 @@ function getSecretKey(): string {
 }
 
 // Convert string to Uint8Array
-function textToBuffer(text: string): Uint8Array {
+function textToBuffer(text: string): any {
   return new TextEncoder().encode(text);
 }
 
@@ -127,7 +127,7 @@ export async function verifyJwt<T = Record<string, any>>(
     const isValid = await crypto.subtle.verify(
       "HMAC",
       key,
-      signatureBytes,
+      signatureBytes as any,
       textToBuffer(dataToVerify)
     );
 

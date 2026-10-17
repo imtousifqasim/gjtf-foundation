@@ -47,7 +47,7 @@ export default function PrivacyPolicyPage() {
             </h2>
             <ul className="list-disc pl-5 space-y-2 text-charcoal-muted">
               <li>
-                <strong className="text-charcoal-deep">Donors:</strong> Name (optional for anonymous gifts), email address (for official tax-exemption receipts), phone/WhatsApp number (for doorstep cash collection or wire confirmation), country, and pledged amount. We <em>never</em> store bank login details, card numbers, or CVVs.
+                <strong className="text-charcoal-deep">Donors:</strong> Name (optional for anonymous gifts), email address (for official donation receipts), phone/WhatsApp number (for doorstep cash collection or wire confirmation), country, and pledged amount. We <em>never</em> store bank login details, card numbers, or CVVs.
               </li>
               <li>
                 <strong className="text-charcoal-deep">Volunteers:</strong> Full name, verified email, mobile phone number, city, university affiliation, and message.

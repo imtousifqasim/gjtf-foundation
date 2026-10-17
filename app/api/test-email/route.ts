@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import siteConfig from "@/lib/siteConfig";
+import siteConfig, { getSiteBaseUrl } from "@/lib/siteConfig";
 import { sendTransactionalEmail } from "@/lib/email/sender";
 import { createDonationReceivedEmail } from "@/lib/email/templates/donationTemplates";
 import {
@@ -270,7 +270,7 @@ export async function GET(req: NextRequest) {
       const major = toMajorUnits(minor);
       testResults.push({
         name: "15.4: Minor Units Zero-Float Arithmetic (5000 PKR = 500000 paisa)",
-        passed: minor === 500000n && major === 5000,
+        passed: minor === BigInt(500000) && major === 5000,
       });
 
       // Test 6: Round AED ceil
@@ -333,6 +333,7 @@ export async function GET(req: NextRequest) {
 
   // Template Selection
   const type = (searchParams.get("type") || "donation").toLowerCase();
+  const baseUrl = getSiteBaseUrl();
   let emailPayload: { subject: string; html: string; text?: string };
 
   switch (type) {
@@ -340,7 +341,7 @@ export async function GET(req: NextRequest) {
       emailPayload = createWelcomeSetPasswordEmail({
         donorName: "Tariq Mahmood",
         donorEmail: searchParams.get("to") || siteConfig.email.address,
-        actionUrl: `${siteConfig.baseUrl}/donor/set-password?token=sample-token-12345`,
+        actionUrl: `${baseUrl}/donor/set-password?token=sample-token-12345`,
         expiresInText: "24 hours",
       });
       break;
@@ -365,7 +366,7 @@ export async function GET(req: NextRequest) {
             <h2 style="font-size:20px;font-weight:700;color:#0f172a;margin-top:0;margin-bottom:12px;">Transforming Jhuggi Classrooms with AI Literacy</h2>
             <p style="font-size:15px;margin-bottom:16px;">Over 20 million nomadic communities across Pakistan lack access to formal schools. With your generous support, GJTF has established 50 new mobile weather-proof classroom units this quarter.</p>
             <div style="text-align:center;margin:28px 0;">
-              <a href="${siteConfig.baseUrl}/stories" style="display:inline-block;background-color:#0a5c36;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;">Read Student Stories &rarr;</a>
+              <a href="${baseUrl}/stories" style="display:inline-block;background-color:#0a5c36;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;">Read Student Stories &rarr;</a>
             </div>
           </div>
         `;
@@ -374,7 +375,7 @@ export async function GET(req: NextRequest) {
           preheader: "Discover how nomadic children are breaking barriers with digital education.",
           contentHtml,
           isTransactional: false,
-          unsubscribeUrl: `${siteConfig.baseUrl}/newsletter/unsubscribe?token=sample-test-token`,
+          unsubscribeUrl: `${baseUrl}/newsletter/unsubscribe?token=sample-test-token`,
         });
         emailPayload = {
           subject: newsletterSubject,
@@ -388,7 +389,7 @@ export async function GET(req: NextRequest) {
       emailPayload = createMagicLinkEmail({
         donorName: "Tariq Mahmood",
         donorEmail: searchParams.get("to") || siteConfig.email.address,
-        actionUrl: `${siteConfig.baseUrl}/donor/verify?otp=839201`,
+        actionUrl: `${baseUrl}/donor/verify?otp=839201`,
         expiresInText: "15 minutes",
         otpCode: "839201",
       });
@@ -468,7 +469,7 @@ export async function GET(req: NextRequest) {
       runDatabaseMigration: `GET /api/test-email?secret=${validSecret}&migrate=1`,
     },
     singleSourceOfTruth: {
-      organisation: siteConfig.name,
+      organisation: siteConfig.organisation,
       tagline: siteConfig.tagline,
       address: siteConfig.address,
       phone1: siteConfig.phone1,

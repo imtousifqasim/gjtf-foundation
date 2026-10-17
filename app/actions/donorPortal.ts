@@ -18,6 +18,7 @@ import {
   getOrCreateReceiptDb,
   getReceiptByDonationScopedDb,
   query,
+  RowDataPacket,
 } from "@/lib/db/mysql";
 import { sendTransactionalEmail } from "@/lib/email/sender";
 

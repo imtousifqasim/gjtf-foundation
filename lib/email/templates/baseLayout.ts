@@ -1,6 +1,7 @@
 import siteConfig from "@/lib/siteConfig";
 import { renderEmailHeader, escapeHtml } from "./EmailHeader";
 import { renderEmailFooter } from "./EmailFooter";
+import { SiteSettingsData } from "@/lib/siteSettingsConstants";
 
 export { renderEmailHeader, renderEmailFooter, escapeHtml };
 
@@ -14,6 +15,7 @@ export interface BaseEmailOptions {
   showAssistanceBox?: boolean;
   badgeText?: string;
   customBaseUrl?: string;
+  settings?: SiteSettingsData | null;
 }
 
 export function renderBaseEmailHtml({
@@ -26,6 +28,7 @@ export function renderBaseEmailHtml({
   showAssistanceBox = true,
   badgeText,
   customBaseUrl,
+  settings,
 }: BaseEmailOptions): string {
   const headerHtml = renderEmailHeader({
     title,
@@ -39,7 +42,18 @@ export function renderBaseEmailHtml({
     unsubscribeUrl,
     isTransactional,
     customBaseUrl,
+    settings,
   });
+
+  const showPhone = settings ? settings.show_phone_in_receipts !== false && settings.show_phone_in_receipts !== (0 as any) : true;
+  const showWhatsapp = settings ? settings.show_whatsapp_in_receipts !== false && settings.show_whatsapp_in_receipts !== (0 as any) : true;
+  const showEmail = settings ? settings.show_email_in_receipts !== false && settings.show_email_in_receipts !== (0 as any) : true;
+
+  const phoneDisplay = settings?.telephone || settings?.mobile || siteConfig.phone1.display;
+  const phoneTel = (phoneDisplay || "").replace(/[^\d+]/g, "");
+  const whatsappDisplay = settings?.whatsapp || siteConfig.phone2.display;
+  const whatsappTel = (whatsappDisplay || "").replace(/[^\d+]/g, "");
+  const emailDisplay = settings?.email || siteConfig.email.address;
 
   const assistanceBoxHtml = showAssistanceBox
     ? `
@@ -52,11 +66,11 @@ export function renderBaseEmailHtml({
                 <strong style="color: #0b1536; display: block; margin-bottom: 4px; font-size: 14px;">Need Immediate Assistance?</strong>
                 Our team is available ${escapeHtml(siteConfig.supportHours)}.<br/>
                 <span style="display: inline-block; margin-top: 4px;">
-                  <strong>Phone:</strong> <a href="${escapeHtml(siteConfig.phone1.telLink)}" style="color: #0d5c3a; text-decoration: none; font-weight: 600;">${escapeHtml(siteConfig.phone1.display)}</a>
-                  <span style="color: #cbd5e1; padding: 0 6px;">|</span>
-                  <strong>WhatsApp:</strong> <a href="${escapeHtml(siteConfig.phone2.telLink)}" style="color: #0d5c3a; text-decoration: none; font-weight: 600;">${escapeHtml(siteConfig.phone2.display)}</a>
-                  <span style="color: #cbd5e1; padding: 0 6px;">|</span>
-                  <strong>Email:</strong> <a href="${escapeHtml(siteConfig.email.mailtoLink)}" style="color: #0d5c3a; text-decoration: none; font-weight: 600;">${escapeHtml(siteConfig.email.address)}</a>
+                  ${showPhone ? `<strong>Phone:</strong> <a href="tel:${escapeHtml(phoneTel)}" style="color: #0d5c3a; text-decoration: none; font-weight: 600;">${escapeHtml(phoneDisplay)}</a>` : ""}
+                  ${showPhone && showWhatsapp ? `<span style="color: #cbd5e1; padding: 0 6px;">|</span>` : ""}
+                  ${showWhatsapp ? `<strong>WhatsApp:</strong> <a href="https://wa.me/${escapeHtml(whatsappTel)}" style="color: #0d5c3a; text-decoration: none; font-weight: 600;">${escapeHtml(whatsappDisplay)}</a>` : ""}
+                  ${(showPhone || showWhatsapp) && showEmail ? `<span style="color: #cbd5e1; padding: 0 6px;">|</span>` : ""}
+                  ${showEmail ? `<strong>Email:</strong> <a href="mailto:${escapeHtml(emailDisplay)}" style="color: #0d5c3a; text-decoration: none; font-weight: 600;">${escapeHtml(emailDisplay)}</a>` : ""}
                 </span>
               </td>
             </tr>

@@ -170,7 +170,7 @@ export async function sendVolunteerReplyAction({
       text,
       metadata: {
         sentByAdmin: true,
-        adminId: admin.id,
+        adminId: (admin as any).sessionId || admin.email,
         adminEmail: admin.email,
         replyContext: "volunteer_signup",
         signupId: signupId || null,

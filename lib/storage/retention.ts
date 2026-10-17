@@ -108,7 +108,7 @@ export async function executePaymentProofRetention(batchSize = 50): Promise<Rete
   // 3. Health check
   try {
     const health = await storage.health();
-    result.storageHealth = health.status;
+    result.storageHealth = health.healthy ? "healthy" : (health.message || "unhealthy");
   } catch (healthErr: any) {
     result.storageHealth = "error: " + healthErr.message;
   }

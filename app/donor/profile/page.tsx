@@ -175,7 +175,7 @@ export default function DonorProfilePage() {
               Personal Contact Details
             </h2>
             <p className="text-xs text-slate-500">
-              Used for tax-deductible donation receipts and doorstep collection confirmation.
+              Used for official donation receipts and doorstep collection confirmation.
             </p>
           </div>
         </div>

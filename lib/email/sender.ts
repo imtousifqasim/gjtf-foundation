@@ -119,7 +119,7 @@ export async function retryEmailLog(logId: string): Promise<{ success: boolean; 
       emailType: log.email_type,
       subject: log.subject,
       html: log.body_html,
-      body_text: log.body_text,
+      text: log.body_text,
       metadata: { ...log.metadata, retriedFrom: logId, retriedAt: new Date().toISOString() },
     });
 

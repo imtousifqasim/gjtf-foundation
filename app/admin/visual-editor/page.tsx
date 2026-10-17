@@ -100,7 +100,7 @@ const PAGES: PageItem[] = [
     title: "Donate Now",
     path: "/donate-now",
     category: "Core",
-    description: "Zakat & Sadqah contributions, Bank Islami account details, donor tax compliance, and doorstep collection.",
+    description: "Zakat & Sadqah contributions, Bank Islami account details, donor receipt management, and doorstep collection.",
     icon: Sparkles,
   },
 ];

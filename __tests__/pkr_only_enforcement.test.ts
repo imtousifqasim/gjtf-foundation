@@ -18,6 +18,8 @@ describe("PKR-Only Currency Lockdown & Server-Side Enforcement", () => {
       country: "United Arab Emirates",
       donor_name: "Test Donor",
       donor_email: "test.donor.aed@example.com",
+      donation_type: "General",
+      payment_method: "bank_transfer",
     });
 
     expect(result.success).toBe(false);
@@ -35,6 +37,8 @@ describe("PKR-Only Currency Lockdown & Server-Side Enforcement", () => {
       donor_name: "Ahmad Khan",
       donor_email: `ahmad.test.${Date.now()}@example.com`,
       idempotency_key: `idemp_test_${Date.now()}`,
+      donation_type: "General",
+      payment_method: "bank_transfer",
     });
 
     expect(result.success).toBe(true);

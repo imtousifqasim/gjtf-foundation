@@ -1,6 +1,7 @@
 import { query } from "./mysql";
 import { ensureCoreTablesDb } from "./coreSchema";
 import { RowDataPacket } from "mysql2/promise";
+import siteConfig from "../siteConfig";
 
 export interface DonorRecord {
   id: string;
@@ -112,6 +113,41 @@ export async function getDonorByEmailDb(email: string): Promise<DonorRecord | nu
   const rows = await query<RowDataPacket[]>(
     "SELECT * FROM donors WHERE email = ? LIMIT 1",
     [normalized]
+  );
+  if (!rows || rows.length === 0) return null;
+  return formatDonorRow(rows[0]);
+}
+
+export function normalizePhoneDigits(phone: string | null | undefined): string {
+  if (!phone) return "";
+  const digits = String(phone).replace(/\D/g, "");
+  if (digits.length >= 10) {
+    return digits.slice(-10);
+  }
+  return digits;
+}
+
+export function arePhoneNumbersMatching(a: string | null | undefined, b: string | null | undefined): boolean {
+  const normA = normalizePhoneDigits(a);
+  const normB = normalizePhoneDigits(b);
+  if (!normA || !normB) return false;
+  return normA === normB;
+}
+
+export async function getDonorByPhoneDb(phone: string): Promise<DonorRecord | null> {
+  await ensureCoreTablesDb();
+  const digits = normalizePhoneDigits(phone);
+  if (!digits || digits.length < 7) return null;
+
+  const rows = await query<RowDataPacket[]>(
+    `SELECT * FROM donors 
+     WHERE phone IS NOT NULL 
+       AND (
+         phone = ? 
+         OR REPLACE(REPLACE(REPLACE(REPLACE(phone, '-', ''), ' ', ''), '+', ''), '(', '') LIKE ?
+       ) 
+     LIMIT 1`,
+    [phone.trim(), `%${digits}`]
   );
   if (!rows || rows.length === 0) return null;
   return formatDonorRow(rows[0]);
@@ -634,6 +670,10 @@ export async function getDonorDashboardStatsDb(donorId: string): Promise<{
   activePlan: DonationPlanRecord | null;
   childrenEducatedYears: number;
   childMonthsFunded: number;
+  oneTimeDonations: any[];
+  monthlyDonations: any[];
+  hasMonthlyPlan: boolean;
+  latestOneTime: any | null;
 }> {
   await ensureCoreTablesDb();
 
@@ -645,7 +685,7 @@ export async function getDonorDashboardStatsDb(donorId: string): Promise<{
     );
   } catch {}
 
-  const [statsRows, pendingRows, planRows, appSettingsRows] = await Promise.all([
+  const [statsRows, pendingRows, planRows, appSettingsRows, oneTimeRows, monthlyRows] = await Promise.all([
     query<RowDataPacket[]>(
       `SELECT 
         UPPER(TRIM(currency)) as currency,
@@ -666,10 +706,26 @@ export async function getDonorDashboardStatsDb(donorId: string): Promise<{
       [donorId]
     ),
     query<RowDataPacket[]>(
-      "SELECT * FROM donation_plans WHERE donor_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1",
+      "SELECT * FROM donation_plans WHERE donor_id = ? AND status IN ('active', 'paused') ORDER BY created_at DESC LIMIT 1",
       [donorId]
     ),
     query<RowDataPacket[]>("SELECT * FROM app_settings WHERE id = 'default' LIMIT 1"),
+    query<RowDataPacket[]>(
+      `SELECT d.id, d.reference_no, d.cause, d.currency, d.amount, d.donation_type, d.status, d.created_at, r.receipt_number
+       FROM donations d
+       LEFT JOIN donation_receipts r ON r.donation_id = d.id
+       WHERE d.donor_id = ? AND (d.frequency = 'one_time' OR d.frequency = 'once' OR d.plan_id IS NULL)
+       ORDER BY d.created_at DESC LIMIT 10`,
+      [donorId]
+    ),
+    query<RowDataPacket[]>(
+      `SELECT d.id, d.reference_no, d.cause, d.currency, d.amount, d.donation_type, d.status, d.created_at, d.plan_id, r.receipt_number
+       FROM donations d
+       LEFT JOIN donation_receipts r ON r.donation_id = d.id
+       WHERE d.donor_id = ? AND (d.frequency = 'monthly' OR d.plan_id IS NOT NULL)
+       ORDER BY d.created_at DESC LIMIT 24`,
+      [donorId]
+    ),
   ]);
 
   const pkrStats = { lifetime: 0, thisYear: 0, thisMonth: 0, completedCount: 0 };
@@ -709,14 +765,53 @@ export async function getDonorDashboardStatsDb(donorId: string): Promise<{
     created_at: p.created_at ? toIsoString(p.created_at) : "",
   }));
 
+  const formattedOneTime = (oneTimeRows || []).map((row) => ({
+    id: row.id,
+    reference_no: row.reference_no,
+    cause: row.cause,
+    currency: row.currency,
+    amount: Number(row.amount) || 0,
+    donation_type: row.donation_type,
+    status: row.status,
+    created_at: row.created_at ? toIsoString(row.created_at) : "",
+    receipt_number: row.receipt_number || null,
+  }));
+
+  const formattedMonthly = (monthlyRows || []).map((row) => {
+    const dateObj = row.created_at ? new Date(row.created_at) : new Date();
+    const monthName = !isNaN(dateObj.getTime())
+      ? dateObj.toLocaleDateString("en-PK", { month: "long", year: "numeric" })
+      : "";
+    return {
+      id: row.id,
+      reference_no: row.reference_no,
+      cause: row.cause,
+      currency: row.currency,
+      amount: Number(row.amount) || 0,
+      donation_type: row.donation_type,
+      status: row.status,
+      created_at: row.created_at ? toIsoString(row.created_at) : "",
+      receipt_number: row.receipt_number || null,
+      month_name: monthName,
+      is_paid: row.status === "completed",
+      is_pending: row.status === "pending",
+    };
+  });
+
+  const activePlanRecord = planRows?.[0] ? formatPlanRow(planRows[0]) : null;
+
   return {
     pkr: pkrStats,
     aed: aedStats,
     totalCompletedCount: pkrStats.completedCount + aedStats.completedCount,
     pendingPledges: formattedPending,
-    activePlan: planRows?.[0] ? formatPlanRow(planRows[0]) : null,
+    activePlan: activePlanRecord,
     childrenEducatedYears,
     childMonthsFunded,
+    oneTimeDonations: formattedOneTime,
+    monthlyDonations: formattedMonthly,
+    hasMonthlyPlan: Boolean(activePlanRecord || formattedMonthly.length > 0),
+    latestOneTime: formattedOneTime[0] || null,
   };
 }
 

@@ -55,10 +55,10 @@ export default function DonorReceiptsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 tracking-tight">
-            Official Tax Receipts
+            Official Donation Receipts
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Download individual receipts or consolidated annual statements for tax exemption purposes.
+            Download individual receipts or consolidated annual statements for your records.
           </p>
         </div>
 
@@ -82,7 +82,7 @@ export default function DonorReceiptsPage() {
               Annual Giving Certificate
             </span>
             <h2 className="text-xl sm:text-2xl font-bold font-heading text-white">
-              Annual Tax Exemption Statement ({selectedYear})
+              Annual Giving Statement ({selectedYear})
             </h2>
             <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
               Consolidated official statement of all fulfilled Zakat, Sadqah, and general educational contributions.
@@ -95,9 +95,9 @@ export default function DonorReceiptsPage() {
               onChange={(e) => setSelectedYear(e.target.value)}
               className="bg-white/10 text-white border border-white/20 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400"
             >
-              <option value="2026" className="text-slate-900">Tax Year 2026</option>
-              <option value="2025" className="text-slate-900">Tax Year 2025</option>
-              <option value="2024" className="text-slate-900">Tax Year 2024</option>
+              <option value="2026" className="text-slate-900">Giving Year 2026</option>
+              <option value="2025" className="text-slate-900">Giving Year 2025</option>
+              <option value="2024" className="text-slate-900">Giving Year 2024</option>
             </select>
           </div>
         </div>

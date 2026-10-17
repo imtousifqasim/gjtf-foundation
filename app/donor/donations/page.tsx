@@ -527,8 +527,8 @@ export default function DonorDonationsPage() {
                   {selectedDonation.status === "completed" && (
                     <Link href={`/receipt/${selectedDonation.id}`} target="_blank">
                       <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs">
-                        <Receipt className="w-3.5 h-3.5 mr-1" />
-                        Download Tax Receipt
+                        <Receipt className="w-3.5 h-3.5 mr-1.5" />
+                        Download Receipt
                       </Button>
                     </Link>
                   )}

@@ -71,7 +71,7 @@ function DonorSetPasswordForm() {
           Welcome to GJTF Foundation
         </h1>
         <p className="text-xs sm:text-sm text-slate-500">
-          Set a secure password to activate your personal dashboard and access your pledges and tax receipts.
+          Set a secure password to activate your personal dashboard and access your pledges and donation receipts.
         </p>
       </div>
 

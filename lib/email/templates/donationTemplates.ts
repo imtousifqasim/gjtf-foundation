@@ -19,6 +19,7 @@ export interface DonationEmailData {
   childMonths?: number;
   impactHeadline?: string;
   fxLockNotice?: string;
+  customMessage?: string | null;
   donorCredentials?: {
     email: string;
     temporaryPassword?: string;
@@ -179,7 +180,7 @@ export function createDonationReceivedEmail(data: DonationEmailData) {
           <tr>
             <td style="padding: 16px 18px;">
               <p style="margin: 0 0 12px; font-size: 13px; color: #166534; line-height: 1.5;">
-                A secure account has been created for you to track this donation, verify payment proofs, download official tax receipts, and view your giving impact.
+                A secure account has been created for you to track this donation, verify payment proofs, download official donation receipts, and view your giving impact.
               </p>
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background: #ffffff; border: 1px solid #bbf7d0; border-radius: 8px; margin-bottom: 10px;">
                 <tr>
@@ -214,7 +215,7 @@ export function createDonationReceivedEmail(data: DonationEmailData) {
     <p style="margin: 0 0 16px; color: #334155; font-size: 14px; line-height: 1.6;">
       If you chose manual bank transfer or mobile wallet, please send your transfer reference or screenshot to 
       <a href="${siteConfig.phone2.whatsappLink}" style="color: #0d5c3a; text-decoration: none; font-weight: bold;">WhatsApp (${siteConfig.phone2.display})</a> 
-      along with reference <strong>#${escapeHtml(data.pledgeId)}</strong> so we can issue your official tax-exempt receipt.
+      along with reference <strong>#${escapeHtml(data.pledgeId)}</strong> so we can issue your official donation receipt.
     </p>
 
     ${BANK_DETAILS_HTML}
@@ -265,7 +266,7 @@ DONOR PORTAL ACCOUNT CREDENTIALS:
 - Login Link: ${data.donorCredentials.loginUrl}
 - Email: ${data.donorCredentials.email}
 - Password: ${data.donorCredentials.temporaryPassword}
-(Log in anytime to view your donation history, payment proofs, and tax receipts.)
+(Log in anytime to view your donation history, payment proofs, and official receipts.)
 `
     : ""
 }
@@ -314,7 +315,7 @@ export function createDonationCompletedEmail(data: DonationEmailData) {
           <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
             <tr>
               <td>
-                <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #166534; font-weight: 700;">Official Tax-Exempt Receipt</span>
+                <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #166534; font-weight: 700;">Official Donation Receipt</span>
                 <div style="font-size: 16px; font-weight: 800; color: #0b1536;">GJTF-REC-${escapeHtml(data.pledgeId.slice(-8).toUpperCase())}</div>
               </td>
               <td align="right">
@@ -647,7 +648,7 @@ export function createPaymentProofReceivedEmail(data: DonationEmailData) {
       <p style="margin: 0 0 12px; color: #475569; font-size: 13px; line-height: 1.6;">
         1. Our Finance &amp; Accounts team verifies the credit in our official bank account.<br/>
         2. Once verified, your pledge status will automatically change to <strong>Completed</strong>.<br/>
-        3. You will receive an official tax-exempt digital receipt with your unique receipt number.
+        3. You will receive an official digital receipt with your unique receipt number.
       </p>
       ${
         data.uploadUrl
@@ -675,7 +676,7 @@ Dear ${donorDisplayName},
 
 We have safely received your payment screenshot for pledge #${data.pledgeId} (${formattedAmt} for "${data.cause}").
 
-Our Finance & Accounts team is currently verifying the transfer with our bank statement. Once confirmed, you will receive your official tax receipt automatically.
+Our Finance & Accounts team is currently verifying the transfer with our bank statement. Once confirmed, you will receive your official donation receipt automatically.
 
 You can track your pledge status at:
 ${data.uploadUrl || "https://gjtf-foundation.vercel.app"}

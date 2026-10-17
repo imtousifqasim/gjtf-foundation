@@ -45,6 +45,9 @@ export interface StorageHealth {
   };
   publicPermissionDetected?: boolean;
   folderPathToday?: string;
+  error?: string;
+  hasPublicPermissions?: boolean;
+  driver?: string;
 }
 
 export interface ProofStorage {

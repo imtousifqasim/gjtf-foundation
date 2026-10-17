@@ -162,10 +162,10 @@ export default async function DonorDonationDetailPage({ params }: DonorDonationP
                 Donation Completed &amp; Cleared
               </span>
               <h2 className="text-xl sm:text-2xl font-extrabold text-emerald-950 font-heading">
-                Official Tax Receipt Available
+                Official Donation Receipt Available
               </h2>
               <p className="text-xs sm:text-sm text-emerald-800/90 leading-relaxed max-w-xl">
-                Your payment of PKR {amountPkr.toLocaleString()} has been verified. You can view, download, or print your official tax-exempt donation invoice and receipt anytime.
+                Your payment of PKR {amountPkr.toLocaleString()} has been verified. You can view, download, or print your official donation invoice and receipt anytime.
               </p>
             </div>
 

@@ -951,7 +951,8 @@ export async function rejectPaymentProofAdminAction(data: {
           donorEmail: donation.donor_email,
           amount: Number(donation.amount) || 0,
           currency: donation.currency || "PKR",
-          rejectReason: cleanReason,
+          cause: donation.cause || "General Education",
+          rejectionReason: cleanReason,
           uploadUrl,
         });
 
@@ -1048,7 +1049,7 @@ export async function testStorageHealthAction() {
     const health = await storage.health();
 
     await updatePaymentProofsSettingsDb({
-      last_health_check_at: new Date(),
+      last_health_check_at: new Date().toISOString(),
       last_health_status: health.healthy ? "healthy" : "degraded",
       last_health_error: health.error || null,
     });

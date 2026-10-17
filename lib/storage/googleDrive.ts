@@ -22,6 +22,10 @@ declare global {
   var __driveTokenExpiresAt: number | undefined;
   // eslint-disable-next-line no-var
   var __verifiedAncestryCache: Set<string> | undefined;
+  // eslint-disable-next-line no-var
+  var __driveFolderCache: Map<string, string> | undefined;
+  // eslint-disable-next-line no-var
+  var __driveInitPromise: Promise<void> | undefined;
 }
 
 if (!global.__verifiedAncestryCache) {

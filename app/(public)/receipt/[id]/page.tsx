@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { query } from "@/lib/db/mysql";
+import { query, getSiteSettingsDb } from "@/lib/db/mysql";
 import { formatCurrencyAmount } from "@/lib/email/templates/donationTemplates";
 import siteConfig from "@/lib/siteConfig";
 import ReceiptPrintButton from "./ReceiptPrintButton";
@@ -17,7 +17,7 @@ export async function generateMetadata({
   const { id } = await params;
   return {
     title: `Donation Receipt #${id} | GJTF Foundation`,
-    description: `Official tax-exempt donation receipt for Ghais Jhuggi Taleem Foundation.`,
+    description: `Official donation receipt for Ghais Jhuggi Taleem Foundation.`,
   };
 }
 
@@ -29,14 +29,17 @@ export default async function DonationReceiptPage({
   const { id } = await params;
   const decodedId = decodeURIComponent(id).trim();
 
-  const rows = await query<any[]>(
-    `SELECT d.*, r.receipt_no, r.access_token as receipt_token, r.issued_at
-     FROM donations d
-     LEFT JOIN receipts r ON d.id = r.donation_id
-     WHERE d.id = ? OR d.reference_no = ?
-     LIMIT 1`,
-    [decodedId, decodedId]
-  );
+  const [rows, settings] = await Promise.all([
+    query<any[]>(
+      `SELECT d.*, r.receipt_no, r.access_token as receipt_token, r.issued_at
+       FROM donations d
+       LEFT JOIN receipts r ON d.id = r.donation_id
+       WHERE d.id = ? OR d.reference_no = ?
+       LIMIT 1`,
+      [decodedId, decodedId]
+    ),
+    getSiteSettingsDb(),
+  ]);
 
   if (!rows || rows.length === 0) {
     notFound();
@@ -51,6 +54,19 @@ export default async function DonationReceiptPage({
     day: "numeric",
   });
   const receiptNo = donation.receipt_no || `GJTF-REC-${String(donation.reference_no || donation.id || "").replace(/^GJTF-/, "").toUpperCase()}`;
+
+  const showChairman = settings ? settings.show_chairman_in_receipts !== false && settings.show_chairman_in_receipts !== (0 as any) : true;
+  const showPhone = settings ? settings.show_phone_in_receipts !== false && settings.show_phone_in_receipts !== (0 as any) : true;
+  const showWhatsapp = settings ? settings.show_whatsapp_in_receipts !== false && settings.show_whatsapp_in_receipts !== (0 as any) : true;
+  const showEmail = settings ? settings.show_email_in_receipts !== false && settings.show_email_in_receipts !== (0 as any) : true;
+  const showAddress = settings ? settings.show_address_in_receipts !== false && settings.show_address_in_receipts !== (0 as any) : true;
+
+  const chairmanName = settings?.chairman_name || "Mubashir Hussain Chand";
+  const chairmanTitle = settings?.chairman_title || "Chairman, Ghais Jhuggi Taleem Foundation";
+  const phoneDisplay = settings?.telephone || settings?.mobile || siteConfig.phone1.display;
+  const whatsappDisplay = settings?.whatsapp || siteConfig.phone2.display;
+  const emailDisplay = settings?.email || siteConfig.email.address;
+  const addressDisplay = settings?.head_office_address || siteConfig.address;
 
   return (
     <>
@@ -142,18 +158,20 @@ export default async function DonationReceiptPage({
 
           {/* Printable Official Receipt Card */}
           <div className="receipt-card bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden print:shadow-none print:border-none print:rounded-none">
-          {/* Header */}
+          {/* Header with High-Contrast White Logo Card Container */}
           <div className="bg-gradient-to-r from-[#0b1536] via-[#1e3a8a] to-[#0b1536] text-white p-8 sm:p-10 border-b-4 border-blue-600 print:bg-slate-900 print:text-white">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
               <div>
-                <Image
-                  src="/images/Ghais-Jhuggi-Taleeem-Foundation-Logo.webp"
-                  alt="Ghais Jhuggi Taleem Foundation"
-                  width={240}
-                  height={65}
-                  className="h-12 w-auto object-contain mx-auto sm:mx-0"
-                  priority
-                />
+                <div className="bg-white rounded-2xl p-2.5 sm:p-3 inline-block shadow-md">
+                  <Image
+                    src="/images/Ghais-Jhuggi-Taleeem-Foundation-Logo.webp"
+                    alt="Ghais Jhuggi Taleem Foundation"
+                    width={220}
+                    height={58}
+                    className="h-10 sm:h-12 w-auto object-contain"
+                    priority
+                  />
+                </div>
                 <p className="text-xs text-blue-200 font-medium mt-2">
                   Jhuggi Taleemi Project • Established 2014
                 </p>
@@ -225,12 +243,12 @@ export default async function DonationReceiptPage({
               </div>
             </div>
 
-            {/* Tax / NGO Certification Note */}
+            {/* Official Foundation Acknowledgment Note (No tax references) */}
             <div className="border-t border-slate-200 pt-6 space-y-2 text-xs text-slate-600 leading-relaxed">
               <p>
-                <strong>Tax Exemption Note:</strong> Ghais Jhuggi Taleem Foundation (GJTF) is a registered non-profit organization 
-                operating nationwide across Pakistan dedicated to the educational upliftment of over 20 million nomadic community members. 
-                Donations made are eligible for tax exemption under applicable non-profit laws.
+                <strong>Official Foundation Certification:</strong> Ghais Jhuggi Taleem Foundation (GJTF) is a registered charitable 
+                trust and non-profit foundation operating nationwide across Pakistan, dedicated to providing free, high-quality education 
+                and welfare to deserving children across nomadic (jhuggi) settlements.
               </p>
               <p>
                 Thank you for empowering vulnerable children with quality education, notebooks, weatherproof classrooms, and hot meals.
@@ -241,19 +259,27 @@ export default async function DonationReceiptPage({
             <div className="border-t border-slate-200 pt-8 flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
               <div>
                 <div className="font-bold text-slate-900 text-sm">Ghais Jhuggi Taleem Foundation</div>
-                <div className="text-xs text-slate-500 mt-0.5">
-                  {siteConfig.status} • {siteConfig.address}<br/>
-                  Phone: {siteConfig.phone1.display} | WhatsApp: {siteConfig.phone2.display} • Web: gjtfoundation.com
+                <div className="text-xs text-slate-500 mt-0.5 space-y-0.5">
+                  <div>{siteConfig.status} {showAddress ? `• ${addressDisplay}` : ""}</div>
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2 gap-y-0.5">
+                    {showPhone && <span>Phone: {phoneDisplay}</span>}
+                    {showPhone && showWhatsapp && <span>|</span>}
+                    {showWhatsapp && <span>WhatsApp: {whatsappDisplay}</span>}
+                    {showEmail && <span>| Email: {emailDisplay}</span>}
+                    <span>• Web: gjtfoundation.com</span>
+                  </div>
                 </div>
               </div>
-              <div className="text-center sm:text-right">
-                <div className="inline-block border-b-2 border-slate-800 pb-1 px-6 font-serif italic text-slate-900 font-bold text-sm">
-                  {siteConfig.chairman}
+              {showChairman && (
+                <div className="text-center sm:text-right">
+                  <div className="inline-block border-b-2 border-slate-800 pb-1 px-6 font-serif italic text-slate-900 font-bold text-sm">
+                    {chairmanName}
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-1">
+                    {chairmanTitle}
+                  </div>
                 </div>
-                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-1">
-                  Chairman / Authorized Signatory
-                </div>
-              </div>
+              )}
             </div>
 
           </div>

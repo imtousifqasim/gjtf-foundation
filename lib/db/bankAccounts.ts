@@ -124,7 +124,7 @@ export async function updateBankAccountDb(
 
   // Record critical audit log
   await createAuditLogDb({
-    actor_type: "super_admin",
+    actor_type: "admin",
     actor_id: adminId,
     action: "bank_account.updated",
     target_type: "bank_account",

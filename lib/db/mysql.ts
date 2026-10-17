@@ -2,6 +2,8 @@ import mysql, { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import { createAdminClient } from "@/lib/supabase/server";
 import { ensureCoreTablesDb } from "./coreSchema";
 
+export type { RowDataPacket, ResultSetHeader };
+
 // Global pool caching for Next.js hot reloading
 declare global {
   // eslint-disable-next-line no-var
@@ -790,8 +792,11 @@ export async function saveSiteSettingsDb(settings: any): Promise<void> {
     INSERT INTO site_settings (
       id, head_office_address, contact_person, telephone, mobile, whatsapp,
       email, secondary_email, toll_free, facebook_url, instagram_url,
-      youtube_url, tiktok_url, twitter_url, linkedin_url
-    ) VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      youtube_url, tiktok_url, twitter_url, linkedin_url,
+      chairman_name, chairman_title, show_phone_in_receipts,
+      show_whatsapp_in_receipts, show_email_in_receipts, show_address_in_receipts,
+      show_socials_in_receipts, show_chairman_in_receipts
+    ) VALUES ('default', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       head_office_address = VALUES(head_office_address),
       contact_person = VALUES(contact_person),
@@ -807,6 +812,14 @@ export async function saveSiteSettingsDb(settings: any): Promise<void> {
       tiktok_url = VALUES(tiktok_url),
       twitter_url = VALUES(twitter_url),
       linkedin_url = VALUES(linkedin_url),
+      chairman_name = VALUES(chairman_name),
+      chairman_title = VALUES(chairman_title),
+      show_phone_in_receipts = VALUES(show_phone_in_receipts),
+      show_whatsapp_in_receipts = VALUES(show_whatsapp_in_receipts),
+      show_email_in_receipts = VALUES(show_email_in_receipts),
+      show_address_in_receipts = VALUES(show_address_in_receipts),
+      show_socials_in_receipts = VALUES(show_socials_in_receipts),
+      show_chairman_in_receipts = VALUES(show_chairman_in_receipts),
       updated_at = NOW();
   `;
   const params = [
@@ -824,6 +837,14 @@ export async function saveSiteSettingsDb(settings: any): Promise<void> {
     settings.tiktok_url || "",
     settings.twitter_url || "",
     settings.linkedin_url || "",
+    settings.chairman_name || "Mubashir Hussain Chand",
+    settings.chairman_title || "Chairman, Ghais Jhuggi Taleem Foundation",
+    settings.show_phone_in_receipts === false || settings.show_phone_in_receipts === 0 ? 0 : 1,
+    settings.show_whatsapp_in_receipts === false || settings.show_whatsapp_in_receipts === 0 ? 0 : 1,
+    settings.show_email_in_receipts === false || settings.show_email_in_receipts === 0 ? 0 : 1,
+    settings.show_address_in_receipts === false || settings.show_address_in_receipts === 0 ? 0 : 1,
+    settings.show_socials_in_receipts === false || settings.show_socials_in_receipts === 0 ? 0 : 1,
+    settings.show_chairman_in_receipts === false || settings.show_chairman_in_receipts === 0 ? 0 : 1,
   ];
 
   await query(sql, params);

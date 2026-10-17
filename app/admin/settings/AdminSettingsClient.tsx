@@ -740,9 +740,134 @@ export default function AdminSettingsClient({
                     </div>
                   </div>
 
+                  {/* Leadership & Official Signatory */}
+                  <div className="pt-3 border-t border-slate-100 space-y-4">
+                    <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-primary-600" />
+                      Leadership &amp; Official Signatory (Emails &amp; Receipts)
+                    </h3>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Chairman Name *
+                        </label>
+                        <Input
+                          placeholder="Mubashir Hussain Chand"
+                          value={siteSettings.chairman_name || ""}
+                          onChange={(e) =>
+                            setSiteSettings({ ...siteSettings, chairman_name: e.target.value })
+                          }
+                          className="rounded-xl border-slate-200 text-sm font-semibold"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Chairman Title / Designation *
+                        </label>
+                        <Input
+                          placeholder="Chairman, Ghais Jhuggi Taleem Foundation"
+                          value={siteSettings.chairman_title || ""}
+                          onChange={(e) =>
+                            setSiteSettings({ ...siteSettings, chairman_title: e.target.value })
+                          }
+                          className="rounded-xl border-slate-200 text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Email & Receipt Visibility Controls */}
+                  <div className="pt-3 border-t border-slate-100 space-y-4">
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-primary-600" />
+                        Email &amp; Receipt Information Visibility Toggles
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Choose exactly which contact channels and leadership signatures are visible on public receipts and automated donor emails.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                      <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={siteSettings.show_chairman_in_receipts !== false && siteSettings.show_chairman_in_receipts !== (0 as any)}
+                          onChange={(e) =>
+                            setSiteSettings({ ...siteSettings, show_chairman_in_receipts: e.target.checked })
+                          }
+                          className="w-4 h-4 rounded text-primary-600 border-slate-300 focus:ring-primary-500"
+                        />
+                        <span>Display Chairman Name &amp; Signature</span>
+                      </label>
+
+                      <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={siteSettings.show_phone_in_receipts !== false && siteSettings.show_phone_in_receipts !== (0 as any)}
+                          onChange={(e) =>
+                            setSiteSettings({ ...siteSettings, show_phone_in_receipts: e.target.checked })
+                          }
+                          className="w-4 h-4 rounded text-primary-600 border-slate-300 focus:ring-primary-500"
+                        />
+                        <span>Display Official Phone Numbers</span>
+                      </label>
+
+                      <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={siteSettings.show_whatsapp_in_receipts !== false && siteSettings.show_whatsapp_in_receipts !== (0 as any)}
+                          onChange={(e) =>
+                            setSiteSettings({ ...siteSettings, show_whatsapp_in_receipts: e.target.checked })
+                          }
+                          className="w-4 h-4 rounded text-primary-600 border-slate-300 focus:ring-primary-500"
+                        />
+                        <span>Display WhatsApp Verification Number</span>
+                      </label>
+
+                      <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={siteSettings.show_email_in_receipts !== false && siteSettings.show_email_in_receipts !== (0 as any)}
+                          onChange={(e) =>
+                            setSiteSettings({ ...siteSettings, show_email_in_receipts: e.target.checked })
+                          }
+                          className="w-4 h-4 rounded text-primary-600 border-slate-300 focus:ring-primary-500"
+                        />
+                        <span>Display Official Support Email</span>
+                      </label>
+
+                      <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={siteSettings.show_address_in_receipts !== false && siteSettings.show_address_in_receipts !== (0 as any)}
+                          onChange={(e) =>
+                            setSiteSettings({ ...siteSettings, show_address_in_receipts: e.target.checked })
+                          }
+                          className="w-4 h-4 rounded text-primary-600 border-slate-300 focus:ring-primary-500"
+                        />
+                        <span>Display Head Office Physical Address</span>
+                      </label>
+
+                      <label className="flex items-center gap-2.5 text-xs font-semibold text-slate-800 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={siteSettings.show_socials_in_receipts !== false && siteSettings.show_socials_in_receipts !== (0 as any)}
+                          onChange={(e) =>
+                            setSiteSettings({ ...siteSettings, show_socials_in_receipts: e.target.checked })
+                          }
+                          className="w-4 h-4 rounded text-primary-600 border-slate-300 focus:ring-primary-500"
+                        />
+                        <span>Display Social Media Channels (Instagram, TikTok, YouTube, Facebook)</span>
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     <span className="text-xs text-slate-500">
-                      Saves instantly to Supabase database in real-time without server downtime.
+                      Saves instantly to MySQL database and syncs across all live emails &amp; receipts.
                     </span>
 
                   <Button

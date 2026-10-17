@@ -366,6 +366,14 @@ export async function ensureCoreTablesDb(force = false): Promise<void> {
         "ALTER TABLE contact_submissions ADD COLUMN replied_at TIMESTAMP NULL",
         "ALTER TABLE contact_submissions ADD COLUMN replied_by VARCHAR(128) NULL",
         "ALTER TABLE contact_submissions ADD COLUMN phone VARCHAR(64) NULL",
+        "ALTER TABLE site_settings ADD COLUMN chairman_name VARCHAR(255) DEFAULT 'Mubashir Hussain Chand'",
+        "ALTER TABLE site_settings ADD COLUMN chairman_title VARCHAR(255) DEFAULT 'Chairman, Ghais Jhuggi Taleem Foundation'",
+        "ALTER TABLE site_settings ADD COLUMN show_phone_in_receipts TINYINT(1) DEFAULT 1",
+        "ALTER TABLE site_settings ADD COLUMN show_whatsapp_in_receipts TINYINT(1) DEFAULT 1",
+        "ALTER TABLE site_settings ADD COLUMN show_email_in_receipts TINYINT(1) DEFAULT 1",
+        "ALTER TABLE site_settings ADD COLUMN show_address_in_receipts TINYINT(1) DEFAULT 1",
+        "ALTER TABLE site_settings ADD COLUMN show_socials_in_receipts TINYINT(1) DEFAULT 1",
+        "ALTER TABLE site_settings ADD COLUMN show_chairman_in_receipts TINYINT(1) DEFAULT 1",
       ];
 
       for (const sql of contactAlterQueries) {

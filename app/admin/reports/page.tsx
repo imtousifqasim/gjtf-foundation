@@ -566,7 +566,7 @@ export default function AdminReportsPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-bold text-slate-700">Email (For Tax Receipt)</Label>
+                  <Label className="text-xs font-bold text-slate-700">Email (For Receipt)</Label>
                   <Input
                     type="email"
                     placeholder="donor@example.com"

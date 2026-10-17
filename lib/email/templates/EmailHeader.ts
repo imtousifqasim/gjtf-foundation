@@ -35,11 +35,17 @@ export function renderEmailHeader(options: EmailHeaderOptions = {}): string {
           <tr>
             <td align="center" style="padding-bottom: 14px;">
               <a href="${escapeHtml(siteUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: inline-block;">
-                <!-- Fixed size, aspect ratio preserved, absolute HTTPS PNG -->
-                <img src="${escapeHtml(assets.logo)}"
-                     alt="Ghais Jhuggi Taleem Foundation"
-                     width="180"
-                     style="display: block; width: 180px; max-width: 180px; height: auto; border: 0; outline: none; text-decoration: none; margin: 0 auto;" />
+                <!-- High-contrast crisp white card so logo colors & typography never merge with header background -->
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; margin: 0 auto; box-shadow: 0 4px 14px rgba(0,0,0,0.25); border-collapse: collapse;">
+                  <tr>
+                    <td align="center" style="padding: 10px 22px; background-color: #ffffff; border-radius: 12px;">
+                      <img src="${escapeHtml(assets.logo)}"
+                           alt="Ghais Jhuggi Taleem Foundation"
+                           width="180"
+                           style="display: block; width: 180px; max-width: 180px; height: auto; border: 0; outline: none; text-decoration: none; margin: 0 auto;" />
+                    </td>
+                  </tr>
+                </table>
               </a>
             </td>
           </tr>

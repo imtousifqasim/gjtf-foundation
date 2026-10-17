@@ -203,7 +203,8 @@ export async function adminUpdateBankAccountAction(
   // Dispatch security alert email to super admins
   try {
     await sendTransactionalEmail({
-      to: [adminEmail, "jhuggitaleemiproject@gmail.com"],
+      to: adminEmail || "jhuggitaleemiproject@gmail.com",
+      emailType: "security_alert",
       subject: "🚨 SECURITY ALERT: Bank Account Details Modified",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">

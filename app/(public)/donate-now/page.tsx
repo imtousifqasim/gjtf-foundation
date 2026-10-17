@@ -3,6 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Heart,
   Building,
@@ -16,13 +17,15 @@ import {
   Plus,
   Minus,
   Info,
+  AlertTriangle,
+  Lock,
 } from "lucide-react";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/data/countries";
 import { media } from "@/data/media";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { submitDonation, DonationInput } from "@/app/actions/donations";
+import { submitDonation, verifyDonorContactAction, DonationInput } from "@/app/actions/donations";
 import { validateEmail, validatePhoneNumber } from "@/lib/validation";
 import { ValidationFeedback } from "@/components/shared/ValidationFeedback";
 import { calculateImpact, DEFAULT_PRICING } from "@/lib/pricing/impact";
@@ -79,6 +82,18 @@ export default function DonateNowPage() {
   const [emailError, setEmailError] = React.useState<string | null>(null);
   const [emailSuggestion, setEmailSuggestion] = React.useState<string | null>(null);
   const [phoneError, setPhoneError] = React.useState<string | null>(null);
+
+  // Live account verification & mismatch prevention state
+  const [accountVerifyStatus, setAccountVerifyStatus] = React.useState<{
+    status: "new" | "matched" | "mismatch" | "phone_conflict" | "needs_phone" | "logged_in" | null;
+    message?: string;
+    code?: string;
+  }>({ status: null });
+  const [mismatchError, setMismatchError] = React.useState<{
+    code: string;
+    message: string;
+  } | null>(null);
+  const phoneInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const [submitting, setSubmitting] = React.useState(false);
   const [submittedData, setSubmittedData] = React.useState<any | null>(null);
@@ -139,11 +154,32 @@ export default function DonateNowPage() {
     setTimeout(() => setCopiedField(null), 2500);
   };
 
+  const checkContactStatus = React.useCallback(async (email: string, phone: string) => {
+    if (!email.trim() && !phone.trim()) {
+      setAccountVerifyStatus({ status: null });
+      return;
+    }
+    const res = await verifyDonorContactAction({ email, phone });
+    if (res.status === "mismatch") {
+      setAccountVerifyStatus({ status: "mismatch", message: res.message, code: res.code });
+    } else if (res.status === "phone_conflict") {
+      setAccountVerifyStatus({ status: "phone_conflict", message: res.message, code: res.code });
+    } else if (res.status === "matched") {
+      setAccountVerifyStatus({ status: "matched", message: res.message });
+    } else if (res.status === "needs_phone") {
+      setAccountVerifyStatus({ status: "needs_phone", message: res.message });
+    } else {
+      setAccountVerifyStatus({ status: "new" });
+    }
+  }, []);
+
   const handleEmailChange = (val: string) => {
     setDonorEmail(val);
+    setMismatchError(null);
     if (!val.trim()) {
       setEmailError(null);
       setEmailSuggestion(null);
+      checkContactStatus("", donorPhone);
       return;
     }
     const res = validateEmail(val);
@@ -153,13 +189,16 @@ export default function DonateNowPage() {
     } else {
       setEmailError(null);
       setEmailSuggestion(null);
+      checkContactStatus(res.cleaned, donorPhone);
     }
   };
 
   const handlePhoneChange = (val: string) => {
     setDonorPhone(val);
+    setMismatchError(null);
     if (!val.trim()) {
       setPhoneError(null);
+      checkContactStatus(donorEmail, "");
       return;
     }
     const res = validatePhoneNumber(val);
@@ -167,6 +206,7 @@ export default function DonateNowPage() {
       setPhoneError(res.error || null);
     } else {
       setPhoneError(null);
+      checkContactStatus(donorEmail, res.formatted);
     }
   };
 
@@ -239,7 +279,13 @@ export default function DonateNowPage() {
         isGuest: true,
       });
     } else {
-      setErrorMsg(res.message || "An error occurred while submitting your pledge.");
+      if (res.code === "PHONE_EMAIL_MISMATCH" || res.code === "PHONE_ALREADY_REGISTERED") {
+        setMismatchError({ code: res.code, message: res.message });
+        setErrorMsg(null);
+      } else {
+        setErrorMsg(res.message || "An error occurred while submitting your pledge.");
+        setMismatchError(null);
+      }
     }
   };
 
@@ -569,8 +615,8 @@ export default function DonateNowPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      className="h-12 w-12 rounded-xl shrink-0"
+                      size="sm"
+                      className="h-12 w-12 rounded-xl shrink-0 p-0"
                       onClick={() => {
                         const next = Math.max(0.5, childrenCount - 1);
                         setChildrenCount(next);
@@ -590,8 +636,8 @@ export default function DonateNowPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      className="h-12 w-12 rounded-xl shrink-0"
+                      size="sm"
+                      className="h-12 w-12 rounded-xl shrink-0 p-0"
                       onClick={() => {
                         const next = childrenCount + 1;
                         setChildrenCount(next);
@@ -736,7 +782,7 @@ export default function DonateNowPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-charcoal mb-1">
-                    Email Address (For donation tax receipt)
+                    Email Address (For donation receipt)
                   </label>
                   <Input
                     type="email"
@@ -762,6 +808,7 @@ export default function DonateNowPage() {
                   Phone / WhatsApp Number (For doorstep pickup &amp; confirmations)
                 </label>
                 <Input
+                  ref={phoneInputRef}
                   placeholder="03033934771 or +923033934771"
                   value={donorPhone}
                   onChange={(e) => handlePhoneChange(e.target.value)}
@@ -769,6 +816,108 @@ export default function DonateNowPage() {
                 />
                 <ValidationFeedback error={phoneError} />
               </div>
+
+              {/* Live Account Recognition & Feedback */}
+              {accountVerifyStatus.status === "matched" && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-950 animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-medium">
+                    <strong>Existing Supporter Account Recognized:</strong> This pledge will be automatically linked to your existing dashboard and past donation records.
+                  </span>
+                </div>
+              )}
+
+              {accountVerifyStatus.status === "mismatch" && (
+                <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl flex items-start gap-2.5 text-xs text-amber-950 animate-in fade-in">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-bold block">
+                      Registered Email Detected: Phone Number Mismatch
+                    </span>
+                    <p className="text-amber-800">
+                      This email is already registered in our system with a different phone number. To protect account security, enter the phone number associated with this email, or sign in below.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {accountVerifyStatus.status === "phone_conflict" && (
+                <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl flex items-start gap-2.5 text-xs text-amber-950 animate-in fade-in">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-bold block">
+                      Registered Phone Number Detected
+                    </span>
+                    <p className="text-amber-800">
+                      This phone number is registered with another email address. Please use the email registered with this phone number, or sign in to your dashboard.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Strict Account Security / Mismatch Error Card */}
+              {mismatchError && (
+                <div className="p-5 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-950 space-y-3 animate-in fade-in">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-sm text-rose-950">
+                        {mismatchError.code === "PHONE_EMAIL_MISMATCH"
+                          ? "Account Verification Required: Phone Number Mismatch"
+                          : "Account Verification Required: Phone Already Registered"}
+                      </h4>
+                      <p className="text-xs text-rose-800 leading-relaxed">
+                        {mismatchError.message}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-rose-200/80 flex flex-wrap items-center gap-2">
+                    <Link href="/donor/login?redirect=/donate-now">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 h-9"
+                      >
+                        <Lock className="w-3.5 h-3.5 mr-1.5" />
+                        Log In to Verify Account
+                      </Button>
+                    </Link>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setMismatchError(null);
+                        setDonorPhone("");
+                        setTimeout(() => phoneInputRef.current?.focus(), 50);
+                      }}
+                      className="rounded-xl border-rose-300 text-rose-900 hover:bg-rose-100 text-xs font-bold h-9"
+                    >
+                      Re-enter Phone Number
+                    </Button>
+                    <Link href="/donor/set-password">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="rounded-xl text-rose-800 hover:bg-rose-100 text-xs font-semibold h-9"
+                      >
+                        Update Credentials &rarr;
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              {errorMsg && (
+                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
 
               {/* Order Summary Pill */}
               <div className="p-4 rounded-2xl bg-warm-100 border border-warm-200 space-y-1.5 text-xs sm:text-sm">
@@ -810,7 +959,7 @@ export default function DonateNowPage() {
 
               <div className="flex items-center justify-center gap-2 text-xs text-charcoal-muted pt-1">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>Transparent NGO • 100% Directed to Nomadic Education • Tax Exempted</span>
+                <span>Transparent NGO • 100% Directed to Nomadic Education • Certified Non-Profit</span>
               </div>
             </div>
           </form>
@@ -893,7 +1042,7 @@ export default function DonateNowPage() {
           <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">
             <strong className="block font-semibold">⚠️ Transfer Remarks Instruction:</strong>
             <p>
-              Please write your <strong>Pledge Reference Number (GJTF-YYYY-NNNNNN)</strong> in the transaction remarks or narration. This enables our finance team to match your transfer instantly and issue your official tax receipt.
+              Please write your <strong>Pledge Reference Number (GJTF-YYYY-NNNNNN)</strong> in the transaction remarks or narration. This enables our finance team to match your transfer instantly and issue your official donation receipt.
             </p>
           </div>
         </div>

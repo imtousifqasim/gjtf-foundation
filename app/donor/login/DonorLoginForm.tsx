@@ -103,7 +103,7 @@ export default function DonorLoginForm() {
       router.refresh();
     } else {
       setMagicLoading(false);
-      setMagicFeedback({ type: "error", message: res.message });
+      setMagicFeedback({ type: "error", message: res.message || "Invalid or expired OTP code." });
     }
   };
 
@@ -115,7 +115,7 @@ export default function DonorLoginForm() {
           Donor Portal Login
         </h1>
         <p className="text-xs sm:text-sm text-slate-500">
-          Access your personal tax receipts, pledges, and impact timeline.
+          Access your personal donation receipts, pledges, and impact timeline.
         </p>
       </div>
 
