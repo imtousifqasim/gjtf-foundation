@@ -46,7 +46,25 @@ describe("Payment Proof Verification & Admin Actions End-to-End", () => {
   });
 
   describe("Admin Confirmation Flow (confirmDonationWithProofAction)", () => {
-    test("Rejects confirmation when bank transaction reference is missing or empty", async () => {
+    test("Automatically generates system reference when bank transaction reference is missing or empty", async () => {
+      query.mockImplementation(async (sql: string, params: any[]) => {
+        if (sql.includes("SELECT * FROM donations WHERE id = ?")) {
+          return [
+            {
+              id: "don-test-101",
+              reference_no: "GJTF-2026-000101",
+              amount: 5000,
+              donor_name: "Tariq Mahmood",
+              donor_email: "tariq@example.com",
+              proof_status: "submitted",
+              cause: "Education",
+              frequency: "once",
+            },
+          ];
+        }
+        return [];
+      });
+
       const res = await confirmDonationWithProofAction({
         donationId: "don-test-101",
         receivedAmount: 5000,
@@ -54,11 +72,36 @@ describe("Payment Proof Verification & Admin Actions End-to-End", () => {
         bankTransactionRef: "   ",
       });
 
-      expect(res.success).toBe(false);
-      expect(res.error).toMatch(/Bank transaction reference number is required/i);
+      expect(res.success).toBe(true);
+      expect(res.receiptUrl).toMatch(/GJTF-2026-000101/);
+
+      // Verify UPDATE was called with an auto-generated SYS-INV reference
+      const donationUpdateCall = query.mock.calls.find((call: any[]) =>
+        call[0].includes("UPDATE donations") && call[0].includes("status = 'completed'")
+      );
+      expect(donationUpdateCall).toBeDefined();
+      expect(donationUpdateCall[1][1]).toMatch(/SYS-INV-GJTF-2026-000101/);
     });
 
-    test("Rejects confirmation when bank account is not selected", async () => {
+    test("Automatically defaults to active bank account when bankAccountId is omitted", async () => {
+      query.mockImplementation(async (sql: string, params: any[]) => {
+        if (sql.includes("SELECT * FROM donations WHERE id = ?")) {
+          return [
+            {
+              id: "don-test-101",
+              reference_no: "GJTF-2026-000101",
+              amount: 5000,
+              donor_name: "Tariq Mahmood",
+              donor_email: "tariq@example.com",
+              proof_status: "submitted",
+              cause: "Education",
+              frequency: "once",
+            },
+          ];
+        }
+        return [];
+      });
+
       const res = await confirmDonationWithProofAction({
         donationId: "don-test-101",
         receivedAmount: 5000,
@@ -66,12 +109,14 @@ describe("Payment Proof Verification & Admin Actions End-to-End", () => {
         bankTransactionRef: "TXN-998877",
       });
 
-      expect(res.success).toBe(false);
-      expect(res.error).toMatch(/Please select the receiving bank account/i);
+      expect(res.success).toBe(true);
     });
 
-    test("Rejects confirmation when bank transaction reference is already used on another donation", async () => {
+    test("Rejects confirmation when custom bank transaction reference is already used on another donation", async () => {
       query.mockImplementation(async (sql: string, params: any[]) => {
+        if (sql.includes("SELECT * FROM donations WHERE id = ?")) {
+          return [{ id: "don-test-101", reference_no: "GJTF-2026-000101" }];
+        }
         if (sql.includes("SELECT id, reference_no FROM donations WHERE bank_transaction_ref = ?")) {
           return [{ id: "don-existing-888", reference_no: "GJTF-2026-000888" }];
         }
@@ -122,7 +167,7 @@ describe("Payment Proof Verification & Admin Actions End-to-End", () => {
       });
 
       expect(res.success).toBe(true);
-      expect(res.receiptUrl).toBe("/receipt/don-test-101");
+      expect(res.receiptUrl).toBe("/receipt/GJTF-2026-000101");
 
       // Verify UPDATE donations query was called with status 'completed' and 'approved'
       const donationUpdateCall = query.mock.calls.find((call: any[]) =>

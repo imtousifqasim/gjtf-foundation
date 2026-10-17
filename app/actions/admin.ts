@@ -44,6 +44,7 @@ import {
   updatePaymentProofsSettingsDb,
 } from "@/lib/db/paymentProofsSchema";
 import { createPledgeAccessToken } from "@/lib/db/pledgeTokens";
+import { getActiveBankAccountsDb } from "@/lib/db/bankAccounts";
 
 export async function updateDonationStatus(
   donationId: string,
@@ -684,46 +685,53 @@ export async function getDonationProofsAdminAction(donationId: string) {
 export async function confirmDonationWithProofAction(data: {
   donationId: string;
   receivedAmount: number;
-  bankAccountId: string;
-  bankTransactionRef: string;
+  bankAccountId?: string;
+  bankTransactionRef?: string;
   confirmationDate?: string;
   adminNote?: string;
-}): Promise<{ success: boolean; error?: string; receiptUrl?: string }> {
+}): Promise<{ success: boolean; error?: string; receiptUrl?: string; receiptNo?: string }> {
   try {
     const admin = await requireAdmin();
 
-    const cleanRef = data.bankTransactionRef?.trim();
-    if (!cleanRef) {
-      return { success: false, error: "Bank transaction reference number is required." };
+    // 1. Fetch the target donation first
+    const donRows: any = await query("SELECT * FROM donations WHERE id = ? LIMIT 1", [data.donationId]);
+    if (!donRows || donRows.length === 0) {
+      return { success: false, error: "Donation record not found." };
     }
+    const donation = donRows[0];
 
-    if (!data.bankAccountId) {
-      return { success: false, error: "Please select the receiving bank account." };
+    // Clean or auto-generate fallback invoice/transaction reference if admin omitted it
+    const cleanRef = data.bankTransactionRef?.trim() || `SYS-INV-${donation.reference_no || donation.id.slice(0, 8).toUpperCase()}`;
+
+    // Target bank account: default to primary active bank if not selected
+    let targetBankAccountId = data.bankAccountId?.trim();
+    if (!targetBankAccountId) {
+      try {
+        const activeBanks = await getActiveBankAccountsDb();
+        targetBankAccountId = activeBanks[0]?.id || "bank-islami-primary";
+      } catch {
+        targetBankAccountId = "bank-islami-primary";
+      }
     }
 
     if (!data.receivedAmount || data.receivedAmount <= 0) {
       return { success: false, error: "Please provide a valid received amount." };
     }
 
-    // 1. Check uniqueness of bank_transaction_ref across donations (where not null)
-    const existingRefRows: any = await query(
-      "SELECT id, reference_no FROM donations WHERE bank_transaction_ref = ? AND id != ? LIMIT 1",
-      [cleanRef, data.donationId]
-    );
-    if (existingRefRows && existingRefRows.length > 0) {
-      const match = existingRefRows[0];
-      return {
-        success: false,
-        error: `Duplicate Bank Transaction Reference! This reference was already verified for donation #${match.reference_no || match.id}.`,
-      };
+    // 2. Check uniqueness of bank_transaction_ref across donations only if explicitly provided (not SYS-INV prefix)
+    if (data.bankTransactionRef && data.bankTransactionRef.trim() && !cleanRef.startsWith("SYS-")) {
+      const existingRefRows: any = await query(
+        "SELECT id, reference_no FROM donations WHERE bank_transaction_ref = ? AND id != ? LIMIT 1",
+        [cleanRef, data.donationId]
+      );
+      if (existingRefRows && existingRefRows.length > 0) {
+        const match = existingRefRows[0];
+        return {
+          success: false,
+          error: `Duplicate Bank Transaction Reference! This reference was already verified for donation #${match.reference_no || match.id}.`,
+        };
+      }
     }
-
-    // 2. Fetch the target donation
-    const donRows: any = await query("SELECT * FROM donations WHERE id = ? LIMIT 1", [data.donationId]);
-    if (!donRows || donRows.length === 0) {
-      return { success: false, error: "Donation record not found." };
-    }
-    const donation = donRows[0];
 
     const recAmtMinor = BigInt(Math.round(data.receivedAmount * 100));
     const paidAtSql = data.confirmationDate ? new Date(data.confirmationDate) : new Date();
@@ -747,7 +755,7 @@ export async function confirmDonationWithProofAction(data: {
           END
       WHERE id = ?
     `, [
-      data.bankAccountId,
+      targetBankAccountId,
       cleanRef,
       recAmtMinor.toString(),
       recAmtMinor.toString(),
@@ -847,12 +855,19 @@ export async function confirmDonationWithProofAction(data: {
       revalidatePath("/admin/donations");
       revalidatePath("/admin");
       revalidatePath(`/donor/donations/${data.donationId}`);
+      if (donation.reference_no) {
+        revalidatePath(`/donor/donations/${donation.reference_no}`);
+      }
       revalidatePath("/donor/dashboard");
+      revalidatePath("/donor/receipts");
     } catch {}
+
+    const receiptUrl = `/receipt/${encodeURIComponent(donation.reference_no || data.donationId)}`;
 
     return {
       success: true,
-      receiptUrl: `/receipt/${encodeURIComponent(data.donationId)}`,
+      receiptNo,
+      receiptUrl,
     };
   } catch (err: any) {
     console.error("[confirmDonationWithProofAction] Error:", err);

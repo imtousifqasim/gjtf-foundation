@@ -27,11 +27,15 @@ export default async function DonationReceiptPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const decodedId = decodeURIComponent(id);
+  const decodedId = decodeURIComponent(id).trim();
 
   const rows = await query<any[]>(
-    "SELECT * FROM donations WHERE id = ? LIMIT 1",
-    [decodedId]
+    `SELECT d.*, r.receipt_no, r.access_token as receipt_token, r.issued_at
+     FROM donations d
+     LEFT JOIN receipts r ON d.id = r.donation_id
+     WHERE d.id = ? OR d.reference_no = ?
+     LIMIT 1`,
+    [decodedId, decodedId]
   );
 
   if (!rows || rows.length === 0) {
@@ -41,12 +45,12 @@ export default async function DonationReceiptPage({
   const donation = rows[0];
   const donorName = donation.donor_name && donation.donor_name.trim() ? donation.donor_name : "Anonymous Supporter";
   const formattedAmt = formatCurrencyAmount(donation.amount, donation.currency);
-  const receiptDate = new Date(donation.created_at || Date.now()).toLocaleDateString("en-PK", {
+  const receiptDate = new Date(donation.paid_at || donation.confirmed_at || donation.created_at || Date.now()).toLocaleDateString("en-PK", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
-  const receiptNo = `GJTF-REC-${String(donation.id || "").slice(-8).toUpperCase()}`;
+  const receiptNo = donation.receipt_no || `GJTF-REC-${String(donation.reference_no || donation.id || "").replace(/^GJTF-/, "").toUpperCase()}`;
 
   return (
     <>

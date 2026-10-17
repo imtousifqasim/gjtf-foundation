@@ -33,10 +33,10 @@ export default async function DonorDonationDetailPage({ params }: DonorDonationP
     redirect(`/donor/login?next=/donor/donations/${encodeURIComponent(id)}`);
   }
 
-  // 2. Fetch Donation Record
+  // 2. Fetch Donation Record (supports both UUID id and reference_no)
   const donations = await query<RowDataPacket[]>(
-    "SELECT * FROM donations WHERE id = ? LIMIT 1",
-    [id]
+    "SELECT * FROM donations WHERE id = ? OR reference_no = ? LIMIT 1",
+    [id, id]
   );
 
   if (!donations || donations.length === 0) {
@@ -45,9 +45,15 @@ export default async function DonorDonationDetailPage({ params }: DonorDonationP
 
   const donation = donations[0];
 
-  // 3. Strict Ownership Guard (Donor A cannot view Donor B's donation)
+  // 3. Strict Ownership Guard (Donor A cannot view Donor B's donation, auto-linking if matching email)
   if (donation.donor_id !== donor.id) {
-    notFound();
+    if (donation.donor_email && donation.donor_email.toLowerCase() === donor.email.toLowerCase()) {
+      try {
+        await query("UPDATE donations SET donor_id = ? WHERE id = ?", [donor.id, donation.id]);
+      } catch {}
+    } else {
+      notFound();
+    }
   }
 
   // 4. Fetch Primary Bank Details
@@ -146,23 +152,55 @@ export default async function DonorDonationDetailPage({ params }: DonorDonationP
         </div>
       </div>
 
-      {/* Bank Transfer Instructions Card */}
-      <PaymentInstructionsCard
-        referenceNo={donation.reference_no}
-        amountPkr={amountPkr}
-        bankAccount={primaryBank}
-        cause={donation.cause}
-        frequency={donation.frequency}
-      />
+      {/* Official Completed Receipt Card OR Payment Instructions */}
+      {isCompleted ? (
+        <div className="bg-emerald-50 border-2 border-emerald-300 rounded-3xl p-6 sm:p-8 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Donation Completed &amp; Cleared
+              </span>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-emerald-950 font-heading">
+                Official Tax Receipt Available
+              </h2>
+              <p className="text-xs sm:text-sm text-emerald-800/90 leading-relaxed max-w-xl">
+                Your payment of PKR {amountPkr.toLocaleString()} has been verified. You can view, download, or print your official tax-exempt donation invoice and receipt anytime.
+              </p>
+            </div>
 
-      {/* Proof Upload Component */}
-      <ProofUploadSection
-        donationId={donation.id}
-        referenceNo={donation.reference_no}
-        proofStatus={proofStatus}
-        existingProofs={proofs}
-        rejectionReason={proofs.find((p) => p.status === "rejected")?.reject_reason}
-      />
+            <Link href={`/receipt/${donation.reference_no || donation.id}`} target="_blank">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-md transition-all shrink-0 cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                View Official Receipt &rarr;
+              </button>
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Bank Transfer Instructions Card */}
+          <PaymentInstructionsCard
+            referenceNo={donation.reference_no}
+            amountPkr={amountPkr}
+            bankAccount={primaryBank}
+            cause={donation.cause}
+            frequency={donation.frequency}
+          />
+
+          {/* Proof Upload Component */}
+          <ProofUploadSection
+            donationId={donation.id}
+            referenceNo={donation.reference_no}
+            proofStatus={proofStatus}
+            existingProofs={proofs}
+            rejectionReason={proofs.find((p) => p.status === "rejected")?.reject_reason}
+          />
+        </>
+      )}
     </div>
   );
 }

@@ -23,10 +23,20 @@ export default function DonorReceiptsPage() {
 
   React.useEffect(() => {
     async function load() {
-      setLoading(true);
-      const res = await getDonorDonationsAction({ status: "completed" });
-      setCompletedDonations(res.donations || []);
-      setLoading(false);
+      try {
+        setLoading(true);
+        const res = await getDonorDonationsAction({ status: "completed" });
+        if (res && Array.isArray(res.donations)) {
+          setCompletedDonations(res.donations);
+        } else {
+          setCompletedDonations([]);
+        }
+      } catch (err) {
+        console.error("Failed to load donor receipts:", err);
+        setCompletedDonations([]);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, []);
@@ -37,11 +47,6 @@ export default function DonorReceiptsPage() {
   });
 
   const totalYearPkr = filteredForYear
-    .filter((d) => (d.currency || "PKR").toUpperCase() === "PKR")
-    .reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
-
-  const totalYearAed = filteredForYear
-    .filter((d) => (d.currency || "").toUpperCase() === "AED")
     .reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
 
   return (
@@ -98,21 +103,13 @@ export default function DonorReceiptsPage() {
         </div>
 
         {/* Year Summary Box */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs border-t border-white/10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs border-t border-white/10">
           <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
             <span className="text-slate-400 block mb-0.5">Total Contributions ({selectedYear})</span>
             <span className="text-lg font-bold font-mono text-emerald-300">
               PKR {totalYearPkr.toLocaleString()}
             </span>
           </div>
-          {totalYearAed > 0 && (
-            <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
-              <span className="text-slate-400 block mb-0.5">Overseas Total ({selectedYear})</span>
-              <span className="text-lg font-bold font-mono text-blue-300">
-                AED {totalYearAed.toLocaleString()}
-              </span>
-            </div>
-          )}
           <div className="bg-white/5 rounded-2xl p-3 border border-white/10">
             <span className="text-slate-400 block mb-0.5">Eligible Verified Gifts</span>
             <span className="text-lg font-bold font-mono text-white">
@@ -185,7 +182,7 @@ export default function DonorReceiptsPage() {
                       {d.currency} {Number(d.amount).toLocaleString()}
                     </td>
                     <td className="py-3.5 px-4 sm:px-6 text-right">
-                      <Link href={`/receipt/${d.id}`} target="_blank">
+                      <Link href={`/receipt/${d.reference_no || d.id}`} target="_blank">
                         <Button
                           size="sm"
                           className="h-8 text-xs font-bold rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm"

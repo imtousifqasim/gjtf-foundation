@@ -478,8 +478,10 @@ export async function getDonationsByDonorDb(
   const limit = Math.min(filters?.limit || 50, 100);
   const offset = filters?.offset || 0;
 
-  const conditions: string[] = ["d.donor_id = ?"];
-  const params: any[] = [donorId];
+  const conditions: string[] = [
+    "(d.donor_id = ? OR (d.donor_id IS NULL AND d.donor_email IS NOT NULL AND LOWER(d.donor_email) = (SELECT LOWER(email) FROM donors WHERE id = ? LIMIT 1)))"
+  ];
+  const params: any[] = [donorId, donorId];
 
   if (filters?.status && filters.status !== "All") {
     conditions.push("d.status = ?");
@@ -532,10 +534,11 @@ export async function getDonationByIdScopedDb(donationId: string, donorId: strin
     SELECT d.*, r.receipt_no, r.access_token as receipt_token
     FROM donations d
     LEFT JOIN receipts r ON d.id = r.donation_id
-    WHERE d.id = ? AND d.donor_id = ?
+    WHERE (d.id = ? OR d.reference_no = ?) 
+      AND (d.donor_id = ? OR (d.donor_email IS NOT NULL AND LOWER(d.donor_email) = (SELECT LOWER(email) FROM donors WHERE id = ? LIMIT 1)))
     LIMIT 1
   `;
-  const rows = await query<RowDataPacket[]>(sql, [donationId, donorId]);
+  const rows = await query<RowDataPacket[]>(sql, [donationId, donationId, donorId, donorId]);
   if (!rows || rows.length === 0) return null;
   return rows[0];
 }
@@ -598,6 +601,14 @@ export async function getDonorDashboardStatsDb(donorId: string): Promise<{
   childrenEducatedYears: number;
 }> {
   await ensureCoreTablesDb();
+
+  // Auto-link any guest donations created with the donor's registered email
+  try {
+    await query(
+      "UPDATE donations SET donor_id = ? WHERE donor_id IS NULL AND donor_email IS NOT NULL AND LOWER(donor_email) = (SELECT LOWER(email) FROM donors WHERE id = ? LIMIT 1)",
+      [donorId, donorId]
+    );
+  } catch {}
 
   const [statsRows, pendingRows, planRows, appSettingsRows] = await Promise.all([
     query<RowDataPacket[]>(

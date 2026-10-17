@@ -47,19 +47,32 @@ export default function DonorDonationsPage() {
   const [donationProofs, setDonationProofs] = React.useState<any[]>([]);
 
   const fetchDonations = React.useCallback(async (p: number) => {
-    setLoading(true);
-    const res = await getDonorDonationsAction({
-      page: p,
-      status: statusFilter,
-      currency: currencyFilter,
-      donationType: typeFilter,
-      year: yearFilter,
-    });
-    setDonations(res.donations);
-    setTotal(res.total);
-    setPage(res.page);
-    setTotalPages(res.totalPages || 1);
-    setLoading(false);
+    try {
+      setLoading(true);
+      const res = await getDonorDonationsAction({
+        page: p,
+        status: statusFilter,
+        currency: currencyFilter,
+        donationType: typeFilter,
+        year: yearFilter,
+      });
+      if (res && Array.isArray(res.donations)) {
+        setDonations(res.donations);
+        setTotal(res.total || 0);
+        setPage(res.page || 1);
+        setTotalPages(res.totalPages || 1);
+      } else {
+        setDonations([]);
+        setTotal(0);
+        setPage(1);
+        setTotalPages(1);
+      }
+    } catch (err) {
+      console.error("Error fetching donor donations:", err);
+      setDonations([]);
+    } finally {
+      setLoading(false);
+    }
   }, [statusFilter, currencyFilter, typeFilter, yearFilter]);
 
   React.useEffect(() => {
@@ -67,18 +80,23 @@ export default function DonorDonationsPage() {
   }, [fetchDonations]);
 
   const handleOpenDetail = async (donationId: string) => {
-    setDetailLoading(true);
-    setDetailModalOpen(true);
-    setSelectedDonation(null);
-    setStatusHistory([]);
-    setDonationProofs([]);
+    try {
+      setDetailLoading(true);
+      setDetailModalOpen(true);
+      setSelectedDonation(null);
+      setStatusHistory([]);
+      setDonationProofs([]);
 
-    const res = await getDonorDonationDetailAction(donationId);
-    setDetailLoading(false);
-    if (res.success) {
-      setSelectedDonation(res.donation);
-      setStatusHistory(res.history || []);
-      setDonationProofs((res as any).proofs || []);
+      const res = await getDonorDonationDetailAction(donationId);
+      setDetailLoading(false);
+      if (res && res.success) {
+        setSelectedDonation(res.donation);
+        setStatusHistory(res.history || []);
+        setDonationProofs((res as any).proofs || []);
+      }
+    } catch (err) {
+      console.error("Error opening donation detail:", err);
+      setDetailLoading(false);
     }
   };
 
@@ -304,12 +322,12 @@ export default function DonorDonationsPage() {
                       </Button>
 
                       {d.status === "completed" && (
-                        <Link href={`/receipt/${d.id}`} target="_blank">
+                        <Link href={`/receipt/${d.reference_no || d.id}`} target="_blank">
                           <Button
                             size="sm"
-                            className="h-7 text-[11px] rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                            className="h-7 text-[11px] rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm"
                           >
-                            <Receipt className="w-3 h-3 mr-1" /> Receipt
+                            <Receipt className="w-3 h-3 mr-1" /> Official Receipt
                           </Button>
                         </Link>
                       )}

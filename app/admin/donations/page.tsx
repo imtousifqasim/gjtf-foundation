@@ -203,28 +203,24 @@ export default function AdminDonationsPage() {
 
   const handleExecuteConfirm = async () => {
     if (!selectedDonation) return;
-    if (!confirmBankRef.trim()) {
-      showToast("Bank transaction reference is required.", "error");
-      return;
-    }
-    if (!confirmBankAccountId) {
-      showToast("Please select receiving bank account.", "error");
-      return;
-    }
+
+    const defaultAcc = bankAccounts.find((b: any) => b.is_active) || bankAccounts[0];
+    const finalBankAccId = confirmBankAccountId || defaultAcc?.id || "bank-islami-primary";
+    const autoRef = confirmBankRef.trim() || `SYS-INV-${selectedDonation.reference_no || selectedDonation.id.slice(0, 8).toUpperCase()}`;
 
     setIsConfirming(true);
     const res = await confirmDonationWithProofAction({
       donationId: selectedDonation.id,
       receivedAmount: confirmAmount,
-      bankAccountId: confirmBankAccountId,
-      bankTransactionRef: confirmBankRef.trim(),
+      bankAccountId: finalBankAccId,
+      bankTransactionRef: autoRef,
       confirmationDate: confirmDate,
       adminNote: confirmAdminNote.trim() || undefined,
     });
     setIsConfirming(false);
 
     if (res.success) {
-      showToast(`Donation confirmed! Official receipt generated and emailed to donor.`, "success");
+      showToast(`Donation confirmed! Official receipt ${res.receiptNo ? `#${res.receiptNo}` : ""} generated and emailed to donor.`, "success");
       setConfirmModalOpen(false);
       setDonations((prev) =>
         prev.map((d) =>
@@ -233,8 +229,8 @@ export default function AdminDonationsPage() {
                 ...d,
                 status: "completed",
                 proof_status: "approved",
-                bank_transaction_ref: confirmBankRef.trim(),
-                bank_account_id: confirmBankAccountId,
+                bank_transaction_ref: autoRef,
+                bank_account_id: finalBankAccId,
                 confirmed_at: new Date().toISOString(),
               }
             : d
@@ -246,8 +242,8 @@ export default function AdminDonationsPage() {
               ...prev,
               status: "completed",
               proof_status: "approved",
-              bank_transaction_ref: confirmBankRef.trim(),
-              bank_account_id: confirmBankAccountId,
+              bank_transaction_ref: autoRef,
+              bank_account_id: finalBankAccId,
               confirmed_at: new Date().toISOString(),
             }
           : null
@@ -1450,16 +1446,19 @@ export default function AdminDonationsPage() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="font-bold text-slate-700">
-                  Bank Transaction Reference *
+                  Bank Transaction Reference (Optional)
                 </label>
-                <span className="text-[10px] text-slate-500 font-medium">From bank statement/portal</span>
+                <span className="text-[10px] text-emerald-600 font-semibold">Auto-generated if empty</span>
               </div>
               <Input
-                placeholder="e.g. TRX-20261017-987654 or Bank Reference #"
+                placeholder="Optional: e.g. TRX-20261017-987654 or leave blank for system invoice ref"
                 value={confirmBankRef}
                 onChange={(e) => setConfirmBankRef(e.target.value)}
                 className="h-10 font-mono text-sm text-slate-900"
               />
+              <p className="text-[11px] text-slate-500 mt-1">
+                No bank slip required. If left empty, our system automatically generates an official invoice reference, creates the receipt, and emails it to the donor.
+              </p>
             </div>
 
             <div>

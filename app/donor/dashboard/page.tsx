@@ -53,7 +53,15 @@ export default function DonorDashboardPage() {
   const loadData = React.useCallback(async () => {
     try {
       const res = await getDonorDashboardDataAction();
-      setData(res);
+      if (res && (res as any).unauthorized) {
+        router.push("/donor/login");
+        return;
+      }
+      if (res && res.donor && res.stats) {
+        setData(res);
+      } else {
+        setError("Could not load your dashboard. Please try again.");
+      }
       setLoading(false);
     } catch (err: any) {
       if (err.message === "UNAUTHORIZED") {

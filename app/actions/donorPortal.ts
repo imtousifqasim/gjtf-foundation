@@ -25,24 +25,33 @@ import { sendTransactionalEmail } from "@/lib/email/sender";
 // 1. Dashboard Home Data (Strictly Scoped)
 // -------------------------------------------------------------
 export async function getDonorDashboardDataAction() {
-  const donor = await requireAuthenticatedDonor();
-  const stats = await getDonorDashboardStatsDb(donor.id);
-  const plans = await getDonationPlansByDonorDb(donor.id);
+  try {
+    const donor = await getAuthenticatedDonor();
+    if (!donor) {
+      return { success: false, unauthorized: true, error: "UNAUTHORIZED", donor: null, stats: null, plans: [] };
+    }
+    const stats = await getDonorDashboardStatsDb(donor.id);
+    const plans = await getDonationPlansByDonorDb(donor.id);
 
-  return {
-    donor: {
-      id: donor.id,
-      name: donor.name || "Generous Supporter",
-      email: donor.email,
-      phone: donor.phone,
-      country: donor.country,
-      prefers_anonymous: donor.prefers_anonymous,
-      email_verified: Boolean(donor.email_verified_at),
-      created_at: donor.created_at,
-    },
-    stats,
-    plans,
-  };
+    return {
+      success: true,
+      donor: {
+        id: donor.id,
+        name: donor.name || "Generous Supporter",
+        email: donor.email,
+        phone: donor.phone,
+        country: donor.country,
+        prefers_anonymous: donor.prefers_anonymous,
+        email_verified: Boolean(donor.email_verified_at),
+        created_at: donor.created_at,
+      },
+      stats,
+      plans,
+    };
+  } catch (err: any) {
+    console.error("[getDonorDashboardDataAction] Error:", err.message);
+    return { success: false, error: err.message, donor: null, stats: null, plans: [] };
+  }
 }
 
 // -------------------------------------------------------------
@@ -55,58 +64,75 @@ export async function getDonorDonationsAction(filters?: {
   year?: string;
   page?: number;
 }) {
-  const donor = await requireAuthenticatedDonor();
-  const page = Math.max(1, filters?.page || 1);
-  const limit = 15;
-  const offset = (page - 1) * limit;
+  try {
+    const donor = await getAuthenticatedDonor();
+    if (!donor) {
+      return { success: false, unauthorized: true, donations: [], total: 0, page: 1, totalPages: 1 };
+    }
+    const page = Math.max(1, filters?.page || 1);
+    const limit = 15;
+    const offset = (page - 1) * limit;
 
-  const result = await getDonationsByDonorDb(donor.id, {
-    status: filters?.status,
-    currency: filters?.currency,
-    donationType: filters?.donationType,
-    year: filters?.year,
-    limit,
-    offset,
-  });
+    const result = await getDonationsByDonorDb(donor.id, {
+      status: filters?.status,
+      currency: filters?.currency,
+      donationType: filters?.donationType,
+      year: filters?.year,
+      limit,
+      offset,
+    });
 
-  return {
-    donations: result.donations,
-    total: result.total,
-    page,
-    totalPages: Math.ceil(result.total / limit),
-  };
+    return {
+      success: true,
+      donations: Array.isArray(result.donations) ? result.donations : [],
+      total: result.total || 0,
+      page,
+      totalPages: Math.ceil((result.total || 0) / limit),
+    };
+  } catch (err: any) {
+    console.error("[getDonorDonationsAction] Error:", err.message);
+    return { success: false, donations: [], total: 0, page: 1, totalPages: 1 };
+  }
 }
 
 export async function getDonorDonationDetailAction(donationId: string) {
-  const donor = await requireAuthenticatedDonor();
-  const donation = await getDonationByIdScopedDb(donationId, donor.id);
+  try {
+    const donor = await getAuthenticatedDonor();
+    if (!donor) {
+      return { success: false, unauthorized: true, message: "UNAUTHORIZED" };
+    }
+    const donation = await getDonationByIdScopedDb(donationId, donor.id);
 
-  // Return 404 error if not found or not owned by the donor (Zero-Trust)
-  if (!donation) {
-    return { success: false, notFound: true, message: "Record not found." };
+    // Return 404 error if not found or not owned by the donor (Zero-Trust)
+    if (!donation) {
+      return { success: false, notFound: true, message: "Record not found." };
+    }
+
+    const history = await getDonationStatusHistoryDb(donation.id);
+    const proofs = await query<RowDataPacket[]>(
+      "SELECT id, filename, status, reject_reason, transaction_ref, sender_bank, paid_amount_minor, uploaded_at FROM payment_proofs WHERE donation_id = ? AND status != 'deleted' ORDER BY uploaded_at DESC",
+      [donation.id]
+    );
+
+    return {
+      success: true,
+      donation,
+      history,
+      proofs: (proofs || []).map((p) => ({
+        id: p.id,
+        filename: p.filename,
+        status: p.status,
+        reject_reason: p.reject_reason,
+        transaction_ref: p.transaction_ref,
+        sender_bank: p.sender_bank,
+        paid_amount_minor: p.paid_amount_minor,
+        uploaded_at: p.uploaded_at,
+      })),
+    };
+  } catch (err: any) {
+    console.error("[getDonorDonationDetailAction] Error:", err.message);
+    return { success: false, message: err.message };
   }
-
-  const history = await getDonationStatusHistoryDb(donationId);
-  const proofs = await query<RowDataPacket[]>(
-    "SELECT id, filename, status, reject_reason, transaction_ref, sender_bank, paid_amount_minor, uploaded_at FROM payment_proofs WHERE donation_id = ? AND status != 'deleted' ORDER BY uploaded_at DESC",
-    [donationId]
-  );
-
-  return {
-    success: true,
-    donation,
-    history,
-    proofs: (proofs || []).map((p) => ({
-      id: p.id,
-      filename: p.filename,
-      status: p.status,
-      reject_reason: p.reject_reason,
-      transaction_ref: p.transaction_ref,
-      sender_bank: p.sender_bank,
-      paid_amount_minor: p.paid_amount_minor,
-      uploaded_at: p.uploaded_at,
-    })),
-  };
 }
 
 // -------------------------------------------------------------

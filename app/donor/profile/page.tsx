@@ -56,10 +56,14 @@ export default function DonorProfilePage() {
     async function load() {
       try {
         const res = await getDonorDashboardDataAction();
-        setDonor(res.donor);
-        setName(res.donor.name || "");
-        setPhone(res.donor.phone || "");
-        setPrefersAnonymous(Boolean(res.donor.prefers_anonymous));
+        if (res && res.donor) {
+          setDonor(res.donor);
+          setName(res.donor.name || "");
+          setPhone(res.donor.phone || "");
+          setPrefersAnonymous(Boolean(res.donor.prefers_anonymous));
+        } else if (res && res.unauthorized) {
+          router.push("/donor/login");
+        }
         setLoading(false);
       } catch (err) {
         router.push("/donor/login");
