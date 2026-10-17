@@ -290,15 +290,15 @@ export default function AdminReportsPage() {
             </div>
           )}
 
-          {/* Main Financial Totals (Strict Rule: PKR & AED Separate) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Main Financial Totals */}
+          <div className="grid grid-cols-1 gap-6">
 
             {/* PKR Card */}
             <div className="bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-900 rounded-3xl p-6 sm:p-7 text-white shadow-lg relative overflow-hidden">
               <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs uppercase tracking-wider font-extrabold px-3 py-1 bg-emerald-800/80 rounded-full border border-emerald-700/50 text-emerald-200">
-                  Pakistan Domestic (PKR)
+                  Total Donations (PKR)
                 </span>
                 <span className="text-xs text-emerald-300 font-medium">Completed Only</span>
               </div>
@@ -314,32 +314,6 @@ export default function AdminReportsPage() {
                   <span className="text-emerald-300/80 block">Average Donation</span>
                   <span className="text-base font-bold text-white mt-0.5 block">
                     Rs. {Math.round(pkrTotal.avg_donation).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* AED Card */}
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-amber-950 rounded-3xl p-6 sm:p-7 text-white shadow-lg relative overflow-hidden">
-              <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-40 h-40 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs uppercase tracking-wider font-extrabold px-3 py-1 bg-amber-900/60 rounded-full border border-amber-700/50 text-amber-200">
-                  UAE &amp; International (AED)
-                </span>
-                <span className="text-xs text-amber-300 font-medium">Completed Only</span>
-              </div>
-              <div className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-                AED {Number(aedTotal.total_amount).toLocaleString()}
-              </div>
-              <div className="mt-4 pt-4 border-t border-slate-700/60 grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-slate-400 block">Completed Pledges</span>
-                  <span className="text-base font-bold text-white mt-0.5 block">{aedTotal.count}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block">Average Donation</span>
-                  <span className="text-base font-bold text-white mt-0.5 block">
-                    AED {Math.round(aedTotal.avg_donation).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -379,16 +353,13 @@ export default function AdminReportsPage() {
                           {type}
                         </span>
                         <div className="text-xs text-slate-500 mt-1">
-                          {(pkrItem?.count || 0) + (aedItem?.count || 0)} pledges
+                          {pkrItem?.count || 0} pledges
                         </div>
                       </div>
 
                       <div className="text-right">
                         <div className="text-sm font-bold text-slate-900">
                           Rs. {Number(pkrItem?.total_amount || 0).toLocaleString()}
-                        </div>
-                        <div className="text-xs font-semibold text-amber-700">
-                          AED {Number(aedItem?.total_amount || 0).toLocaleString()}
                         </div>
                       </div>
                     </div>
@@ -428,16 +399,13 @@ export default function AdminReportsPage() {
                           {freq === "once" ? "Single Pledges" : "Monthly Commitments"}
                         </span>
                         <div className="text-xs text-slate-500 mt-1">
-                          {(pkrFreq?.count || 0) + (aedFreq?.count || 0)} transactions
+                          {pkrFreq?.count || 0} transactions
                         </div>
                       </div>
 
                       <div className="text-right">
                         <div className="text-sm font-bold text-slate-900">
                           Rs. {Number(pkrFreq?.total_amount || 0).toLocaleString()}
-                        </div>
-                        <div className="text-xs font-semibold text-amber-700">
-                          AED {Number(aedFreq?.total_amount || 0).toLocaleString()}
                         </div>
                       </div>
                     </div>
@@ -627,7 +595,6 @@ export default function AdminReportsPage() {
                     className="w-full h-10 mt-1 px-3 rounded-xl border border-slate-200 text-xs font-bold bg-white"
                   >
                     <option value="PKR">PKR (Pakistani Rupee)</option>
-                    <option value="AED">AED (UAE Dirham)</option>
                   </select>
                 </div>
                 <div>

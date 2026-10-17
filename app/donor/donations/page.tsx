@@ -16,6 +16,8 @@ import {
   Sparkles,
   ArrowRight,
   ExternalLink,
+  Eye,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +44,7 @@ export default function DonorDonationsPage() {
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [selectedDonation, setSelectedDonation] = React.useState<any>(null);
   const [statusHistory, setStatusHistory] = React.useState<any[]>([]);
+  const [donationProofs, setDonationProofs] = React.useState<any[]>([]);
 
   const fetchDonations = React.useCallback(async (p: number) => {
     setLoading(true);
@@ -68,12 +71,14 @@ export default function DonorDonationsPage() {
     setDetailModalOpen(true);
     setSelectedDonation(null);
     setStatusHistory([]);
+    setDonationProofs([]);
 
     const res = await getDonorDonationDetailAction(donationId);
     setDetailLoading(false);
     if (res.success) {
       setSelectedDonation(res.donation);
       setStatusHistory(res.history || []);
+      setDonationProofs((res as any).proofs || []);
     }
   };
 
@@ -95,6 +100,42 @@ export default function DonorDonationsPage() {
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
             <Clock className="w-3.5 h-3.5 text-amber-600" /> Pending Verification
+          </span>
+        );
+    }
+  };
+
+  const getProofBadge = (proofStatus?: string, status?: string) => {
+    if (status === "completed") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Proof Verified
+        </span>
+      );
+    }
+    switch (proofStatus) {
+      case "submitted":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+            <Clock className="w-3 h-3 text-amber-600 animate-pulse" /> Under Review
+          </span>
+        );
+      case "rejected":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+            <XCircle className="w-3 h-3 text-rose-600" /> Proof Rejected
+          </span>
+        );
+      case "approved":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Proof Verified
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+            Pending Proof
           </span>
         );
     }
@@ -146,7 +187,6 @@ export default function DonorDonationsPage() {
           >
             <option value="All">All Currencies</option>
             <option value="PKR">PKR (Pakistan)</option>
-            <option value="AED">AED (UAE)</option>
           </select>
         </div>
 
@@ -210,6 +250,7 @@ export default function DonorDonationsPage() {
                   <th className="py-3.5 px-4">Category</th>
                   <th className="py-3.5 px-4 text-right">Amount</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
+                  <th className="py-3.5 px-4 text-center">Payment Proof</th>
                   <th className="py-3.5 px-4 sm:px-6 text-right">Action</th>
                 </tr>
               </thead>
@@ -239,14 +280,27 @@ export default function DonorDonationsPage() {
                     <td className="py-3.5 px-4 text-center">
                       {getStatusBadge(d.status)}
                     </td>
-                    <td className="py-3.5 px-4 sm:px-6 text-right whitespace-nowrap space-x-2">
+                    <td className="py-3.5 px-4 text-center">
+                      {getProofBadge(d.proof_status, d.status)}
+                    </td>
+                    <td className="py-3.5 px-4 sm:px-6 text-right whitespace-nowrap space-x-1.5">
+                      <Link href={`/donor/donations/${d.id}`}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[11px] rounded-lg border-emerald-300 text-emerald-800 bg-emerald-50/60 hover:bg-emerald-100 font-semibold"
+                        >
+                          <Eye className="w-3 h-3 mr-1" /> View / Proof
+                        </Button>
+                      </Link>
+
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleOpenDetail(d.id)}
-                        className="h-7 text-[11px] rounded-lg"
+                        className="h-7 text-[11px] rounded-lg text-slate-700 border-slate-200"
                       >
-                        Details
+                        Timeline
                       </Button>
 
                       {d.status === "completed" && (
@@ -353,8 +407,76 @@ export default function DonorDonationsPage() {
                   )}
                 </div>
 
+                {/* Payment Proofs History Section */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">
+                      Payment Verification &amp; Proofs
+                    </h4>
+                    <Link href={`/donor/donations/${selectedDonation.id}`}>
+                      <span className="text-[11px] font-bold text-emerald-700 hover:underline">
+                        Upload / Manage &rarr;
+                      </span>
+                    </Link>
+                  </div>
+
+                  {donationProofs.length === 0 ? (
+                    <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/70 text-slate-700 space-y-2">
+                      <p className="text-[11px]">
+                        No payment proof screenshot has been submitted yet for this pledge.
+                      </p>
+                      <Link href={`/donor/donations/${selectedDonation.id}`}>
+                        <Button size="sm" className="h-7 text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl">
+                          <Upload className="w-3 h-3 mr-1" /> Upload Payment Screenshot
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {donationProofs.map((p) => (
+                        <div
+                          key={p.id}
+                          className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-2"
+                        >
+                          <div className="space-y-0.5 min-w-0">
+                            <div className="font-bold text-slate-800 text-[11px] font-mono flex items-center gap-1.5 truncate">
+                              <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                              <span className="truncate">{p.filename}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-500">
+                              Uploaded: {new Date(p.uploaded_at).toLocaleString()}
+                              {p.sender_bank && ` • Bank: ${p.sender_bank}`}
+                              {p.transaction_ref && ` • Ref: ${p.transaction_ref}`}
+                            </div>
+                            {p.reject_reason && (
+                              <div className="text-[10px] font-semibold text-rose-600">
+                                Reason: {p.reject_reason}
+                              </div>
+                            )}
+                          </div>
+                          <div className="shrink-0">
+                            {p.status === "approved" ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                Verified
+                              </span>
+                            ) : p.status === "rejected" ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                                Rejected
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                Under Review
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* Status Timeline */}
-                <div>
+                <div className="pt-2 border-t border-slate-100">
                   <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] mb-2">
                     Audit Status History
                   </h4>
@@ -377,16 +499,22 @@ export default function DonorDonationsPage() {
                   )}
                 </div>
 
-                {selectedDonation.status === "completed" && (
-                  <div className="pt-3 border-t border-slate-100 flex justify-end">
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <Link href={`/donor/donations/${selectedDonation.id}`}>
+                    <Button size="sm" variant="outline" className="text-xs font-bold rounded-xl border-slate-200">
+                      <Eye className="w-3.5 h-3.5 mr-1" /> View Full Proofs &amp; Details
+                    </Button>
+                  </Link>
+
+                  {selectedDonation.status === "completed" && (
                     <Link href={`/receipt/${selectedDonation.id}`} target="_blank">
                       <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs">
                         <Receipt className="w-3.5 h-3.5 mr-1" />
                         Download Tax Receipt
                       </Button>
                     </Link>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             ) : (
               <p className="text-slate-500 text-center py-6">Record not found.</p>

@@ -1,11 +1,13 @@
 "use server";
 
+import crypto from "crypto";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import {
   createDonationDb,
   getDonationByIdempotencyKeyDb,
   createDonorDb,
+  updateDonorDb,
   getDonorByEmailDb,
   createDonationPlanDb,
   createDonationStatusHistoryDb,
@@ -23,7 +25,7 @@ import { createDonationReceivedEmail } from "@/lib/email/templates/donationTempl
 import { createWelcomeSetPasswordEmail } from "@/lib/email/templates/donorTemplates";
 import { validateEmail, validatePhoneNumber } from "@/lib/validation";
 import { getAuthenticatedDonor } from "@/lib/auth/donor";
-import { generateSecureToken, hashToken } from "@/lib/auth/tokens";
+import { generateSecureToken, hashToken, hashPassword } from "@/lib/auth/tokens";
 import { getEnabledCurrenciesDb } from "@/lib/db/paymentProofsSchema";
 import { createPledgeAccessToken } from "@/lib/db/pledgeTokens";
 import siteConfig from "@/lib/siteConfig";
@@ -183,6 +185,7 @@ export async function submitDonation(input: DonationInput) {
     const loggedInDonor = await getAuthenticatedDonor();
     let donorId: string | null = loggedInDonor ? loggedInDonor.id : null;
     let isNewDonor = false;
+    let generatedPassword: string | null = null;
     let setPasswordTokenRaw: string | null = null;
 
     if (loggedInDonor) {
@@ -195,25 +198,26 @@ export async function submitDonation(input: DonationInput) {
       const existingDonor = await getDonorByEmailDb(cleanedEmail);
       if (existingDonor) {
         donorId = existingDonor.id;
+        // If donor has no password yet, auto-generate one for donor portal access
+        if (!existingDonor.password_hash) {
+          generatedPassword = "Gjtf!" + crypto.randomBytes(3).toString("hex").toUpperCase();
+          const hashed = hashPassword(generatedPassword);
+          await updateDonorDb(donorId, { password_hash: hashed });
+        }
       } else {
+        // Auto-generate strong readable random password for the new donor
+        generatedPassword = "Gjtf!" + crypto.randomBytes(3).toString("hex").toUpperCase();
+        const hashed = hashPassword(generatedPassword);
         donorId = await createDonorDb({
           email: cleanedEmail,
           name: parsed.data.donor_name || null,
           phone: cleanedPhone || null,
           country: parsed.data.country || "Pakistan",
+          password_hash: hashed,
           email_verified: false,
           prefers_anonymous: !parsed.data.donor_name,
         });
         isNewDonor = true;
-
-        setPasswordTokenRaw = generateSecureToken();
-        const tokenHash = hashToken(setPasswordTokenRaw);
-        await createAuthTokenDb({
-          donorId,
-          type: "set_password",
-          tokenHash,
-          expiresInMinutes: 48 * 60,
-        });
       }
       // Link any prior orphan donations for this guest email
       await linkDonationsToDonorDb(donorId, cleanedEmail);
@@ -341,6 +345,13 @@ export async function submitDonation(input: DonationInput) {
             impactHeadline: impact.headline,
             uploadUrl,
             fxLockNotice: parsed.data.currency === "AED" ? lockedFx.lockNotice : undefined,
+            donorCredentials: generatedPassword
+              ? {
+                  email: cleanedEmail,
+                  temporaryPassword: generatedPassword,
+                  loginUrl: `${appUrl}/donor/login`,
+                }
+              : undefined,
           });
 
           await sendTransactionalEmail({
@@ -352,25 +363,6 @@ export async function submitDonation(input: DonationInput) {
             text,
             metadata: { donationId, referenceNo, amount: parsed.data.amount, currency: parsed.data.currency },
           });
-
-          if (isNewDonor && setPasswordTokenRaw) {
-            const welcomeEmail = createWelcomeSetPasswordEmail({
-              donorName: parsed.data.donor_name,
-              donorEmail: cleanedEmail,
-              actionUrl: `${appUrl}/donor/set-password?token=${setPasswordTokenRaw}`,
-              expiresInText: "48 hours",
-            });
-
-            await sendTransactionalEmail({
-              to: cleanedEmail,
-              recipientName: parsed.data.donor_name,
-              emailType: "welcome_set_password",
-              subject: welcomeEmail.subject,
-              html: welcomeEmail.html,
-              text: welcomeEmail.text,
-              metadata: { donorId },
-            });
-          }
         } catch (emErr: any) {
           console.warn("[Pledge Email] Background dispatch warning:", emErr.message);
         }

@@ -176,7 +176,7 @@ export default function DonorPlansPage() {
           <div className="pt-2">
             <Link href="/donate-now">
               <Button className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl">
-                Sponsor Monthly from PKR 2,000 / AED 50 &rarr;
+                Sponsor Monthly from PKR 5,000 &rarr;
               </Button>
             </Link>
           </div>

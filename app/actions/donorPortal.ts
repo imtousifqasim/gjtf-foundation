@@ -87,11 +87,25 @@ export async function getDonorDonationDetailAction(donationId: string) {
   }
 
   const history = await getDonationStatusHistoryDb(donationId);
+  const proofs = await query<RowDataPacket[]>(
+    "SELECT id, filename, status, reject_reason, transaction_ref, sender_bank, paid_amount_minor, uploaded_at FROM payment_proofs WHERE donation_id = ? AND status != 'deleted' ORDER BY uploaded_at DESC",
+    [donationId]
+  );
 
   return {
     success: true,
     donation,
     history,
+    proofs: (proofs || []).map((p) => ({
+      id: p.id,
+      filename: p.filename,
+      status: p.status,
+      reject_reason: p.reject_reason,
+      transaction_ref: p.transaction_ref,
+      sender_bank: p.sender_bank,
+      paid_amount_minor: p.paid_amount_minor,
+      uploaded_at: p.uploaded_at,
+    })),
   };
 }
 

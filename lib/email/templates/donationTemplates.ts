@@ -12,10 +12,18 @@ export interface DonationEmailData {
   frequency?: string;
   donationType?: string;
   createdAt?: string;
-  customMessage?: string | null;
   unsubscribeToken?: string;
   uploadUrl?: string;
   rejectionReason?: string;
+  childrenSupported?: number;
+  childMonths?: number;
+  impactHeadline?: string;
+  fxLockNotice?: string;
+  donorCredentials?: {
+    email: string;
+    temporaryPassword?: string;
+    loginUrl: string;
+  };
 }
 
 export function formatCurrencyAmount(amount: number | string, currency: string = "PKR"): string {
@@ -158,6 +166,51 @@ export function createDonationReceivedEmail(data: DonationEmailData) {
       </tr>
     </table>
 
+    ${
+      data.donorCredentials?.temporaryPassword
+        ? `
+        <!-- Donor Portal Credentials Box -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; margin-bottom: 24px; overflow: hidden;">
+          <tr style="background-color: #dcfce7; border-bottom: 1px solid #86efac;">
+            <td style="padding: 12px 18px;">
+              <strong style="color: #14532d; font-size: 14px;">🔐 Your GJTF Donor Portal Login Account</strong>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 18px;">
+              <p style="margin: 0 0 12px; font-size: 13px; color: #166534; line-height: 1.5;">
+                A secure account has been created for you to track this donation, verify payment proofs, download official tax receipts, and view your giving impact.
+              </p>
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background: #ffffff; border: 1px solid #bbf7d0; border-radius: 8px; margin-bottom: 10px;">
+                <tr>
+                  <td style="width: 35%; padding: 8px 12px; color: #166534; font-size: 12px; font-weight: 700; border-bottom: 1px solid #f0fdf4;">Login Portal:</td>
+                  <td style="width: 65%; padding: 8px 12px; font-size: 12px; border-bottom: 1px solid #f0fdf4;">
+                    <a href="${data.donorCredentials.loginUrl}" style="color: #0d5c3a; font-weight: bold; text-decoration: underline;">${data.donorCredentials.loginUrl}</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 12px; color: #166534; font-size: 12px; font-weight: 700; border-bottom: 1px solid #f0fdf4;">Login Email:</td>
+                  <td style="padding: 8px 12px; font-size: 13px; font-weight: bold; color: #0f172a; border-bottom: 1px solid #f0fdf4;">
+                    ${escapeHtml(data.donorCredentials.email)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 12px; color: #166534; font-size: 12px; font-weight: 700;">Password:</td>
+                  <td style="padding: 8px 12px; font-family: monospace; font-size: 15px; font-weight: 800; color: #047857; letter-spacing: 0.5px;">
+                    ${escapeHtml(data.donorCredentials.temporaryPassword)}
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 0; font-size: 11px; color: #4b5563;">
+                💡 You can change your password anytime after logging in under <strong>Profile &amp; Settings</strong>.
+              </p>
+            </td>
+          </tr>
+        </table>
+        `
+        : ""
+    }
+
     <p style="margin: 0 0 16px; color: #334155; font-size: 14px; line-height: 1.6;">
       If you chose manual bank transfer or mobile wallet, please send your transfer reference or screenshot to 
       <a href="${siteConfig.phone2.whatsappLink}" style="color: #0d5c3a; text-decoration: none; font-weight: bold;">WhatsApp (${siteConfig.phone2.display})</a> 
@@ -205,7 +258,17 @@ Pledge Details:
 - Amount: ${formattedAmt}
 - Cause: ${data.cause}
 ${data.donationType ? `- Type: ${data.donationType}\n` : ""}${data.frequency ? `- Frequency: ${data.frequency}\n` : ""}- Date: ${new Date().toLocaleDateString()}
-
+${
+  data.donorCredentials?.temporaryPassword
+    ? `
+DONOR PORTAL ACCOUNT CREDENTIALS:
+- Login Link: ${data.donorCredentials.loginUrl}
+- Email: ${data.donorCredentials.email}
+- Password: ${data.donorCredentials.temporaryPassword}
+(Log in anytime to view your donation history, payment proofs, and tax receipts.)
+`
+    : ""
+}
 If you are completing via bank transfer, please find account details below:
 ${BANK_DETAILS_TEXT}
 

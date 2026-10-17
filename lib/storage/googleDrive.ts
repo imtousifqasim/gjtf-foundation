@@ -218,7 +218,8 @@ export class GoogleDriveStorage implements ProofStorage {
   }
 
   /**
-   * Lazy creation of Year (YYYY) and Month (MM-MonthName) folders with DB race-safety and self-healing.
+   * Lazy creation of Year -> Month (pure name, e.g. October) -> Date (e.g. 17-October)
+   * folders with DB race-safety, fast in-memory caching, and self-healing.
    */
   async getOrCreateMonthFolder(date: Date = new Date()): Promise<{
     folderId: string;
@@ -228,7 +229,21 @@ export class GoogleDriveStorage implements ProofStorage {
     await ensurePaymentProofTablesDb();
     const rootId = await this.getRootFolderId();
     const folderInfo = getProofFolderPath(date);
-    const pathKey = folderInfo.pathKey; // e.g. "2026/10"
+    const pathKey = folderInfo.pathKey; // e.g. "2026/10/17"
+
+    if (!global.__driveFolderCache) {
+      global.__driveFolderCache = new Map<string, string>();
+    }
+
+    // Fast in-memory cache check
+    if (global.__driveFolderCache.has(pathKey)) {
+      const memFolderId = global.__driveFolderCache.get(pathKey)!;
+      return {
+        folderId: memFolderId,
+        folderPath: folderInfo.folderPath,
+        pathKey,
+      };
+    }
 
     // 1. Check database for existing folder mapping
     const existingDb = await query<RowDataPacket[]>(
@@ -241,6 +256,8 @@ export class GoogleDriveStorage implements ProofStorage {
       // Verify self-healing: check if folder is active in Drive
       const isStillValid = await this.isFolderActiveInDrive(cachedFolderId);
       if (isStillValid) {
+        global.__driveFolderCache.set(pathKey, cachedFolderId);
+        global.__verifiedAncestryCache?.add(cachedFolderId);
         return {
           folderId: cachedFolderId,
           folderPath: folderInfo.folderPath,
@@ -259,15 +276,22 @@ export class GoogleDriveStorage implements ProofStorage {
       folderInfo.year
     );
 
-    // 3. Find or Create Month Folder (e.g. "10-October") under Year Folder
+    // 3. Find or Create Month Folder (e.g. "October") under Year Folder
     const monthFolderId = await this.findOrCreateFolderUnderParent(
       token,
       yearFolderId,
-      folderInfo.monthFolder
+      folderInfo.monthName
     );
 
-    // 4. Concurrency-safe UPSERT in database
-    const folderRecordId = `df_${pathKey.replace("/", "_")}`;
+    // 4. Find or Create Date Folder (e.g. "17-October") under Month Folder
+    const dateFolderId = await this.findOrCreateFolderUnderParent(
+      token,
+      monthFolderId,
+      folderInfo.dateFolder
+    );
+
+    // 5. Concurrency-safe UPSERT in database
+    const folderRecordId = `df_${pathKey.replace(/\//g, "_")}`;
     await query(`
       INSERT INTO drive_folders (id, path_key, folder_name, drive_folder_id, parent_folder_id, created_at)
       VALUES (?, ?, ?, ?, ?, NOW())
@@ -277,16 +301,18 @@ export class GoogleDriveStorage implements ProofStorage {
     `, [
       folderRecordId,
       pathKey,
-      folderInfo.monthFolder,
+      folderInfo.dateFolder,
+      dateFolderId,
       monthFolderId,
-      yearFolderId,
     ]);
 
+    global.__driveFolderCache.set(pathKey, dateFolderId);
     global.__verifiedAncestryCache?.add(yearFolderId);
     global.__verifiedAncestryCache?.add(monthFolderId);
+    global.__verifiedAncestryCache?.add(dateFolderId);
 
     return {
-      folderId: monthFolderId,
+      folderId: dateFolderId,
       folderPath: folderInfo.folderPath,
       pathKey,
     };

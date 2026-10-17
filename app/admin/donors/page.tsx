@@ -135,8 +135,7 @@ export default function AdminDonorsPage() {
                 <tr>
                   <th className="py-3.5 px-4 sm:px-6">Donor Details</th>
                   <th className="py-3.5 px-4">Contact Phone</th>
-                  <th className="py-3.5 px-4 text-right">PKR Given</th>
-                  <th className="py-3.5 px-4 text-right">AED Given</th>
+                  <th className="py-3.5 px-4 text-right">Total Given (PKR)</th>
                   <th className="py-3.5 px-4 text-center">Fulfillments</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
                   <th className="py-3.5 px-4 sm:px-6 text-right">Action</th>
@@ -163,9 +162,6 @@ export default function AdminDonorsPage() {
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-emerald-800 font-mono">
                       PKR {Number(d.total_pkr).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-bold text-blue-800 font-mono">
-                      AED {Number(d.total_aed).toLocaleString()}
                     </td>
                     <td className="py-3.5 px-4 text-center text-slate-700">
                       <span className="px-2 py-0.5 rounded-full bg-slate-100 font-bold">

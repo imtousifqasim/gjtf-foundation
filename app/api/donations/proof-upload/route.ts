@@ -154,11 +154,11 @@ export async function POST(req: NextRequest) {
       try {
         processedBuffer = await sharp(rawBuffer)
           .rotate() // auto-orient based on EXIF before stripping
-          .resize(1600, 1600, {
+          .resize(1400, 1400, {
             fit: "inside",
             withoutEnlargement: true,
           })
-          .webp({ quality: 82, effort: 4 })
+          .webp({ quality: 80, effort: 1 })
           .toBuffer();
         outputMime = "image/webp";
       } catch (err: any) {

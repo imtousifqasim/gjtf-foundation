@@ -512,7 +512,7 @@ export async function getDonationsByDonorDb(
   const sql = `
     SELECT 
       d.id, d.reference_no, d.cause, d.frequency, d.currency, d.amount, d.donation_type,
-      d.country, d.status, d.payment_method, d.due_date, d.paid_at, d.created_at,
+      d.country, d.status, d.proof_status, d.payment_method, d.due_date, d.paid_at, d.created_at,
       r.receipt_no, r.access_token as receipt_token
     FROM donations d
     LEFT JOIN receipts r ON d.id = r.donation_id

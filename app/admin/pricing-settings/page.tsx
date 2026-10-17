@@ -207,10 +207,10 @@ export default function AdminPricingSettingsPage() {
           <span>Section 15 Enterprise Pricing &amp; Bank Engine</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-          Pricing Settings, Single Bank Account &amp; Live AED FX
+          Pricing &amp; Sponsorship Settings
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-3xl">
-          Single source of truth for the PKR 5,000/child-month educational unit cost, versioned pricing tiers, single Bank Islami account with audit logs, and live exchange rate synchronization.
+          Single source of truth for the PKR 5,000/child-month educational unit cost, versioned pricing tiers, and official Bank Islami account details.
         </p>
       </div>
 
@@ -226,18 +226,6 @@ export default function AdminPricingSettingsPage() {
         >
           <DollarSign className="w-4 h-4" />
           Pricing Settings (Version {active?.version || 1})
-        </button>
-
-        <button
-          onClick={() => setActiveTab("fx")}
-          className={`pb-3.5 flex items-center gap-2 border-b-2 transition-colors ${
-            activeTab === "fx"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-slate-500 hover:text-slate-900"
-          }`}
-        >
-          <TrendingUp className="w-4 h-4" />
-          Live AED Rates &amp; Buffer ({fx ? `1 AED = ${fx.pkrPerAed.toFixed(2)} PKR` : "FX Engine"})
         </button>
 
         <button

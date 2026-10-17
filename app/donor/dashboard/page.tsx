@@ -236,13 +236,13 @@ export default function DonorDashboardPage() {
         </div>
       )}
 
-      {/* Financial Totals (Strictly separated PKR vs AED) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      {/* Financial Totals */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* PKR Lifetime */}
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              PKR Donations
+              Total Donations (PKR)
             </span>
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[11px]">
               Lifetime
@@ -254,25 +254,6 @@ export default function DonorDashboardPage() {
           <div className="text-xs text-slate-500 pt-1 border-t border-slate-100 flex justify-between">
             <span>This Year: PKR {stats.pkr.thisYear.toLocaleString()}</span>
             <span>{stats.pkr.completedCount} gift(s)</span>
-          </div>
-        </div>
-
-        {/* AED Lifetime */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              AED Donations
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold text-[11px]">
-              Overseas
-            </span>
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono">
-            AED {stats.aed.lifetime.toLocaleString()}
-          </div>
-          <div className="text-xs text-slate-500 pt-1 border-t border-slate-100 flex justify-between">
-            <span>This Year: AED {stats.aed.thisYear.toLocaleString()}</span>
-            <span>{stats.aed.completedCount} gift(s)</span>
           </div>
         </div>
 
@@ -332,11 +313,6 @@ export default function DonorDashboardPage() {
               <div className="text-2xl font-extrabold text-slate-900 font-mono">
                 {activePlan.currency} {activePlan.amount.toLocaleString()} <span className="text-xs text-slate-500 font-sans font-normal">/ month</span>
               </div>
-              {activePlan.currency === "AED" && (
-                <div className="text-xs text-slate-500 font-medium">
-                  (about PKR {Math.round(activePlan.amount * 76.5).toLocaleString()})
-                </div>
-              )}
               <div className="text-xs font-semibold text-emerald-700 mt-1">
                 Next scheduled: {activePlan.next_due_date}
               </div>

@@ -80,7 +80,7 @@ export function ProofUploadSection({
     };
   }, [previewUrl]);
 
-  // Client-side image compression and resizing (target ~200KB, max 1600px)
+  // Client-side image compression and resizing (fast target ~100-200KB, max 1200px)
   async function compressImageClient(file: File): Promise<Blob> {
     if (file.type === "application/pdf") {
       return file;
@@ -92,7 +92,7 @@ export function ProofUploadSection({
 
       img.onload = () => {
         URL.revokeObjectURL(url);
-        const MAX_DIM = 1600;
+        const MAX_DIM = 1200;
         let width = img.width;
         let height = img.height;
 
@@ -111,6 +111,8 @@ export function ProofUploadSection({
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "medium";
           ctx.drawImage(img, 0, 0, width, height);
           canvas.toBlob(
             (blob) => {
@@ -121,7 +123,7 @@ export function ProofUploadSection({
               }
             },
             "image/webp",
-            0.82
+            0.78
           );
         } else {
           resolve(file);
@@ -178,6 +180,8 @@ export function ProofUploadSection({
     setSuccessMsg(null);
     setUploadProgress(20);
 
+    let progressTimer: any = null;
+
     try {
       setUploadProgress(40);
       const compressedBlob = await compressImageClient(selectedFile);
@@ -193,12 +197,18 @@ export function ProofUploadSection({
       if (paidAmount) formData.append("paidAmount", paidAmount);
       if (note) formData.append("note", note);
 
+      progressTimer = setInterval(() => {
+        setUploadProgress((prev) => (prev < 90 ? prev + 5 : prev));
+      }, 150);
+
       const res = await fetch("/api/donations/proof-upload", {
         method: "POST",
         body: formData,
       });
 
-      setUploadProgress(85);
+      if (progressTimer) clearInterval(progressTimer);
+      setUploadProgress(95);
+
       const data = await res.json();
 
       if (!res.ok || !data.success) {
@@ -231,8 +241,10 @@ export function ProofUploadSection({
 
       if (onProofUploaded) onProofUploaded();
     } catch (err: any) {
+      if (progressTimer) clearInterval(progressTimer);
       setErrorMsg(err.message || "Network error while uploading payment proof. Please try again.");
     } finally {
+      if (progressTimer) clearInterval(progressTimer);
       setUploading(false);
     }
   };
@@ -541,7 +553,13 @@ export function ProofUploadSection({
           {uploading && (
             <div className="space-y-1.5 pt-2">
               <div className="flex justify-between text-xs text-charcoal-muted font-medium">
-                <span>Compressing &amp; uploading to secure storage...</span>
+                <span>
+                  {uploadProgress < 40
+                    ? "Compressing screenshot..."
+                    : uploadProgress < 95
+                    ? "Uploading screenshot to secure storage..."
+                    : "Finalizing..."}
+                </span>
                 <span>{uploadProgress}%</span>
               </div>
               <div className="w-full bg-warm-200 h-2 rounded-full overflow-hidden">

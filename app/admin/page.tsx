@@ -87,17 +87,8 @@ export default async function AdminDashboardPage() {
     completedAmount: 0,
   };
 
-  const aedStats = donationStats.byCurrency.find(
-    (c) => c.currency.toUpperCase() === "AED"
-  ) || {
-    currency: "AED",
-    totalAmount: 0,
-    count: 0,
-    completedAmount: 0,
-  };
-
   const otherCurrencies = donationStats.byCurrency.filter(
-    (c) => c.currency.toUpperCase() !== "PKR" && c.currency.toUpperCase() !== "AED"
+    (c) => c.currency.toUpperCase() !== "PKR" && c.totalAmount > 0 && c.currency.toUpperCase() !== "AED"
   );
 
   return (
@@ -168,25 +159,6 @@ export default async function AdminDashboardPage() {
                 </div>
               </div>
 
-              {/* AED Metric Row */}
-              <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-100/90 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-200/90 text-amber-900 tracking-wider">
-                      AED
-                    </span>
-                    <span className="text-[11px] font-semibold text-amber-800">UAE Dirham</span>
-                  </div>
-                  <div className="text-xl sm:text-2xl font-extrabold font-heading text-amber-950 mt-1">
-                    AED {aedStats.totalAmount.toLocaleString()}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[11px] font-semibold text-amber-700 bg-white px-2 py-0.5 rounded-full border border-amber-200 shadow-xs">
-                    {aedStats.count} {aedStats.count === 1 ? "pledge" : "pledges"}
-                  </span>
-                </div>
-              </div>
 
               {/* Additional Currencies (USD, EUR, GBP, etc.) */}
               {otherCurrencies.map((item) => (

@@ -31,16 +31,18 @@ export interface ProofFolderPathInfo {
   year: string; // "2026"
   monthNumber: string; // "10"
   monthName: string; // "October"
-  monthFolder: string; // "10-October"
-  pathKey: string; // "2026/10"
-  folderPath: string; // "2026/10-October"
+  monthFolder: string; // "October" (just month name)
+  day: string; // "17"
+  dateFolder: string; // "17-October"
+  pathKey: string; // "2026/10/17"
+  folderPath: string; // "2026/October/17-October"
   timezone: string; // "Asia/Karachi"
   localTimestampFormatted: string; // e.g. "20261016-1432"
 }
 
 /**
  * Converts a Date to the target timezone (default: Asia/Karachi)
- * and formats the Year and chronological MM-MonthName folder structure.
+ * and formats the Year -> MonthName -> Date folder structure.
  */
 export function getProofFolderPath(
   date: Date = new Date(),
@@ -71,9 +73,10 @@ export function getProofFolderPath(
 
   const monthIdx = parseInt(monthNumber, 10) - 1;
   const monthName = MONTH_NAMES_EN[monthIdx] || "January";
-  const monthFolder = `${monthNumber}-${monthName}`;
-  const pathKey = `${year}/${monthNumber}`;
-  const folderPath = `${year}/${monthFolder}`;
+  const monthFolder = monthName; // e.g. "October" (pure month name)
+  const dateFolder = `${day}-${monthName}`; // e.g. "17-October"
+  const pathKey = `${year}/${monthNumber}/${day}`;
+  const folderPath = `${year}/${monthFolder}/${dateFolder}`;
   const localTimestampFormatted = `${year}${monthNumber}${day}-${hour}${minute}`;
 
   return {
@@ -81,6 +84,8 @@ export function getProofFolderPath(
     monthNumber,
     monthName,
     monthFolder,
+    day,
+    dateFolder,
     pathKey,
     folderPath,
     timezone,

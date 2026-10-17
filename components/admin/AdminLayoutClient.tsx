@@ -35,7 +35,7 @@ const ADMIN_NAV = [
   { label: "Donations", href: "/admin/donations", icon: Heart },
   { label: "Donors", href: "/admin/donors", icon: UserCheck },
   { label: "Financial Reports", href: "/admin/reports", icon: BarChart3 },
-  { label: "Pricing & AED Rates", href: "/admin/pricing-settings", icon: DollarSign },
+  { label: "Pricing Settings", href: "/admin/pricing-settings", icon: DollarSign },
   { label: "Payment & Bank Settings", href: "/admin/payment-settings", icon: CreditCard },
   { label: "Email Logs", href: "/admin/email-logs", icon: Send },
   { label: "Contact Messages", href: "/admin/contact-messages", icon: Mail },
