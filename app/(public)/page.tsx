@@ -84,12 +84,11 @@ export default async function HomePage() {
       {/* -------------------------------------------------------------
           1. HERO SECTION
           ------------------------------------------------------------- */}
-      <section className="relative min-h-[75vh] md:min-h-[82vh] lg:min-h-[88vh] flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-[75vh] md:min-h-[82vh] lg:min-h-[88vh] flex items-center justify-center overflow-hidden bg-slate-950">
         {/* Background YouTube Video with Black Overlays and Muted Autoplay starting at 1:40 (100s) */}
         <HeroVideoBackground
           videoId={media.home.heroYouTubeId}
           startTimeSeconds={media.home.heroVideoStartTime}
-          posterImage={media.home.heroImage}
         />
 
         {/* Content Container */}
