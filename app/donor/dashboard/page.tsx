@@ -257,11 +257,11 @@ export default function DonorDashboardPage() {
             </span>
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono">
-            PKR {stats.pkr.lifetime.toLocaleString()}
+            PKR {(Number(stats?.pkr?.lifetime) || 0).toLocaleString()}
           </div>
           <div className="text-xs text-slate-500 pt-1 border-t border-slate-100 flex justify-between">
-            <span>This Year: PKR {stats.pkr.thisYear.toLocaleString()}</span>
-            <span>{stats.pkr.completedCount} gift(s)</span>
+            <span>This Year: PKR {(Number(stats?.pkr?.thisYear) || 0).toLocaleString()}</span>
+            <span>{Number(stats?.pkr?.completedCount) || 0} gift(s)</span>
           </div>
         </div>
 
@@ -274,7 +274,7 @@ export default function DonorDashboardPage() {
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono">
-            {stats.totalCompletedCount}
+            {(Number(stats?.totalCompletedCount) || 0).toLocaleString()}
           </div>
           <p className="text-xs text-slate-500 pt-1 border-t border-slate-100">
             Official tax receipts available for download
@@ -290,11 +290,11 @@ export default function DonorDashboardPage() {
             <Sparkles className="w-4 h-4 text-emerald-300" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-200">
-            {stats.childMonthsFunded ?? Math.round(stats.pkr.lifetime / 5000)} Child-Months
+            {(Number(stats?.childMonthsFunded) || Math.round((Number(stats?.pkr?.lifetime) || 0) / 5000)).toLocaleString()} Child-Months
           </div>
           <p className="text-xs text-emerald-100/80 pt-1 border-t border-emerald-800">
             {activePlan
-              ? `Supporting ${activePlan.children_count || Math.max(1, Math.round(activePlan.amount / 5000))} child(ren) this month`
+              ? `Supporting ${activePlan.children_count || Math.max(1, Math.round((Number(activePlan.amount) || 0) / 5000))} child(ren) this month`
               : "Total child-months funded across nomadic community schools"}
           </p>
         </div>
@@ -313,23 +313,23 @@ export default function DonorDashboardPage() {
                 {activePlan.cause}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Supporting {activePlan.children_count || Math.max(1, Math.round(activePlan.amount / 5000))} child(ren) this month &bull; Billing Day {activePlan.billing_day} of every month &bull; {activePlan.donation_type}
+                Supporting {activePlan.children_count || Math.max(1, Math.round((Number(activePlan.amount) || 0) / 5000))} child(ren) this month &bull; Billing Day {activePlan.billing_day} of every month &bull; {activePlan.donation_type}
               </p>
             </div>
 
             <div className="text-left sm:text-right">
               <div className="text-2xl font-extrabold text-slate-900 font-mono">
-                {activePlan.currency} {activePlan.amount.toLocaleString()} <span className="text-xs text-slate-500 font-sans font-normal">/ month</span>
+                {activePlan.currency} {(Number(activePlan.amount) || 0).toLocaleString()} <span className="text-xs text-slate-500 font-sans font-normal">/ month</span>
               </div>
               <div className="text-xs font-semibold text-emerald-700 mt-1">
-                Next scheduled: {activePlan.next_due_date}
+                Next scheduled: {activePlan.next_due_date ? new Date(activePlan.next_due_date).toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" }) : "Upcoming"}
               </div>
             </div>
           </div>
 
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
             <span className="text-slate-600">
-              Completed cycles to date: <strong>{activePlan.cycles_completed} month(s)</strong>.
+              Completed cycles to date: <strong>{Number(activePlan.cycles_completed) || 0} month(s)</strong>.
             </span>
 
             <div className="flex items-center gap-2">

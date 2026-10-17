@@ -72,14 +72,14 @@ export default async function DonorDonationDetailPage({ params }: DonorDonationP
     id: r.id,
     filename: r.filename,
     status: r.status,
-    uploaded_at: r.uploaded_at,
+    uploaded_at: r.uploaded_at instanceof Date ? r.uploaded_at.toISOString() : String(r.uploaded_at || ""),
     reject_reason: r.reject_reason,
     transaction_ref: r.transaction_ref,
     sender_bank: r.sender_bank,
     paid_amount_minor: r.paid_amount_minor,
   }));
 
-  const amountPkr = Number(donation.amount_pkr_minor ? donation.amount_pkr_minor / 100 : donation.amount);
+  const amountPkr = Number(donation.amount_pkr_minor ? donation.amount_pkr_minor / 100 : donation.amount) || 0;
   const impact = calculateImpact(amountPkr, donation.frequency as any || "once", DEFAULT_PRICING);
 
   // Status mapping

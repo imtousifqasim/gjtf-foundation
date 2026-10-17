@@ -39,6 +39,8 @@ export interface DonationPlanRecord {
   payment_method: string;
   gateway_subscription_id: string | null;
   created_at: string;
+  updated_at?: string;
+  children_count?: number;
 }
 
 export interface PaymentSettingsRecord {
@@ -525,7 +527,15 @@ export async function getDonationsByDonorDb(
 
   const rows = await query<RowDataPacket[]>(sql, [...params, limit, offset]);
 
-  return { donations: rows || [], total };
+  const formattedDonations = (rows || []).map((d) => ({
+    ...d,
+    amount: Number(d.amount) || 0,
+    created_at: d.created_at ? toIsoString(d.created_at) : "",
+    paid_at: d.paid_at ? toIsoString(d.paid_at) : null,
+    due_date: d.due_date ? toDateString(d.due_date) : null,
+  }));
+
+  return { donations: formattedDonations, total };
 }
 
 export async function getDonationByIdScopedDb(donationId: string, donorId: string): Promise<any | null> {
@@ -540,7 +550,17 @@ export async function getDonationByIdScopedDb(donationId: string, donorId: strin
   `;
   const rows = await query<RowDataPacket[]>(sql, [donationId, donationId, donorId, donorId]);
   if (!rows || rows.length === 0) return null;
-  return rows[0];
+  const d = rows[0];
+  return {
+    ...d,
+    amount: Number(d.amount) || 0,
+    amount_minor: Number(d.amount_minor) || 0,
+    amount_pkr_minor: Number(d.amount_pkr_minor) || 0,
+    created_at: d.created_at ? toIsoString(d.created_at) : "",
+    paid_at: d.paid_at ? toIsoString(d.paid_at) : null,
+    due_date: d.due_date ? toDateString(d.due_date) : null,
+    updated_at: d.updated_at ? toIsoString(d.updated_at) : undefined,
+  };
 }
 
 export async function getDonationByReferenceDb(referenceNo: string): Promise<any | null> {
@@ -554,7 +574,17 @@ export async function getDonationByReferenceDb(referenceNo: string): Promise<any
   `;
   const rows = await query<RowDataPacket[]>(sql, [referenceNo]);
   if (!rows || rows.length === 0) return null;
-  return rows[0];
+  const d = rows[0];
+  return {
+    ...d,
+    amount: Number(d.amount) || 0,
+    amount_minor: Number(d.amount_minor) || 0,
+    amount_pkr_minor: Number(d.amount_pkr_minor) || 0,
+    created_at: d.created_at ? toIsoString(d.created_at) : "",
+    paid_at: d.paid_at ? toIsoString(d.paid_at) : null,
+    due_date: d.due_date ? toDateString(d.due_date) : null,
+    updated_at: d.updated_at ? toIsoString(d.updated_at) : undefined,
+  };
 }
 
 export async function createDonationStatusHistoryDb(data: {
@@ -582,10 +612,14 @@ export async function createDonationStatusHistoryDb(data: {
 
 export async function getDonationStatusHistoryDb(donationId: string): Promise<any[]> {
   await ensureCoreTablesDb();
-  return await query<RowDataPacket[]>(
+  const rows = await query<RowDataPacket[]>(
     "SELECT * FROM donation_status_history WHERE donation_id = ? ORDER BY created_at ASC",
     [donationId]
   );
+  return (rows || []).map((h) => ({
+    ...h,
+    created_at: h.created_at ? toIsoString(h.created_at) : "",
+  }));
 }
 
 /**
@@ -599,6 +633,7 @@ export async function getDonorDashboardStatsDb(donorId: string): Promise<{
   pendingPledges: any[];
   activePlan: DonationPlanRecord | null;
   childrenEducatedYears: number;
+  childMonthsFunded: number;
 }> {
   await ensureCoreTablesDb();
 
@@ -661,14 +696,27 @@ export async function getDonorDashboardStatsDb(donorId: string): Promise<{
   const childrenPkr = pkrStats.lifetime / pkrPerChild;
   const childrenAed = aedStats.lifetime / aedPerChild;
   const childrenEducatedYears = Math.round((childrenPkr + childrenAed) * 10) / 10;
+  const childMonthsFunded = Math.round(childrenPkr * 12 + childrenAed * 12);
+
+  const formattedPending = (pendingRows || []).map((p) => ({
+    id: p.id,
+    reference_no: p.reference_no,
+    cause: p.cause,
+    frequency: p.frequency,
+    currency: p.currency,
+    amount: Number(p.amount) || 0,
+    donation_type: p.donation_type,
+    created_at: p.created_at ? toIsoString(p.created_at) : "",
+  }));
 
   return {
     pkr: pkrStats,
     aed: aedStats,
     totalCompletedCount: pkrStats.completedCount + aedStats.completedCount,
-    pendingPledges: pendingRows || [],
+    pendingPledges: formattedPending,
     activePlan: planRows?.[0] ? formatPlanRow(planRows[0]) : null,
     childrenEducatedYears,
+    childMonthsFunded,
   };
 }
 
@@ -940,22 +988,53 @@ export async function getDonorDetailsAdminDb(donorId: string): Promise<any | nul
 // Helpers & Row Formatters
 // -------------------------------------------------------------
 
+function toDateString(val: any): string {
+  if (!val) return "";
+  if (val instanceof Date) {
+    return val.toISOString().slice(0, 10);
+  }
+  if (typeof val === "string") {
+    return val.slice(0, 10);
+  }
+  return String(val);
+}
+
+function toIsoString(val: any): string {
+  if (!val) return "";
+  if (val instanceof Date) {
+    return val.toISOString();
+  }
+  return String(val);
+}
+
 function formatDonorRow(row: any): DonorRecord {
   return {
     ...row,
     prefers_anonymous: Boolean(row.prefers_anonymous),
     marketing_opt_in: Boolean(row.marketing_opt_in),
     notification_prefs: typeof row.notification_prefs === "string" ? JSON.parse(row.notification_prefs) : row.notification_prefs,
+    email_verified_at: row.email_verified_at ? toIsoString(row.email_verified_at) : null,
+    last_login_at: row.last_login_at ? toIsoString(row.last_login_at) : null,
+    locked_until: row.locked_until ? toIsoString(row.locked_until) : null,
+    created_at: row.created_at ? toIsoString(row.created_at) : "",
+    updated_at: row.updated_at ? toIsoString(row.updated_at) : "",
   };
 }
 
 function formatPlanRow(row: any): DonationPlanRecord {
   return {
     ...row,
-    amount: Number(row.amount),
-    amount_minor: Number(row.amount_minor),
-    billing_day: Number(row.billing_day),
-    cycles_completed: Number(row.cycles_completed),
+    amount: Number(row.amount) || 0,
+    amount_minor: Number(row.amount_minor) || 0,
+    billing_day: Number(row.billing_day) || 1,
+    cycles_completed: Number(row.cycles_completed) || 0,
+    children_count: row.children_count ? Number(row.children_count) : undefined,
+    start_date: row.start_date ? toDateString(row.start_date) : "",
+    next_due_date: row.next_due_date ? toDateString(row.next_due_date) : "",
+    pause_until: row.pause_until ? toDateString(row.pause_until) : null,
+    cancelled_at: row.cancelled_at ? toIsoString(row.cancelled_at) : null,
+    created_at: row.created_at ? toIsoString(row.created_at) : "",
+    updated_at: row.updated_at ? toIsoString(row.updated_at) : undefined,
   };
 }
 

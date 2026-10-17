@@ -209,7 +209,7 @@ export default function DonorPlansPage() {
                       {plan.status === "active"
                         ? "Active Recurring Commitment"
                         : plan.status === "paused"
-                        ? `Paused until ${plan.pause_until || "further notice"}`
+                        ? `Paused until ${plan.pause_until ? new Date(plan.pause_until).toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" }) : "further notice"}`
                         : "Cancelled"}
                     </span>
                     <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
@@ -228,19 +228,21 @@ export default function DonorPlansPage() {
                     <span>&bull;</span>
                     <span>
                       Next Due Date:{" "}
-                      <strong className="text-slate-900">{plan.next_due_date}</strong>
+                      <strong className="text-slate-900">
+                        {plan.next_due_date ? new Date(plan.next_due_date).toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" }) : "Upcoming"}
+                      </strong>
                     </span>
                     <span>&bull;</span>
                     <span>
                       Cycles Completed:{" "}
-                      <strong className="text-emerald-700">{plan.cycles_completed} month(s)</strong>
+                      <strong className="text-emerald-700">{Number(plan.cycles_completed) || 0} month(s)</strong>
                     </span>
                   </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row lg:flex-col items-start lg:items-end justify-between gap-4">
                   <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono">
-                    {plan.currency} {Number(plan.amount).toLocaleString()}{" "}
+                    {plan.currency} {(Number(plan.amount) || 0).toLocaleString()}{" "}
                     <span className="text-xs text-slate-500 font-sans font-normal">/ month</span>
                   </div>
 
@@ -309,7 +311,7 @@ export default function DonorPlansPage() {
             </div>
 
             <p className="text-xs text-slate-500 leading-relaxed">
-              Your new commitment amount will automatically take effect from your next billing cycle on <strong>{editingPlan.next_due_date}</strong>.
+              Your new commitment amount will automatically take effect from your next billing cycle on <strong>{editingPlan.next_due_date ? new Date(editingPlan.next_due_date).toLocaleDateString("en-PK", { year: "numeric", month: "short", day: "numeric" }) : "Upcoming"}</strong>.
             </p>
 
             <form onSubmit={handleSaveAmount} className="space-y-4">

@@ -168,7 +168,7 @@ export default function DonorReceiptsPage() {
                       {d.receipt_no || `RCP-${d.id.slice(-6).toUpperCase()}`}
                     </td>
                     <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
-                      {d.paid_at ? new Date(d.paid_at).toLocaleDateString() : d.created_at ? new Date(d.created_at).toLocaleDateString() : "—"}
+                      {d.paid_at ? new Date(d.paid_at).toLocaleDateString("en-PK", { month: "short", day: "numeric", year: "numeric" }) : d.created_at ? new Date(d.created_at).toLocaleDateString("en-PK", { month: "short", day: "numeric", year: "numeric" }) : "—"}
                     </td>
                     <td className="py-3.5 px-4 text-slate-800">
                       {d.cause}
@@ -179,7 +179,7 @@ export default function DonorReceiptsPage() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-emerald-800 font-mono text-sm">
-                      {d.currency} {Number(d.amount).toLocaleString()}
+                      {d.currency} {(Number(d.amount) || 0).toLocaleString()}
                     </td>
                     <td className="py-3.5 px-4 sm:px-6 text-right">
                       <Link href={`/receipt/${d.reference_no || d.id}`} target="_blank">

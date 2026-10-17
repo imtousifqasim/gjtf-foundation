@@ -276,7 +276,7 @@ export default function DonorDonationsPage() {
                 {donations.map((d) => (
                   <tr key={d.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4 sm:px-6 text-slate-600 whitespace-nowrap">
-                      {d.created_at ? new Date(d.created_at).toLocaleDateString() : "—"}
+                      {d.created_at ? new Date(d.created_at).toLocaleDateString("en-PK", { month: "short", day: "numeric", year: "numeric" }) : "—"}
                     </td>
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
                       {d.reference_no || d.id}
@@ -293,7 +293,7 @@ export default function DonorDonationsPage() {
                       {d.donation_type}
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-slate-900 font-mono">
-                      {d.currency} {Number(d.amount).toLocaleString()}
+                      {d.currency} {(Number(d.amount) || 0).toLocaleString()}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       {getStatusBadge(d.status)}
@@ -462,7 +462,7 @@ export default function DonorDonationsPage() {
                               <span className="truncate">{p.filename}</span>
                             </div>
                             <div className="text-[10px] text-slate-500">
-                              Uploaded: {new Date(p.uploaded_at).toLocaleString()}
+                              Uploaded: {p.uploaded_at ? new Date(p.uploaded_at).toLocaleString() : "—"}
                               {p.sender_bank && ` • Bank: ${p.sender_bank}`}
                               {p.transaction_ref && ` • Ref: ${p.transaction_ref}`}
                             </div>
@@ -509,7 +509,7 @@ export default function DonorDonationsPage() {
                           </div>
                           {h.note && <div className="text-slate-600">{h.note}</div>}
                           <div className="text-[10px] text-slate-400">
-                            {new Date(h.created_at).toLocaleString()}
+                            {h.created_at ? new Date(h.created_at).toLocaleString() : "—"}
                           </div>
                         </div>
                       ))}
